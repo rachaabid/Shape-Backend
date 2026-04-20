@@ -75,6 +75,6 @@ const UserSchema = new Schema<IUser>({
   verificationCode:  String,
   isTermsAccepted:   Boolean,
   deleted:           { type: Boolean, default: false },
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { virtuals: true } });
 
 export default mongoose.model<IUser>('User', UserSchema);

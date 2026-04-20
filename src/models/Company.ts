@@ -15,6 +15,6 @@ const CompanySchema = new Schema<ICompany>({
   logo:    String,
   owner:   { type: Schema.Types.ObjectId, ref: 'User' },
   deleted: { type: Boolean, default: false },
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { virtuals: true } });
 
 export default mongoose.model<ICompany>('Company', CompanySchema);

@@ -35,6 +35,6 @@ const JobOfferSchema = new Schema<IJobOffer>({
   attributes:         [{ key: String, value: String, type: Number }],
   status:             { type: String, default: 'open' },
   deleted:            { type: Boolean, default: false },
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { virtuals: true } });
 
 export default mongoose.model<IJobOffer>('JobOffer', JobOfferSchema);
