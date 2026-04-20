@@ -5,8 +5,8 @@ export interface IUser extends Document {
   email:                   string;
   password:                string;
   roles:                   string[];
-  firstName?:              { fr?: string; en?: string; ar?: string };
-  lastName?:               { fr?: string; en?: string; ar?: string };
+  firstName?:              { default?: string; fr?: string; en?: string; ar?: string };
+  lastName?:               { default?: string; fr?: string; en?: string; ar?: string };
   phoneNumber?:            string;
   gender?:                 number; // 0=Male 1=Female 2=NoGender
   country?:                string;
@@ -44,8 +44,8 @@ const UserSchema = new Schema<IUser>({
   email:              { type: String, required: true, unique: true },
   password:           { type: String, required: true },
   roles:              { type: [String], default: ['COMPANY'] },
-  firstName:          { fr: String, en: String, ar: String },
-  lastName:           { fr: String, en: String, ar: String },
+  firstName:          { default: String, fr: String, en: String, ar: String },
+  lastName:           { default: String, fr: String, en: String, ar: String },
   phoneNumber:        String,
   gender:             Number,
   country:            String,
