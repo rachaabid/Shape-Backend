@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import Application from '../models/JobOfferApplication';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { runAutoMatchPipeline } from '../services/autoMatch.service';
 
 const buildFilter = (attributeName: string, value: string) => {
   const map: Record<string, Record<string, unknown>> = {
@@ -15,8 +16,23 @@ const buildFilter = (attributeName: string, value: string) => {
 export const getAll = async (_req: Request, res: Response): Promise<void> => {
   try {
     const apps = await Application.find({ deleted: false })
-      .populate('user', '-password')
-      .populate('jobOffer');
+      .populate({
+        path: 'user', select: '-password',
+        populate: [
+          { path: 'hardSkills.skill', model: 'HardSkill' },
+          { path: 'softwares.skill',  model: 'SoftwareSkill' },
+        ]
+      })
+      .populate({
+        path: 'jobOffer',
+        populate: [
+          { path: 'company',              model: 'Company', select: 'name logo' },
+          { path: 'hardSkills.skill',     model: 'HardSkill' },
+          { path: 'softwareSkills.skill', model: 'SoftwareSkill' },
+          { path: 'jobOfferModel',        model: 'JobOfferModel' },
+          { path: 'workingMode',          model: 'WorkingMode' },
+        ]
+      });
     res.json(apps);
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
@@ -39,8 +55,23 @@ export const getByAttribute = async (req: Request, res: Response): Promise<void>
     const { attributeName, value } = req.params;
     const filter = { ...buildFilter(attributeName, value), deleted: false };
     const apps   = await Application.find(filter)
-      .populate('user', '-password')
-      .populate('jobOffer');
+      .populate({
+        path: 'user', select: '-password',
+        populate: [
+          { path: 'hardSkills.skill', model: 'HardSkill' },
+          { path: 'softwares.skill',  model: 'SoftwareSkill' },
+        ]
+      })
+      .populate({
+        path: 'jobOffer',
+        populate: [
+          { path: 'company',              model: 'Company', select: 'name logo' },
+          { path: 'hardSkills.skill',     model: 'HardSkill' },
+          { path: 'softwareSkills.skill', model: 'SoftwareSkill' },
+          { path: 'jobOfferModel',        model: 'JobOfferModel' },
+          { path: 'workingMode',          model: 'WorkingMode' },
+        ]
+      });
     res.json(apps);
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
@@ -63,8 +94,23 @@ export const getCountByAttribute = async (req: Request, res: Response): Promise<
 export const getById = async (req: Request, res: Response): Promise<void> => {
   try {
     const app = await Application.findById(req.params.id)
-      .populate('user', '-password')
-      .populate('jobOffer');
+      .populate({
+        path: 'user', select: '-password',
+        populate: [
+          { path: 'hardSkills.skill', model: 'HardSkill' },
+          { path: 'softwares.skill',  model: 'SoftwareSkill' },
+        ]
+      })
+      .populate({
+        path: 'jobOffer',
+        populate: [
+          { path: 'company',              model: 'Company', select: 'name logo' },
+          { path: 'hardSkills.skill',     model: 'HardSkill' },
+          { path: 'softwareSkills.skill', model: 'SoftwareSkill' },
+          { path: 'jobOfferModel',        model: 'JobOfferModel' },
+          { path: 'workingMode',          model: 'WorkingMode' },
+        ]
+      });
     if (!app) { res.status(404).json({ message: 'Candidature non trouvée' }); return; }
     res.json(app);
   } catch (err) {
@@ -77,6 +123,8 @@ export const create = async (req: AuthRequest, res: Response): Promise<void> => 
   try {
     const app = await Application.create({ ...req.body, user: req.body.user || req.userId });
     res.status(201).json(app);
+    // Trigger AI matching for this new application in the background
+    setImmediate(() => runAutoMatchPipeline({ applicationId: app._id.toString() }));
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }
@@ -93,11 +141,11 @@ export const update = async (req: AuthRequest, res: Response): Promise<void> => 
   }
 };
 
-// PATCH /api/JobOfferApplication  (update status)
+// PATCH /api/JobOfferApplication
 export const patch = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id, status } = req.body;
-    const app = await Application.findByIdAndUpdate(id, { status }, { new: true });
+    const { id, ...fields } = req.body;
+    const app = await Application.findByIdAndUpdate(id, fields, { new: true });
     res.json(app);
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });

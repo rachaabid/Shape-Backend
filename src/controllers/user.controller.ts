@@ -16,8 +16,11 @@ const signToken = (id: string, roles: string[]) =>
 export const authenticate = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password, login } = req.body;
-    const query = email ? { email } : { login };
-    const user  = await User.findOne({ ...query, deleted: false });
+    const identifier = login || email;
+    const user = await User.findOne({
+      $or: [{ login: identifier }, { email: identifier }],
+      deleted: false,
+    });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       res.status(401).json({ message: 'Identifiants invalides' });

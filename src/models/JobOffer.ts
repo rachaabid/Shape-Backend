@@ -11,8 +11,8 @@ export interface IJobOffer extends Document {
   recruitmentProcess?:string;
   profilesNeeded:     number;
   softSkills:         string[];
-  hardSkills:         { skill: string; level: number }[];
-  softwareSkills:     { skill: string; level: number }[];
+  hardSkills:         { skill: mongoose.Types.ObjectId; level: number }[];
+  softwareSkills:     { skill: mongoose.Types.ObjectId; level: number }[];
   attributes:         { key: string; value: string; type: number }[];
   status?:            string;
   deleted?:           boolean;
@@ -30,11 +30,11 @@ const JobOfferSchema = new Schema<IJobOffer>({
   recruitmentProcess: String,
   profilesNeeded:     { type: Number, default: 1 },
   softSkills:         [String],
-  hardSkills:         [{ skill: String, level: Number }],
-  softwareSkills:     [{ skill: String, level: Number }],
+  hardSkills:         [{ skill: { type: Schema.Types.ObjectId, ref: 'HardSkill' }, level: Number }],
+  softwareSkills:     [{ skill: { type: Schema.Types.ObjectId, ref: 'SoftwareSkill' }, level: Number }],
   attributes:         [{ key: String, value: String, type: Number }],
   status:             { type: String, default: 'open' },
   deleted:            { type: Boolean, default: false },
-}, { timestamps: true, toJSON: { virtuals: true } });
+}, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 export default mongoose.model<IJobOffer>('JobOffer', JobOfferSchema);

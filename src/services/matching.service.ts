@@ -7,10 +7,13 @@ export interface SkillVector {
 }
 
 export interface MatchResult {
-  candidateId:    string;
-  score:          number; // 0-100
-  matchedSkills:  string[];
-  missingSkills:  string[];
+  candidateId:        string;
+  score:              number;  // 0-100 final weighted score
+  skillScore?:        number;  // 0-1  skills component
+  semanticScore?:     number;  // 0-1  CV semantic component
+  matchedSkills:      string[];
+  missingSkills:      string[];
+  extractedCvSkills?: string[];
 }
 
 const cosineSimilarity = (a: tf.Tensor1D, b: tf.Tensor1D): number => {
@@ -33,9 +36,10 @@ const buildVector = (allSkills: string[], skills: SkillVector[]): tf.Tensor1D =>
 };
 
 export interface JobOfferSkills {
-  hardSkills: SkillVector[];
-  softwares:  SkillVector[];
-  softSkills: string[];
+  hardSkills:  SkillVector[];
+  softwares:   SkillVector[];
+  softSkills:  string[];
+  description?: string; // combined offer text for CV semantic comparison
 }
 
 export interface CandidateSkills {
@@ -43,6 +47,7 @@ export interface CandidateSkills {
   hardSkills: SkillVector[];
   softwares:  SkillVector[];
   softSkills: string[];
+  cvUrl?:     string; // URL of candidate's CV PDF
 }
 
 export const rankCandidates = (

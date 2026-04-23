@@ -53,7 +53,7 @@ export const patchTask = async (req: AuthRequest, res: Response): Promise<void> 
 // ── TaskResponse ─────────────────────────────────────────────
 
 export const getTaskResponses = async (_req: Request, res: Response): Promise<void> => {
-  try { res.json(await TaskResponse.find({ deleted: false }).populate('task').populate('owner', '-password')); }
+  try { res.json(await TaskResponse.find({ deleted: false })); }
   catch (err) { res.status(500).json({ error: err }); }
 };
 

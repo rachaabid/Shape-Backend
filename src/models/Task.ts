@@ -18,6 +18,6 @@ const TaskSchema = new Schema<ITask>({
   deadLineInHours: Number,
   documents:       [{ name: String, url: String }],
   deleted:         { type: Boolean, default: false },
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 export default mongoose.model<ITask>('Task', TaskSchema);

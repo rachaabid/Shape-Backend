@@ -1,12 +1,14 @@
 import { Request, Response } from 'express';
-import Language     from '../models/Language';
-import Country      from '../models/Country';
-import HardSkill    from '../models/HardSkill';
+import Language      from '../models/Language';
+import Country       from '../models/Country';
+import HardSkill     from '../models/HardSkill';
 import SoftwareSkill from '../models/SoftwareSkill';
-import FocusedSkill from '../models/FocusedSkill';
-import Program      from '../models/Program';
-import WorkingMode  from '../models/WorkingMode';
+import FocusedSkill  from '../models/FocusedSkill';
+import Program       from '../models/Program';
+import WorkingMode   from '../models/WorkingMode';
 import JobOfferModel from '../models/JobOfferModel';
+import Career        from '../models/Career';
+import Quiz          from '../models/Quiz';
 
 const paginate = (req: Request) => {
   const start = parseInt(req.query['start'] as string) || 0;
@@ -78,6 +80,28 @@ export const getWorkingModes = async (_req: Request, res: Response): Promise<voi
 export const getJobOfferModelById = async (req: Request, res: Response): Promise<void> => {
   try {
     const item = await JobOfferModel.findById(req.params.id);
+    if (!item) { res.status(404).json({ message: 'Non trouvé' }); return; }
+    res.json(item);
+  } catch (err) { res.status(500).json({ error: err }); }
+};
+
+export const getCareers = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const items = await Career.find();
+    res.json(items);
+  } catch (err) { res.status(500).json({ error: err }); }
+};
+
+export const getQuizzes = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const items = await Quiz.find().populate('program');
+    res.json(items);
+  } catch (err) { res.status(500).json({ error: err }); }
+};
+
+export const getQuizByProgram = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const item = await Quiz.findOne({ program: req.params.programId }).populate('program');
     if (!item) { res.status(404).json({ message: 'Non trouvé' }); return; }
     res.json(item);
   } catch (err) { res.status(500).json({ error: err }); }

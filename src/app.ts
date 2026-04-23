@@ -10,11 +10,11 @@ import applicationRoutes         from './routes/application.routes';
 import notificationRoutes        from './routes/notification.routes';
 import notificationSettingRoutes from './routes/notificationSetting.routes';
 import emailRoutes               from './routes/email.routes';
-import aiRoutes                  from './routes/ai.routes';
 import storageRoutes             from './routes/storage.routes';
 import referenceRoutes           from './routes/reference.routes';
 import taskRoutes                from './routes/task.routes';
 import inscriptionRoutes         from './routes/inscription.routes';
+import interviewRoutes           from './routes/interview.routes';
 
 import { startScheduler } from './services/scheduler.service';
 
@@ -36,9 +36,9 @@ app.use('/api/JobOfferApplication', applicationRoutes);
 app.use('/api/Notification',        notificationRoutes);
 app.use('/api/email',               emailRoutes);  // lowercase pour send-code/verify-code
 app.use('/api/Email',               emailRoutes);  // uppercase pour interview-invite/confirmation/reminder
-app.use('/api/AI',                  aiRoutes);
 app.use('/api/Storage',             storageRoutes);
 app.use('/api/Inscription',         inscriptionRoutes);
+app.use('/api/Interview',           interviewRoutes);
 
 // Référence : Language, Country, HardSkill, SoftwareSkill, FocusedSkill, Program, WorkingMode, JobOfferModel
 app.use('/api', referenceRoutes);

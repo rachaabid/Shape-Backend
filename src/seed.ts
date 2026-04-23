@@ -3,26 +3,31 @@ import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 dotenv.config();
 
-import User         from './models/User';
-import Company      from './models/Company';
-import Language     from './models/Language';
-import Country      from './models/Country';
-import HardSkill    from './models/HardSkill';
+import User          from './models/User';
+import Company       from './models/Company';
+import Language      from './models/Language';
+import Country       from './models/Country';
+import HardSkill     from './models/HardSkill';
 import SoftwareSkill from './models/SoftwareSkill';
-import FocusedSkill from './models/FocusedSkill';
-import Program      from './models/Program';
-import WorkingMode  from './models/WorkingMode';
+import FocusedSkill  from './models/FocusedSkill';
+import Program       from './models/Program';
+import WorkingMode   from './models/WorkingMode';
 import JobOfferModel from './models/JobOfferModel';
-import JobOffer     from './models/JobOffer';
-import Application  from './models/JobOfferApplication';
-import Interview    from './models/Interview';
+import Career        from './models/Career';
+import Quiz          from './models/Quiz';
+import JobOffer      from './models/JobOffer';
+import Application   from './models/JobOfferApplication';
+import Interview     from './models/Interview';
+import Task          from './models/Task';
+import TaskResponse  from './models/TaskResponse';
 
-// ── Data ─────────────────────────────────────────────────────
+// ── Reference Data ────────────────────────────────────────────
 
 const languages = [
   { name: { fr: 'Français', en: 'French',  ar: 'الفرنسية'   }, code: 'fr', flag: '🇫🇷' },
   { name: { fr: 'Anglais',  en: 'English', ar: 'الإنجليزية' }, code: 'en', flag: '🇬🇧' },
   { name: { fr: 'Arabe',    en: 'Arabic',  ar: 'العربية'    }, code: 'ar', flag: '🇹🇳' },
+  { name: { fr: 'Espagnol', en: 'Spanish', ar: 'الإسبانية'  }, code: 'es', flag: '🇪🇸' },
 ];
 
 const countriesData = [
@@ -30,109 +35,107 @@ const countriesData = [
   { name: { fr: 'Algérie',   en: 'Algeria',       ar: 'الجزائر'      }, code: 'DZ', flag: '🇩🇿' },
   { name: { fr: 'Maroc',     en: 'Morocco',       ar: 'المغرب'       }, code: 'MA', flag: '🇲🇦' },
   { name: { fr: 'Tunisie',   en: 'Tunisia',       ar: 'تونس'         }, code: 'TN', flag: '🇹🇳' },
-  { name: { fr: 'Allemagne', en: 'Germany',       ar: 'ألمانيا'      }, code: 'DE', flag: '🇩🇪' },
+  { name: { fr: 'Belgique',  en: 'Belgium',       ar: 'بلجيكا'       }, code: 'BE', flag: '🇧🇪' },
   { name: { fr: 'Canada',    en: 'Canada',        ar: 'كندا'         }, code: 'CA', flag: '🇨🇦' },
   { name: { fr: 'USA',       en: 'United States', ar: 'الولايات المتحدة' }, code: 'US', flag: '🇺🇸' },
-  { name: { fr: 'Belgique',  en: 'Belgium',       ar: 'بلجيكا'       }, code: 'BE', flag: '🇧🇪' },
-  { name: { fr: 'Suisse',    en: 'Switzerland',   ar: 'سويسرا'       }, code: 'CH', flag: '🇨🇭' },
   { name: { fr: 'Espagne',   en: 'Spain',         ar: 'إسبانيا'      }, code: 'ES', flag: '🇪🇸' },
-  { name: { fr: 'Pays-Bas',  en: 'Netherlands',   ar: 'هولندا'       }, code: 'NL', flag: '🇳🇱' },
-  { name: { fr: 'Italie',    en: 'Italy',         ar: 'إيطاليا'      }, code: 'IT', flag: '🇮🇹' },
 ];
 
 const hardSkillsData = [
-  { name: { fr: 'JavaScript',  en: 'JavaScript',  ar: 'جافاسكريبت'   }, category: 'Web' },
-  { name: { fr: 'TypeScript',  en: 'TypeScript',  ar: 'تايب سكريبت'  }, category: 'Web' },
-  { name: { fr: 'Python',      en: 'Python',      ar: 'بايثون'       }, category: 'Programmation' },
-  { name: { fr: 'Java',        en: 'Java',        ar: 'جافا'         }, category: 'Programmation' },
-  { name: { fr: 'C++',         en: 'C++',         ar: 'سي++'         }, category: 'Programmation' },
-  { name: { fr: 'C#',          en: 'C#',          ar: 'سي شارب'      }, category: 'Programmation' },
-  { name: { fr: 'PHP',         en: 'PHP',         ar: 'PHP'          }, category: 'Web' },
-  { name: { fr: 'React',       en: 'React',       ar: 'رياكت'        }, category: 'Frontend' },
-  { name: { fr: 'Angular',     en: 'Angular',     ar: 'أنجولار'      }, category: 'Frontend' },
-  { name: { fr: 'Vue.js',      en: 'Vue.js',      ar: 'فيو جي إس'    }, category: 'Frontend' },
-  { name: { fr: 'Node.js',     en: 'Node.js',     ar: 'نود جي إس'    }, category: 'Backend' },
-  { name: { fr: 'Django',      en: 'Django',      ar: 'جانغو'        }, category: 'Backend' },
-  { name: { fr: 'Spring Boot', en: 'Spring Boot', ar: 'سبرينغ بوت'   }, category: 'Backend' },
-  { name: { fr: 'SQL',         en: 'SQL',         ar: 'SQL'          }, category: 'Base de données' },
-  { name: { fr: 'MongoDB',     en: 'MongoDB',     ar: 'مونغو DB'     }, category: 'Base de données' },
-  { name: { fr: 'PostgreSQL',  en: 'PostgreSQL',  ar: 'بوستغريSQL'   }, category: 'Base de données' },
-  { name: { fr: 'Docker',      en: 'Docker',      ar: 'دوكر'         }, category: 'DevOps' },
-  { name: { fr: 'Kubernetes',  en: 'Kubernetes',  ar: 'كوبيرنيتيس'   }, category: 'DevOps' },
-  { name: { fr: 'AWS',         en: 'AWS',         ar: 'أمازون ويب'   }, category: 'Cloud' },
-  { name: { fr: 'Azure',       en: 'Azure',       ar: 'أزور'         }, category: 'Cloud' },
-  { name: { fr: 'Machine Learning', en: 'Machine Learning', ar: 'تعلم الآلة' }, category: 'IA' },
-  { name: { fr: 'Deep Learning',    en: 'Deep Learning',    ar: 'التعلم العميق' }, category: 'IA' },
-  { name: { fr: 'Data Analysis',    en: 'Data Analysis',    ar: 'تحليل البيانات' }, category: 'Data' },
-  { name: { fr: 'Power BI',         en: 'Power BI',         ar: 'باور بي آي'    }, category: 'Data' },
-  { name: { fr: 'Git',          en: 'Git',        ar: 'جيت'          }, category: 'Outils' },
-  { name: { fr: 'Linux',        en: 'Linux',      ar: 'لينكس'        }, category: 'Système' },
-  { name: { fr: 'REST API',     en: 'REST API',   ar: 'REST API'     }, category: 'Backend' },
-  { name: { fr: 'GraphQL',      en: 'GraphQL',    ar: 'GraphQL'      }, category: 'Backend' },
-  { name: { fr: 'Cybersécurité', en: 'Cybersecurity', ar: 'الأمن السيبراني' }, category: 'Sécurité' },
-  { name: { fr: 'Tests unitaires', en: 'Unit Testing', ar: 'اختبارات الوحدة' }, category: 'Qualité' },
+  { name: { fr: 'SEO / Référencement naturel',   en: 'SEO',                     ar: 'تحسين محركات البحث'    }, category: 'SEO' },
+  { name: { fr: 'SEA / Google Ads',             en: 'Google Ads / SEA',         ar: 'إعلانات جوجل'          }, category: 'Paid' },
+  { name: { fr: 'Facebook & Instagram Ads',     en: 'Facebook & Instagram Ads', ar: 'إعلانات فيسبوك'        }, category: 'Paid' },
+  { name: { fr: 'TikTok Ads',                   en: 'TikTok Ads',               ar: 'إعلانات تيك توك'       }, category: 'Paid' },
+  { name: { fr: 'Email Marketing',              en: 'Email Marketing',           ar: 'التسويق عبر البريد'    }, category: 'Email' },
+  { name: { fr: 'Marketing de contenu',         en: 'Content Marketing',         ar: 'تسويق المحتوى'         }, category: 'Content' },
+  { name: { fr: 'Copywriting',                  en: 'Copywriting',               ar: 'كتابة الإعلانات'       }, category: 'Content' },
+  { name: { fr: 'Community Management',         en: 'Community Management',      ar: 'إدارة المجتمع'         }, category: 'Social' },
+  { name: { fr: 'Social Media Marketing',       en: 'Social Media Marketing',    ar: 'تسويق وسائل التواصل'   }, category: 'Social' },
+  { name: { fr: 'Marketing d\'affiliation',     en: 'Affiliate Marketing',       ar: 'التسويق بالعمولة'      }, category: 'Performance' },
+  { name: { fr: 'Growth Hacking',               en: 'Growth Hacking',            ar: 'اختراق النمو'          }, category: 'Performance' },
+  { name: { fr: 'Analyse web / Analytics',      en: 'Web Analytics',             ar: 'تحليل الويب'           }, category: 'Analytics' },
+  { name: { fr: 'A/B Testing',                  en: 'A/B Testing',               ar: 'اختبار A/B'            }, category: 'Analytics' },
+  { name: { fr: 'Gestion de marque',            en: 'Brand Management',          ar: 'إدارة العلامة التجارية' }, category: 'Brand' },
+  { name: { fr: 'Stratégie digitale',           en: 'Digital Strategy',          ar: 'الاستراتيجية الرقمية'  }, category: 'Strategy' },
+  { name: { fr: 'Création de contenu vidéo',    en: 'Video Content Creation',    ar: 'إنشاء محتوى مرئي'      }, category: 'Content' },
+  { name: { fr: 'Podcast & audio marketing',    en: 'Podcast Marketing',         ar: 'تسويق البودكاست'       }, category: 'Content' },
+  { name: { fr: 'Gestion de campagnes',         en: 'Campaign Management',       ar: 'إدارة الحملات'         }, category: 'Strategy' },
+  { name: { fr: 'Marketing d\'influence',       en: 'Influencer Marketing',      ar: 'التسويق عبر المؤثرين'  }, category: 'Social' },
+  { name: { fr: 'E-commerce & conversion',      en: 'E-commerce & CRO',          ar: 'التجارة الإلكترونية'   }, category: 'Performance' },
 ];
 
 const softwareSkillsData = [
-  { name: { fr: 'VS Code',         en: 'VS Code',         ar: 'في إس كود'    }, category: 'IDE' },
-  { name: { fr: 'IntelliJ IDEA',   en: 'IntelliJ IDEA',   ar: 'إنتيليج'      }, category: 'IDE' },
-  { name: { fr: 'Figma',           en: 'Figma',           ar: 'فيجما'        }, category: 'Design' },
-  { name: { fr: 'Adobe XD',        en: 'Adobe XD',        ar: 'أدوبي XD'     }, category: 'Design' },
-  { name: { fr: 'Photoshop',       en: 'Photoshop',       ar: 'فوتوشوب'      }, category: 'Design' },
-  { name: { fr: 'Illustrator',     en: 'Illustrator',     ar: 'إليستريتور'   }, category: 'Design' },
-  { name: { fr: 'Jira',            en: 'Jira',            ar: 'جيرا'         }, category: 'Gestion' },
-  { name: { fr: 'Trello',          en: 'Trello',          ar: 'تريلو'        }, category: 'Gestion' },
-  { name: { fr: 'Notion',          en: 'Notion',          ar: 'نوشن'         }, category: 'Gestion' },
-  { name: { fr: 'Slack',           en: 'Slack',           ar: 'سلاك'         }, category: 'Communication' },
-  { name: { fr: 'Microsoft Office', en: 'Microsoft Office', ar: 'مايكروسوفت أوفيس' }, category: 'Bureautique' },
-  { name: { fr: 'Postman',         en: 'Postman',         ar: 'بوستمان'      }, category: 'Dev' },
-  { name: { fr: 'GitHub',          en: 'GitHub',          ar: 'جيت هاب'      }, category: 'Dev' },
-  { name: { fr: 'Tableau',         en: 'Tableau',         ar: 'تابلو'        }, category: 'Data' },
-  { name: { fr: 'Power BI Desktop', en: 'Power BI Desktop', ar: 'باور بي آي ديسكتوب' }, category: 'Data' },
-  { name: { fr: 'MySQL Workbench', en: 'MySQL Workbench', ar: 'ماي SQL'      }, category: 'Database' },
-  { name: { fr: 'MongoDB Compass', en: 'MongoDB Compass', ar: 'مونغو كومباس' }, category: 'Database' },
-  { name: { fr: 'Jenkins',         en: 'Jenkins',         ar: 'جنكينز'       }, category: 'CI/CD' },
-  { name: { fr: 'GitLab CI',       en: 'GitLab CI',       ar: 'جيت لاب CI'   }, category: 'CI/CD' },
-  { name: { fr: 'Selenium',        en: 'Selenium',        ar: 'سيلينيوم'     }, category: 'Test' },
+  { name: { fr: 'Canva',              en: 'Canva',              ar: 'كانفا'             }, category: 'Design' },
+  { name: { fr: 'Adobe Photoshop',    en: 'Adobe Photoshop',    ar: 'فوتوشوب'           }, category: 'Design' },
+  { name: { fr: 'Adobe Illustrator',  en: 'Adobe Illustrator',  ar: 'إليستريتور'        }, category: 'Design' },
+  { name: { fr: 'Adobe Premiere Pro', en: 'Adobe Premiere Pro', ar: 'بريمير برو'        }, category: 'Video' },
+  { name: { fr: 'CapCut',             en: 'CapCut',             ar: 'كاب كت'            }, category: 'Video' },
+  { name: { fr: 'Hootsuite',          en: 'Hootsuite',          ar: 'هوت سويت'          }, category: 'Social' },
+  { name: { fr: 'Buffer',             en: 'Buffer',             ar: 'بافر'              }, category: 'Social' },
+  { name: { fr: 'Meta Business Suite', en: 'Meta Business Suite', ar: 'ميتا بيزنس سويت' }, category: 'Social' },
+  { name: { fr: 'Google Analytics',   en: 'Google Analytics',   ar: 'جوجل أناليتيكس'   }, category: 'Analytics' },
+  { name: { fr: 'Google Search Console', en: 'Google Search Console', ar: 'جوجل سيرش كونسول' }, category: 'SEO' },
+  { name: { fr: 'SEMrush',            en: 'SEMrush',            ar: 'سيم راش'           }, category: 'SEO' },
+  { name: { fr: 'Ahrefs',             en: 'Ahrefs',             ar: 'أحريفز'            }, category: 'SEO' },
+  { name: { fr: 'Mailchimp',          en: 'Mailchimp',          ar: 'ميل شيمب'          }, category: 'Email' },
+  { name: { fr: 'HubSpot',            en: 'HubSpot',            ar: 'هب سبوت'           }, category: 'CRM' },
+  { name: { fr: 'Salesforce',         en: 'Salesforce',         ar: 'سيلز فورس'         }, category: 'CRM' },
+  { name: { fr: 'Klaviyo',            en: 'Klaviyo',            ar: 'كلافيو'            }, category: 'Email' },
+  { name: { fr: 'WordPress',          en: 'WordPress',          ar: 'ووردبريس'          }, category: 'CMS' },
+  { name: { fr: 'Shopify',            en: 'Shopify',            ar: 'شوبيفاي'           }, category: 'E-commerce' },
+  { name: { fr: 'Google Ads Editor',  en: 'Google Ads Editor',  ar: 'محرر إعلانات جوجل' }, category: 'Paid' },
+  { name: { fr: 'Notion',             en: 'Notion',             ar: 'نوشن'              }, category: 'Gestion' },
 ];
 
 const focusedSkillsData = [
-  { name: { fr: 'Développement Web Full-Stack', en: 'Full-Stack Web Development', ar: 'تطوير ويب شامل' }, category: 'Web' },
-  { name: { fr: 'Intelligence Artificielle',    en: 'Artificial Intelligence',    ar: 'الذكاء الاصطناعي' }, category: 'IA' },
-  { name: { fr: 'Data Science',                en: 'Data Science',               ar: 'علم البيانات'    }, category: 'Data' },
-  { name: { fr: 'DevOps & Cloud',              en: 'DevOps & Cloud',             ar: 'DevOps والسحابة' }, category: 'DevOps' },
-  { name: { fr: 'Cybersécurité',               en: 'Cybersecurity',              ar: 'الأمن السيبراني' }, category: 'Sécurité' },
-  { name: { fr: 'UX/UI Design',               en: 'UX/UI Design',               ar: 'تصميم UX/UI'    }, category: 'Design' },
-  { name: { fr: 'Développement Mobile',        en: 'Mobile Development',         ar: 'تطوير الجوال'   }, category: 'Mobile' },
-  { name: { fr: 'Blockchain',                  en: 'Blockchain',                 ar: 'بلوكشين'        }, category: 'Blockchain' },
-  { name: { fr: 'Gestion de Projet IT',        en: 'IT Project Management',      ar: 'إدارة مشاريع IT' }, category: 'Management' },
-  { name: { fr: 'Analyse de Données',          en: 'Data Analysis',              ar: 'تحليل البيانات'  }, category: 'Data' },
+  { name: { fr: 'Stratégie Social Media',          en: 'Social Media Strategy',      ar: 'استراتيجية وسائل التواصل' }, category: 'Social' },
+  { name: { fr: 'Référencement SEO/SEA',           en: 'SEO / SEA',                  ar: 'تحسين محركات البحث'       }, category: 'SEO' },
+  { name: { fr: 'Création de contenu',             en: 'Content Creation',            ar: 'إنشاء المحتوى'            }, category: 'Content' },
+  { name: { fr: 'Publicité payante (Paid Ads)',    en: 'Paid Advertising',            ar: 'الإعلانات المدفوعة'       }, category: 'Paid' },
+  { name: { fr: 'Email Marketing & Automation',   en: 'Email Marketing Automation',  ar: 'أتمتة البريد الإلكتروني'  }, category: 'Email' },
+  { name: { fr: 'Analytics & Reporting',           en: 'Analytics & Reporting',       ar: 'التحليلات والتقارير'      }, category: 'Analytics' },
+  { name: { fr: 'Marketing d\'influence',          en: 'Influencer Marketing',        ar: 'تسويق المؤثرين'           }, category: 'Influence' },
+  { name: { fr: 'Développement de marque',         en: 'Brand Development',           ar: 'تطوير العلامة التجارية'   }, category: 'Brand' },
+  { name: { fr: 'Marketing e-commerce',            en: 'E-commerce Marketing',        ar: 'تسويق التجارة الإلكترونية' }, category: 'E-commerce' },
+  { name: { fr: 'Community Management',            en: 'Community Management',        ar: 'إدارة المجتمع'            }, category: 'Social' },
+];
+
+const careersData = [
+  { name: { fr: 'Responsable Social Media',       en: 'Social Media Manager',        ar: 'مدير وسائل التواصل'       }, domain: 'Social Media' },
+  { name: { fr: 'Community Manager',              en: 'Community Manager',           ar: 'مدير المجتمع'              }, domain: 'Social Media' },
+  { name: { fr: 'Créateur de contenu',            en: 'Content Creator',             ar: 'منشئ محتوى'               }, domain: 'Content' },
+  { name: { fr: 'Spécialiste SEO',                en: 'SEO Specialist',              ar: 'متخصص SEO'                }, domain: 'SEO' },
+  { name: { fr: 'Responsable Marketing Digital',  en: 'Digital Marketing Manager',   ar: 'مدير التسويق الرقمي'      }, domain: 'Management' },
+  { name: { fr: 'Growth Hacker',                  en: 'Growth Hacker',               ar: 'متخصص النمو'              }, domain: 'Performance' },
+  { name: { fr: 'Spécialiste Email Marketing',    en: 'Email Marketing Specialist',  ar: 'متخصص تسويق البريد'       }, domain: 'Email' },
+  { name: { fr: 'Chargé de publicité digitale',   en: 'Digital Ads Specialist',      ar: 'متخصص الإعلانات الرقمية'  }, domain: 'Paid Ads' },
+  { name: { fr: 'Brand Strategist',               en: 'Brand Strategist',            ar: 'استراتيجي العلامة التجارية' }, domain: 'Brand' },
+  { name: { fr: 'Spécialiste Influence Marketing', en: 'Influencer Marketing Specialist', ar: 'متخصص تسويق المؤثرين' }, domain: 'Influence' },
 ];
 
 const programsData = [
-  { title: { fr: 'Licence Informatique',           en: 'Computer Science Degree', ar: 'ليسانس إعلام آلي' }, career: 'Développeur logiciel', skill: 'Programmation' },
-  { title: { fr: 'Master Intelligence Artificielle', en: 'AI Master',             ar: 'ماستر ذكاء اصطناعي' }, career: 'Data Scientist', skill: 'Machine Learning' },
-  { title: { fr: 'Master Cybersécurité',           en: 'Cybersecurity Master',    ar: 'ماستر أمن سيبراني'  }, career: 'Ingénieur sécurité', skill: 'Cybersécurité' },
-  { title: { fr: 'BTS Développement Web',          en: 'Web Development BTS',    ar: 'تقني عالي ويب'      }, career: 'Développeur Web', skill: 'JavaScript' },
-  { title: { fr: 'DUT Informatique',               en: 'IT DUT',                  ar: 'دبلوم إعلام آلي'   }, career: 'Développeur', skill: 'Programmation' },
-  { title: { fr: 'Formation Data Science',         en: 'Data Science Bootcamp',   ar: 'دورة علم البيانات'  }, career: 'Data Analyst', skill: 'Python' },
-  { title: { fr: 'Bootcamp DevOps',                en: 'DevOps Bootcamp',         ar: 'دورة DevOps'        }, career: 'DevOps Engineer', skill: 'Docker' },
-  { title: { fr: 'Licence Réseaux & Télécoms',     en: 'Networks & Telecom Degree', ar: 'ليسانس شبكات'   }, career: 'Ingénieur réseaux', skill: 'Linux' },
+  { title: { fr: 'Formation Social Media Marketing',    en: 'Social Media Marketing Program',  ar: 'برنامج تسويق وسائل التواصل'   }, career: 'Responsable Social Media',      skill: 'Social Media Marketing'    },
+  { title: { fr: 'Formation SEO & Référencement',       en: 'SEO & Search Ranking Program',     ar: 'برنامج تحسين محركات البحث'    }, career: 'Spécialiste SEO',               skill: 'SEO / Référencement naturel' },
+  { title: { fr: 'Formation Content Marketing',         en: 'Content Marketing Program',        ar: 'برنامج تسويق المحتوى'          }, career: 'Créateur de contenu',           skill: 'Marketing de contenu'       },
+  { title: { fr: 'Formation Email Marketing',           en: 'Email Marketing Program',          ar: 'برنامج التسويق بالبريد'         }, career: 'Spécialiste Email Marketing',   skill: 'Email Marketing'            },
+  { title: { fr: 'Formation Google Ads & Paid Media',   en: 'Google Ads & Paid Media Program',  ar: 'برنامج إعلانات جوجل'           }, career: 'Chargé de publicité digitale',  skill: 'SEA / Google Ads'           },
+  { title: { fr: 'Formation Analytics & Data Driven',   en: 'Analytics & Data-Driven Marketing', ar: 'برنامج التحليلات التسويقية'   }, career: 'Responsable Marketing Digital', skill: 'Analyse web / Analytics'    },
+  { title: { fr: 'Formation Community Management',      en: 'Community Management Program',     ar: 'برنامج إدارة المجتمع'          }, career: 'Community Manager',             skill: 'Community Management'       },
+  { title: { fr: 'Formation Marketing d\'influence',    en: 'Influencer Marketing Program',     ar: 'برنامج تسويق المؤثرين'         }, career: 'Spécialiste Influence Marketing', skill: 'Marketing d\'influence'   },
 ];
 
 const workingModesData = [
-  { name: { fr: 'Présentiel',     en: 'On-site', ar: 'حضوري'   }, description: { fr: 'Travail en entreprise', en: 'Work on-site', ar: 'عمل في المقر' } },
-  { name: { fr: 'Télétravail',    en: 'Remote',  ar: 'عن بُعد'  }, description: { fr: 'Travail à distance',  en: 'Work remotely', ar: 'عمل عن بُعد' } },
-  { name: { fr: 'Hybride',        en: 'Hybrid',  ar: 'هجين'    }, description: { fr: 'Mix présentiel/télétravail', en: 'Mix on-site/remote', ar: 'مزيج حضوري/عن بُعد' } },
+  { name: { fr: 'Présentiel',  en: 'On-site', ar: 'حضوري'   }, description: { fr: 'Travail en entreprise', en: 'Work on-site',   ar: 'عمل في المقر'    } },
+  { name: { fr: 'Télétravail', en: 'Remote',  ar: 'عن بُعد'  }, description: { fr: 'Travail à distance',  en: 'Work remotely',  ar: 'عمل عن بُعد'     } },
+  { name: { fr: 'Hybride',     en: 'Hybrid',  ar: 'هجين'    }, description: { fr: 'Mix présentiel/télétravail', en: 'Mix on-site/remote', ar: 'مزيج حضوري/بُعد' } },
 ];
 
 const jobOfferModelsData = [
-  { name: { fr: 'CDI',   en: 'Permanent Contract', ar: 'عقد دائم'   } },
-  { name: { fr: 'CDD',   en: 'Fixed-term Contract', ar: 'عقد محدد المدة' } },
-  { name: { fr: 'Stage', en: 'Internship',          ar: 'تدريب'     } },
-  { name: { fr: 'Alternance', en: 'Apprenticeship', ar: 'تكوين متناوب' } },
-  { name: { fr: 'Freelance',  en: 'Freelance',      ar: 'مستقل'     } },
-  { name: { fr: 'VIE',        en: 'VIE',            ar: 'VIE'       } },
+  { name: { fr: 'CDI',          en: 'Permanent Contract',    ar: 'عقد دائم'         } },
+  { name: { fr: 'CDD',          en: 'Fixed-term Contract',   ar: 'عقد محدد المدة'  } },
+  { name: { fr: 'Stage',        en: 'Internship',            ar: 'تدريب'            } },
+  { name: { fr: 'Alternance',   en: 'Apprenticeship',        ar: 'تكوين متناوب'    } },
+  { name: { fr: 'Freelance',    en: 'Freelance',             ar: 'مستقل'            } },
 ];
 
 // ── Seed Function ─────────────────────────────────────────────
@@ -143,17 +146,19 @@ async function seed() {
 
   // Clear existing data
   await Promise.all([
+    User.deleteMany({}), Company.deleteMany({}),
     Language.deleteMany({}), Country.deleteMany({}),
     HardSkill.deleteMany({}), SoftwareSkill.deleteMany({}),
     FocusedSkill.deleteMany({}), Program.deleteMany({}),
     WorkingMode.deleteMany({}), JobOfferModel.deleteMany({}),
+    Career.deleteMany({}), Quiz.deleteMany({}),
     JobOffer.deleteMany({}), Application.deleteMany({}),
-    Interview.deleteMany({}),
+    Interview.deleteMany({}), Task.deleteMany({}), TaskResponse.deleteMany({}),
   ]);
   console.log('🗑️  Collections nettoyées');
 
   // Insert reference data
-  const [langs, insertedCountries, hardSkills, softSkills, focusedSkills, programs, workingModes, jobModels] =
+  const [langs, insertedCountries, hardSkills, softSkills, focusedSkills, programs, workingModes, jobModels, careers] =
     await Promise.all([
       Language.insertMany(languages),
       Country.insertMany(countriesData),
@@ -163,40 +168,211 @@ async function seed() {
       Program.insertMany(programsData),
       WorkingMode.insertMany(workingModesData),
       JobOfferModel.insertMany(jobOfferModelsData),
+      Career.insertMany(careersData),
     ]);
-  console.log(`✅ Référentiel : ${langs.length} langues, ${insertedCountries.length} pays, ${hardSkills.length} hard skills, ${softSkills.length} softwares, ${focusedSkills.length} focused, ${programs.length} programmes, ${workingModes.length} modes, ${jobModels.length} contrats`);
+  console.log(`✅ Référentiel : ${langs.length} langues, ${insertedCountries.length} pays, ${hardSkills.length} hard skills, ${softSkills.length} softwares, ${focusedSkills.length} focused, ${programs.length} programmes, ${careers.length} carrières`);
 
-  // Create company users
+  // Insert quizzes (one per program)
+  const quizzes = await Quiz.insertMany([
+    {
+      title: { fr: 'Quiz Social Media Marketing', en: 'Social Media Marketing Quiz' },
+      program: programs[0]._id,
+      passingScore: 70,
+      questions: [
+        {
+          question: { fr: 'Quelle métrique mesure l\'engagement sur Instagram ?', en: 'Which metric measures engagement on Instagram?' },
+          options:  { fr: ['Impressions', 'Taux d\'engagement', 'Portée', 'CPM'], en: ['Impressions', 'Engagement Rate', 'Reach', 'CPM'] },
+          correctIndex: 1,
+        },
+        {
+          question: { fr: 'Quel est le meilleur format pour augmenter la portée sur Facebook ?', en: 'What is the best format to increase reach on Facebook?' },
+          options:  { fr: ['Texte seul', 'Image', 'Vidéo native', 'Lien externe'], en: ['Text only', 'Image', 'Native video', 'External link'] },
+          correctIndex: 2,
+        },
+        {
+          question: { fr: 'Qu\'est-ce qu\'un KPI en marketing ?', en: 'What is a KPI in marketing?' },
+          options:  { fr: ['Un type de publicité', 'Un indicateur clé de performance', 'Un réseau social', 'Une plateforme CRM'], en: ['A type of ad', 'A key performance indicator', 'A social network', 'A CRM platform'] },
+          correctIndex: 1,
+        },
+      ],
+    },
+    {
+      title: { fr: 'Quiz SEO & Référencement', en: 'SEO & Search Ranking Quiz' },
+      program: programs[1]._id,
+      passingScore: 70,
+      questions: [
+        {
+          question: { fr: 'Que signifie SEO ?', en: 'What does SEO stand for?' },
+          options:  { fr: ['Social Engine Optimization', 'Search Engine Optimization', 'Search Engine Operation', 'Social Exchange Online'], en: ['Social Engine Optimization', 'Search Engine Optimization', 'Search Engine Operation', 'Social Exchange Online'] },
+          correctIndex: 1,
+        },
+        {
+          question: { fr: 'Quel outil Google permet de surveiller les performances SEO ?', en: 'Which Google tool monitors SEO performance?' },
+          options:  { fr: ['Google Ads', 'Google Analytics', 'Google Search Console', 'Google Tag Manager'], en: ['Google Ads', 'Google Analytics', 'Google Search Console', 'Google Tag Manager'] },
+          correctIndex: 2,
+        },
+        {
+          question: { fr: 'Qu\'est-ce qu\'un backlink ?', en: 'What is a backlink?' },
+          options:  { fr: ['Un lien interne', 'Un lien d\'un site externe vers votre site', 'Un bouton retour', 'Un lien brisé'], en: ['An internal link', 'A link from an external site to yours', 'A back button', 'A broken link'] },
+          correctIndex: 1,
+        },
+      ],
+    },
+    {
+      title: { fr: 'Quiz Content Marketing', en: 'Content Marketing Quiz' },
+      program: programs[2]._id,
+      passingScore: 70,
+      questions: [
+        {
+          question: { fr: 'Quel est l\'objectif principal du content marketing ?', en: 'What is the main goal of content marketing?' },
+          options:  { fr: ['Vendre directement', 'Attirer et fidéliser une audience', 'Faire de la publicité payante', 'Optimiser le SEO uniquement'], en: ['Sell directly', 'Attract and retain an audience', 'Run paid ads', 'Optimize SEO only'] },
+          correctIndex: 1,
+        },
+        {
+          question: { fr: 'Qu\'est-ce que le storytelling en marketing ?', en: 'What is storytelling in marketing?' },
+          options:  { fr: ['Écrire des blogs', 'Raconter une histoire de marque pour engager l\'audience', 'Créer des publicités vidéo', 'Rédiger des emails'], en: ['Writing blogs', 'Telling a brand story to engage audience', 'Creating video ads', 'Writing emails'] },
+          correctIndex: 1,
+        },
+      ],
+    },
+    {
+      title: { fr: 'Quiz Email Marketing', en: 'Email Marketing Quiz' },
+      program: programs[3]._id,
+      passingScore: 70,
+      questions: [
+        {
+          question: { fr: 'Qu\'est-ce que le taux d\'ouverture d\'un email ?', en: 'What is an email open rate?' },
+          options:  { fr: ['Le % d\'emails reçus', 'Le % d\'emails ouverts / envoyés', 'Le % de clics', 'Le % de désinscriptions'], en: ['% of emails received', '% of opened / sent emails', '% of clicks', '% of unsubscribes'] },
+          correctIndex: 1,
+        },
+        {
+          question: { fr: 'Quelle plateforme est populaire pour l\'email marketing automatisé ?', en: 'Which platform is popular for automated email marketing?' },
+          options:  { fr: ['Notion', 'Slack', 'Mailchimp', 'Figma'], en: ['Notion', 'Slack', 'Mailchimp', 'Figma'] },
+          correctIndex: 2,
+        },
+      ],
+    },
+    {
+      title: { fr: 'Quiz Google Ads & Paid Media', en: 'Google Ads & Paid Media Quiz' },
+      program: programs[4]._id,
+      passingScore: 70,
+      questions: [
+        {
+          question: { fr: 'Que signifie CPC ?', en: 'What does CPC stand for?' },
+          options:  { fr: ['Cost Per Click', 'Content Per Campaign', 'Click Per Customer', 'Cost Per Content'], en: ['Cost Per Click', 'Content Per Campaign', 'Click Per Customer', 'Cost Per Content'] },
+          correctIndex: 0,
+        },
+        {
+          question: { fr: 'Quel est le réseau publicitaire le plus utilisé ?', en: 'What is the most used ad network?' },
+          options:  { fr: ['Bing Ads', 'Twitter Ads', 'Google Ads', 'TikTok Ads'], en: ['Bing Ads', 'Twitter Ads', 'Google Ads', 'TikTok Ads'] },
+          correctIndex: 2,
+        },
+      ],
+    },
+  ]);
+  console.log(`✅ ${quizzes.length} quiz créés`);
+
+  // Company users (digital marketing agencies)
   const password = await bcrypt.hash('Shape2025!', 10);
   const companyUsers = await User.insertMany([
-    { login: 'techcorp',     email: 'rh@techcorp.fr',    password, roles: ['COMPANY'], firstName: { fr: 'Sophie' }, lastName: { fr: 'Martin' },  verifiedAccount: true },
-    { login: 'digitalagency', email: 'rh@digital.fr',   password, roles: ['COMPANY'], firstName: { fr: 'Julien' }, lastName: { fr: 'Dupont' }, verifiedAccount: true },
-    { login: 'startupai',    email: 'hr@startupai.fr',  password, roles: ['COMPANY'], firstName: { fr: 'Emma'   }, lastName: { fr: 'Bernard'},  verifiedAccount: true },
-    { login: 'datalab',      email: 'rh@datalab.fr',    password, roles: ['COMPANY'], firstName: { fr: 'Lucas'  }, lastName: { fr: 'Moreau' }, verifiedAccount: true },
-    { login: 'cloudtech',    email: 'rh@cloudtech.fr',  password, roles: ['COMPANY'], firstName: { fr: 'Lea'    }, lastName: { fr: 'Petit'  }, verifiedAccount: true },
+    { login: 'mediaspark',  email: 'rh@mediaspark.fr',  password, roles: ['COMPANY'], firstName: { fr: 'Sophie'  }, lastName: { fr: 'Martin'  }, verifiedAccount: true },
+    { login: 'buzzagency',  email: 'rh@buzzagency.fr',  password, roles: ['COMPANY'], firstName: { fr: 'Julien'  }, lastName: { fr: 'Dupont'  }, verifiedAccount: true },
+    { login: 'contentlab',  email: 'hr@contentlab.fr',  password, roles: ['COMPANY'], firstName: { fr: 'Emma'    }, lastName: { fr: 'Bernard' }, verifiedAccount: true },
+    { login: 'growthio',    email: 'rh@growthio.fr',    password, roles: ['COMPANY'], firstName: { fr: 'Lucas'   }, lastName: { fr: 'Moreau'  }, verifiedAccount: true },
+    { login: 'adboost',     email: 'rh@adboost.fr',     password, roles: ['COMPANY'], firstName: { fr: 'Léa'     }, lastName: { fr: 'Petit'   }, verifiedAccount: true },
   ]);
 
   const companies = await Company.insertMany([
-    { name: { fr: 'TechCorp',           en: 'TechCorp'           }, address: { fr: 'Paris, France'     }, owner: companyUsers[0]._id },
-    { name: { fr: 'Digital Agency',     en: 'Digital Agency'     }, address: { fr: 'Lyon, France'      }, owner: companyUsers[1]._id },
-    { name: { fr: 'StartupAI',          en: 'StartupAI'          }, address: { fr: 'Bordeaux, France'  }, owner: companyUsers[2]._id },
-    { name: { fr: 'DataLab',            en: 'DataLab'            }, address: { fr: 'Marseille, France' }, owner: companyUsers[3]._id },
-    { name: { fr: 'CloudTech Solutions', en: 'CloudTech Solutions' }, address: { fr: 'Toulouse, France' }, owner: companyUsers[4]._id },
+    { name: { fr: 'Media Spark',      en: 'Media Spark'      }, address: { fr: 'Paris, France'     }, owner: companyUsers[0]._id },
+    { name: { fr: 'Buzz Agency',      en: 'Buzz Agency'      }, address: { fr: 'Lyon, France'      }, owner: companyUsers[1]._id },
+    { name: { fr: 'Content Lab',      en: 'Content Lab'      }, address: { fr: 'Bordeaux, France'  }, owner: companyUsers[2]._id },
+    { name: { fr: 'Growth IO',        en: 'Growth IO'        }, address: { fr: 'Marseille, France' }, owner: companyUsers[3]._id },
+    { name: { fr: 'AdBoost Digital',  en: 'AdBoost Digital'  }, address: { fr: 'Toulouse, France'  }, owner: companyUsers[4]._id },
   ]);
   console.log(`✅ ${companies.length} entreprises créées`);
 
-  // Create candidate users
+  // Candidate users — digital marketing profiles
   const candidateData = [
-    { login: 'alice.dev',    email: 'alice@example.com',   firstName: { fr: 'Alice'   }, lastName: { fr: 'Dubois'    }, hardSkills: [{ skill: 'JavaScript', level: 4 }, { skill: 'React', level: 4 }, { skill: 'Node.js', level: 3 }], softwares: [{ skill: 'VS Code', level: 5 }, { skill: 'GitHub', level: 4 }], softSkills: ['Communication', 'Travail en équipe'], languages: ['fr', 'en'], workingMode: 'Hybride', country: 'FR' },
-    { login: 'bob.python',   email: 'bob@example.com',     firstName: { fr: 'Bob'     }, lastName: { fr: 'Rousseau'  }, hardSkills: [{ skill: 'Python', level: 5 }, { skill: 'Machine Learning', level: 4 }, { skill: 'Data Analysis', level: 4 }], softwares: [{ skill: 'Tableau', level: 3 }, { skill: 'Power BI Desktop', level: 4 }], softSkills: ['Curiosité', 'Rigueur'], languages: ['fr', 'en', 'es'], workingMode: 'Télétravail', country: 'FR' },
-    { login: 'charlie.java', email: 'charlie@example.com', firstName: { fr: 'Charlie' }, lastName: { fr: 'Lefevre'   }, hardSkills: [{ skill: 'Java', level: 4 }, { skill: 'Spring Boot', level: 3 }, { skill: 'SQL', level: 4 }], softwares: [{ skill: 'IntelliJ IDEA', level: 5 }, { skill: 'Jira', level: 3 }], softSkills: ['Organisation', 'Adaptabilité'], languages: ['fr', 'en'], workingMode: 'Présentiel', country: 'FR' },
-    { login: 'diana.data',   email: 'diana@example.com',   firstName: { fr: 'Diana'   }, lastName: { fr: 'Garnier'   }, hardSkills: [{ skill: 'Python', level: 4 }, { skill: 'Power BI', level: 5 }, { skill: 'SQL', level: 4 }], softwares: [{ skill: 'Power BI Desktop', level: 5 }, { skill: 'MySQL Workbench', level: 3 }], softSkills: ['Analyse', 'Présentation'], languages: ['fr', 'en', 'ar'], workingMode: 'Hybride', country: 'DZ' },
-    { login: 'eve.devops',   email: 'eve@example.com',     firstName: { fr: 'Eve'     }, lastName: { fr: 'Fontaine'  }, hardSkills: [{ skill: 'Docker', level: 4 }, { skill: 'Kubernetes', level: 3 }, { skill: 'AWS', level: 4 }], softwares: [{ skill: 'Jenkins', level: 4 }, { skill: 'GitLab CI', level: 3 }], softSkills: ['Rigueur', 'Autonomie'], languages: ['fr', 'en'], workingMode: 'Télétravail', country: 'FR' },
-    { login: 'frank.mobile', email: 'frank@example.com',   firstName: { fr: 'Frank'   }, lastName: { fr: 'Leclerc'   }, hardSkills: [{ skill: 'JavaScript', level: 3 }, { skill: 'React', level: 4 }, { skill: 'TypeScript', level: 3 }], softwares: [{ skill: 'Figma', level: 3 }, { skill: 'VS Code', level: 4 }], softSkills: ['Créativité', 'Communication'], languages: ['fr', 'en', 'de'], workingMode: 'Hybride', country: 'BE' },
-    { login: 'grace.ai',     email: 'grace@example.com',   firstName: { fr: 'Grace'   }, lastName: { fr: 'Mercier'   }, hardSkills: [{ skill: 'Python', level: 5 }, { skill: 'Machine Learning', level: 5 }, { skill: 'Deep Learning', level: 4 }], softwares: [{ skill: 'VS Code', level: 4 }, { skill: 'GitHub', level: 4 }], softSkills: ['Recherche', 'Rigueur'], languages: ['fr', 'en', 'zh'], workingMode: 'Télétravail', country: 'CA' },
-    { login: 'henry.sec',    email: 'henry@example.com',   firstName: { fr: 'Henry'   }, lastName: { fr: 'Blanchard' }, hardSkills: [{ skill: 'Cybersécurité', level: 4 }, { skill: 'Linux', level: 4 }, { skill: 'Python', level: 3 }], softwares: [{ skill: 'GitHub', level: 4 }, { skill: 'VS Code', level: 3 }], softSkills: ['Vigilance', 'Rigueur'], languages: ['fr', 'en'], workingMode: 'Présentiel', country: 'FR' },
-    { login: 'iris.angular', email: 'iris@example.com',    firstName: { fr: 'Iris'    }, lastName: { fr: 'Girard'    }, hardSkills: [{ skill: 'Angular', level: 5 }, { skill: 'TypeScript', level: 4 }, { skill: 'REST API', level: 3 }], softwares: [{ skill: 'VS Code', level: 5 }, { skill: 'Postman', level: 4 }], softSkills: ['Organisation', 'Communication'], languages: ['fr', 'en', 'es'], workingMode: 'Hybride', country: 'MA' },
-    { login: 'jack.cloud',   email: 'jack@example.com',    firstName: { fr: 'Jack'    }, lastName: { fr: 'Renard'    }, hardSkills: [{ skill: 'AWS', level: 5 }, { skill: 'Azure', level: 3 }, { skill: 'Docker', level: 4 }], softwares: [{ skill: 'Jenkins', level: 3 }, { skill: 'GitHub', level: 5 }], softSkills: ['Adaptabilité', 'Leadership'], languages: ['fr', 'en'], workingMode: 'Télétravail', country: 'CH' },
+    {
+      login: 'sarah.social',   email: 'sarah@example.com',
+      firstName: { fr: 'Sarah'   }, lastName: { fr: 'Benali'   },
+      hardSkills:  [{ skill: 'Social Media Marketing', level: 5 }, { skill: 'Community Management', level: 4 }, { skill: 'Copywriting', level: 3 }],
+      softwares:   [{ skill: 'Hootsuite', level: 4 }, { skill: 'Canva', level: 5 }, { skill: 'Meta Business Suite', level: 4 }],
+      softSkills:  ['Créativité', 'Communication', 'Adaptabilité'],
+      languages:   ['fr', 'en'], workingMode: 'Hybride', country: 'FR',
+    },
+    {
+      login: 'adam.seo',       email: 'adam@example.com',
+      firstName: { fr: 'Adam'    }, lastName: { fr: 'Chérif'   },
+      hardSkills:  [{ skill: 'SEO / Référencement naturel', level: 5 }, { skill: 'Analyse web / Analytics', level: 4 }, { skill: 'Marketing de contenu', level: 3 }],
+      softwares:   [{ skill: 'SEMrush', level: 5 }, { skill: 'Ahrefs', level: 4 }, { skill: 'Google Search Console', level: 5 }],
+      softSkills:  ['Rigueur', 'Curiosité', 'Analyse'],
+      languages:   ['fr', 'en', 'ar'], workingMode: 'Télétravail', country: 'MA',
+    },
+    {
+      login: 'mia.content',    email: 'mia@example.com',
+      firstName: { fr: 'Mia'     }, lastName: { fr: 'Laurent'  },
+      hardSkills:  [{ skill: 'Marketing de contenu', level: 5 }, { skill: 'Copywriting', level: 5 }, { skill: 'Création de contenu vidéo', level: 4 }],
+      softwares:   [{ skill: 'Canva', level: 5 }, { skill: 'Adobe Premiere Pro', level: 3 }, { skill: 'WordPress', level: 4 }],
+      softSkills:  ['Créativité', 'Rédaction', 'Organisation'],
+      languages:   ['fr', 'en'], workingMode: 'Hybride', country: 'BE',
+    },
+    {
+      login: 'karim.ads',      email: 'karim@example.com',
+      firstName: { fr: 'Karim'   }, lastName: { fr: 'Mansouri' },
+      hardSkills:  [{ skill: 'SEA / Google Ads', level: 5 }, { skill: 'Facebook & Instagram Ads', level: 5 }, { skill: 'A/B Testing', level: 4 }],
+      softwares:   [{ skill: 'Google Ads Editor', level: 5 }, { skill: 'Meta Business Suite', level: 5 }, { skill: 'Google Analytics', level: 4 }],
+      softSkills:  ['Analyse', 'Rigueur', 'Résultats'],
+      languages:   ['fr', 'en', 'ar'], workingMode: 'Télétravail', country: 'DZ',
+    },
+    {
+      login: 'lisa.email',     email: 'lisa@example.com',
+      firstName: { fr: 'Lisa'    }, lastName: { fr: 'Morin'    },
+      hardSkills:  [{ skill: 'Email Marketing', level: 5 }, { skill: 'Gestion de campagnes', level: 4 }, { skill: 'A/B Testing', level: 3 }],
+      softwares:   [{ skill: 'Mailchimp', level: 5 }, { skill: 'Klaviyo', level: 4 }, { skill: 'HubSpot', level: 3 }],
+      softSkills:  ['Organisation', 'Précision', 'Communication'],
+      languages:   ['fr', 'en'], workingMode: 'Présentiel', country: 'FR',
+    },
+    {
+      login: 'hugo.growth',    email: 'hugo@example.com',
+      firstName: { fr: 'Hugo'    }, lastName: { fr: 'Faure'    },
+      hardSkills:  [{ skill: 'Growth Hacking', level: 5 }, { skill: 'Marketing d\'affiliation', level: 4 }, { skill: 'E-commerce & conversion', level: 4 }],
+      softwares:   [{ skill: 'Google Analytics', level: 5 }, { skill: 'HubSpot', level: 4 }, { skill: 'Shopify', level: 4 }],
+      softSkills:  ['Innovation', 'Analyse', 'Autonomie'],
+      languages:   ['fr', 'en'], workingMode: 'Télétravail', country: 'CA',
+    },
+    {
+      login: 'nora.brand',     email: 'nora@example.com',
+      firstName: { fr: 'Nora'    }, lastName: { fr: 'Hamidi'   },
+      hardSkills:  [{ skill: 'Gestion de marque', level: 5 }, { skill: 'Stratégie digitale', level: 4 }, { skill: 'Community Management', level: 3 }],
+      softwares:   [{ skill: 'Canva', level: 4 }, { skill: 'Adobe Illustrator', level: 3 }, { skill: 'Hootsuite', level: 3 }],
+      softSkills:  ['Leadership', 'Créativité', 'Stratégie'],
+      languages:   ['fr', 'en', 'ar'], workingMode: 'Hybride', country: 'TN',
+    },
+    {
+      login: 'omar.influence', email: 'omar@example.com',
+      firstName: { fr: 'Omar'    }, lastName: { fr: 'Diallo'   },
+      hardSkills:  [{ skill: 'Marketing d\'influence', level: 5 }, { skill: 'Social Media Marketing', level: 4 }, { skill: 'Création de contenu vidéo', level: 4 }],
+      softwares:   [{ skill: 'Buffer', level: 4 }, { skill: 'CapCut', level: 5 }, { skill: 'Meta Business Suite', level: 4 }],
+      softSkills:  ['Réseau', 'Créativité', 'Négociation'],
+      languages:   ['fr', 'en'], workingMode: 'Hybride', country: 'FR',
+    },
+    {
+      login: 'chloe.analytics', email: 'chloe@example.com',
+      firstName: { fr: 'Chloé'  }, lastName: { fr: 'Renaud'   },
+      hardSkills:  [{ skill: 'Analyse web / Analytics', level: 5 }, { skill: 'A/B Testing', level: 5 }, { skill: 'Stratégie digitale', level: 3 }],
+      softwares:   [{ skill: 'Google Analytics', level: 5 }, { skill: 'Google Search Console', level: 4 }, { skill: 'Notion', level: 4 }],
+      softSkills:  ['Précision', 'Rigueur', 'Présentation'],
+      languages:   ['fr', 'en'], workingMode: 'Télétravail', country: 'FR',
+    },
+    {
+      login: 'tarek.paid',     email: 'tarek@example.com',
+      firstName: { fr: 'Tarek'   }, lastName: { fr: 'Salah'    },
+      hardSkills:  [{ skill: 'TikTok Ads', level: 5 }, { skill: 'Facebook & Instagram Ads', level: 4 }, { skill: 'SEA / Google Ads', level: 3 }],
+      softwares:   [{ skill: 'Meta Business Suite', level: 5 }, { skill: 'Google Ads Editor', level: 3 }, { skill: 'Canva', level: 3 }],
+      softSkills:  ['Innovation', 'Rapidité', 'Adaptabilité'],
+      languages:   ['fr', 'ar'], workingMode: 'Présentiel', country: 'DZ',
+    },
   ];
 
   const candidates = await User.insertMany(
@@ -204,91 +380,115 @@ async function seed() {
   );
   console.log(`✅ ${candidates.length} candidats créés`);
 
-  // Create job offers
+  // Job offers (digital marketing focused)
   const jobOffers = await JobOffer.insertMany([
     {
       company: companies[0]._id, workingMode: workingModes[2]._id, jobOfferModel: jobModels[0]._id,
-      title: 'Développeur Full-Stack JavaScript', profilesNeeded: 2,
-      description: 'Rejoignez notre équipe tech pour développer des applications web modernes.',
-      softSkills: ['Communication', 'Travail en équipe', 'Adaptabilité'],
-      hardSkills: [{ skill: 'JavaScript', level: 4 }, { skill: 'React', level: 3 }, { skill: 'Node.js', level: 3 }],
-      softwareSkills: [{ skill: 'VS Code', level: 3 }, { skill: 'GitHub', level: 4 }],
-      attributes: [], status: 'open',
+      title: 'Social Media Manager',
+      description: 'Gérez nos réseaux sociaux et développez notre communauté en ligne.',
+      softSkills: ['Créativité', 'Communication', 'Organisation'],
+      hardSkills: [{ skill: 'Social Media Marketing', level: 4 }, { skill: 'Community Management', level: 4 }, { skill: 'Copywriting', level: 3 }],
+      softwareSkills: [{ skill: 'Hootsuite', level: 3 }, { skill: 'Canva', level: 4 }, { skill: 'Meta Business Suite', level: 3 }],
+      profilesNeeded: 2, attributes: [], status: 'open',
     },
     {
-      company: companies[2]._id, workingMode: workingModes[1]._id, jobOfferModel: jobModels[0]._id,
-      title: 'Data Scientist / Machine Learning', profilesNeeded: 1,
-      description: 'Développer des modèles ML pour notre plateforme IA.',
-      softSkills: ['Curiosité', 'Rigueur', 'Analyse'],
-      hardSkills: [{ skill: 'Python', level: 4 }, { skill: 'Machine Learning', level: 4 }, { skill: 'Deep Learning', level: 3 }],
-      softwareSkills: [{ skill: 'VS Code', level: 3 }, { skill: 'GitHub', level: 3 }],
-      attributes: [], status: 'open',
+      company: companies[1]._id, workingMode: workingModes[1]._id, jobOfferModel: jobModels[0]._id,
+      title: 'Spécialiste SEO',
+      description: 'Optimisez notre visibilité sur les moteurs de recherche.',
+      softSkills: ['Rigueur', 'Analyse', 'Curiosité'],
+      hardSkills: [{ skill: 'SEO / Référencement naturel', level: 4 }, { skill: 'Analyse web / Analytics', level: 4 }, { skill: 'Marketing de contenu', level: 3 }],
+      softwareSkills: [{ skill: 'SEMrush', level: 4 }, { skill: 'Ahrefs', level: 3 }, { skill: 'Google Search Console', level: 4 }],
+      profilesNeeded: 1, attributes: [], status: 'open',
     },
     {
-      company: companies[3]._id, workingMode: workingModes[2]._id, jobOfferModel: jobModels[1]._id,
-      title: 'Analyste Data & Power BI', profilesNeeded: 1,
-      description: 'Analyse des données et création de tableaux de bord Power BI.',
-      softSkills: ['Analyse', 'Présentation', 'Organisation'],
-      hardSkills: [{ skill: 'SQL', level: 4 }, { skill: 'Power BI', level: 4 }, { skill: 'Python', level: 3 }],
-      softwareSkills: [{ skill: 'Power BI Desktop', level: 4 }, { skill: 'MySQL Workbench', level: 3 }],
-      attributes: [], status: 'open',
+      company: companies[2]._id, workingMode: workingModes[2]._id, jobOfferModel: jobModels[1]._id,
+      title: 'Créateur de contenu & Copywriter',
+      description: 'Produisez du contenu engageant pour nos clients marques.',
+      softSkills: ['Créativité', 'Rédaction', 'Polyvalence'],
+      hardSkills: [{ skill: 'Copywriting', level: 5 }, { skill: 'Marketing de contenu', level: 4 }, { skill: 'Création de contenu vidéo', level: 3 }],
+      softwareSkills: [{ skill: 'Canva', level: 4 }, { skill: 'WordPress', level: 3 }, { skill: 'Adobe Premiere Pro', level: 3 }],
+      profilesNeeded: 1, attributes: [], status: 'open',
     },
     {
-      company: companies[4]._id, workingMode: workingModes[1]._id, jobOfferModel: jobModels[0]._id,
-      title: 'Ingénieur DevOps / Cloud', profilesNeeded: 2,
-      description: 'Mise en place et gestion de l\'infrastructure cloud.',
-      softSkills: ['Rigueur', 'Autonomie', 'Leadership'],
-      hardSkills: [{ skill: 'Docker', level: 4 }, { skill: 'Kubernetes', level: 3 }, { skill: 'AWS', level: 4 }],
-      softwareSkills: [{ skill: 'Jenkins', level: 3 }, { skill: 'GitLab CI', level: 3 }],
-      attributes: [], status: 'open',
+      company: companies[3]._id, workingMode: workingModes[1]._id, jobOfferModel: jobModels[0]._id,
+      title: 'Chargé de publicité Google Ads & Meta',
+      description: 'Pilotez nos campagnes paid media pour maximiser le ROAS.',
+      softSkills: ['Analyse', 'Rigueur', 'Résultats'],
+      hardSkills: [{ skill: 'SEA / Google Ads', level: 4 }, { skill: 'Facebook & Instagram Ads', level: 4 }, { skill: 'A/B Testing', level: 3 }],
+      softwareSkills: [{ skill: 'Google Ads Editor', level: 4 }, { skill: 'Meta Business Suite', level: 4 }, { skill: 'Google Analytics', level: 3 }],
+      profilesNeeded: 2, attributes: [], status: 'open',
     },
     {
-      company: companies[1]._id, workingMode: workingModes[2]._id, jobOfferModel: jobModels[2]._id,
-      title: 'Stage Développeur Angular', profilesNeeded: 1,
-      description: 'Stage de 6 mois au sein de notre équipe frontend.',
-      softSkills: ['Communication', 'Curiosité'],
-      hardSkills: [{ skill: 'Angular', level: 3 }, { skill: 'TypeScript', level: 3 }],
-      softwareSkills: [{ skill: 'VS Code', level: 3 }, { skill: 'GitHub', level: 3 }],
-      attributes: [], status: 'open',
+      company: companies[4]._id, workingMode: workingModes[2]._id, jobOfferModel: jobModels[2]._id,
+      title: 'Stage Email Marketing & Automation',
+      description: 'Stage 6 mois — créez et automatisez nos campagnes emailing.',
+      softSkills: ['Organisation', 'Précision', 'Autonomie'],
+      hardSkills: [{ skill: 'Email Marketing', level: 3 }, { skill: 'Gestion de campagnes', level: 3 }],
+      softwareSkills: [{ skill: 'Mailchimp', level: 3 }, { skill: 'HubSpot', level: 2 }],
+      profilesNeeded: 1, attributes: [], status: 'open',
     },
   ]);
   console.log(`✅ ${jobOffers.length} offres d'emploi créées`);
 
-  // Create applications (linking candidates to offers with match scores)
+  // Applications
   const applications = await Application.insertMany([
-    { user: candidates[0]._id, jobOffer: jobOffers[0]._id, status: 2, matchScore: 85, coverLetter: 'Je suis très motivée par ce poste.' },
-    { user: candidates[5]._id, jobOffer: jobOffers[0]._id, status: 1, matchScore: 72, coverLetter: 'Mon profil correspond bien à vos besoins.' },
-    { user: candidates[1]._id, jobOffer: jobOffers[1]._id, status: 4, matchScore: 92, coverLetter: 'Passionné par le ML, je souhaite rejoindre votre équipe.' },
-    { user: candidates[6]._id, jobOffer: jobOffers[1]._id, status: 2, matchScore: 95, coverLetter: 'Expérience solide en Deep Learning.' },
-    { user: candidates[3]._id, jobOffer: jobOffers[2]._id, status: 4, matchScore: 90, coverLetter: 'Expert Power BI avec 3 ans d\'expérience.' },
-    { user: candidates[1]._id, jobOffer: jobOffers[2]._id, status: 2, matchScore: 75, coverLetter: 'Python et SQL sont mes points forts.' },
-    { user: candidates[4]._id, jobOffer: jobOffers[3]._id, status: 2, matchScore: 88, coverLetter: 'AWS certifié, expérience Docker/K8s.' },
-    { user: candidates[9]._id, jobOffer: jobOffers[3]._id, status: 1, matchScore: 83, coverLetter: 'Spécialiste cloud avec 4 ans d\'exp.' },
-    { user: candidates[8]._id, jobOffer: jobOffers[4]._id, status: 1, matchScore: 80, coverLetter: 'Passionnée par Angular depuis 2 ans.' },
-    { user: candidates[0]._id, jobOffer: jobOffers[4]._id, status: 3, matchScore: 60, coverLetter: 'Je connais bien le frontend.' },
+    { user: candidates[0]._id, jobOffer: jobOffers[0]._id, status: 2, matchScore: 88, coverLetter: 'Je gère des communautés depuis 3 ans et suis passionnée par le social media.' },
+    { user: candidates[7]._id, jobOffer: jobOffers[0]._id, status: 1, matchScore: 75, coverLetter: 'Mon expérience en marketing d\'influence me permet de gérer des audiences variées.' },
+    { user: candidates[1]._id, jobOffer: jobOffers[1]._id, status: 4, matchScore: 95, coverLetter: 'SEO est ma spécialité depuis 4 ans avec des résultats mesurables.' },
+    { user: candidates[8]._id, jobOffer: jobOffers[1]._id, status: 2, matchScore: 80, coverLetter: 'Analytics et SEO sont mes points forts.' },
+    { user: candidates[2]._id, jobOffer: jobOffers[2]._id, status: 4, matchScore: 92, coverLetter: 'Copywriter créative avec portfolio fourni.' },
+    { user: candidates[6]._id, jobOffer: jobOffers[2]._id, status: 2, matchScore: 76, coverLetter: 'Brand storytelling et content — mon expertise.' },
+    { user: candidates[3]._id, jobOffer: jobOffers[3]._id, status: 2, matchScore: 90, coverLetter: 'ROAS x3 sur mes dernières campagnes Meta.' },
+    { user: candidates[9]._id, jobOffer: jobOffers[3]._id, status: 1, matchScore: 70, coverLetter: 'TikTok Ads et Meta sont mes canaux de prédilection.' },
+    { user: candidates[4]._id, jobOffer: jobOffers[4]._id, status: 1, matchScore: 82, coverLetter: 'Email marketing automatisé avec Mailchimp et Klaviyo.' },
+    { user: candidates[5]._id, jobOffer: jobOffers[4]._id, status: 3, matchScore: 55, coverLetter: 'Je suis motivé et souhaite apprendre l\'email marketing.' },
   ]);
   console.log(`✅ ${applications.length} candidatures créées`);
 
-  // Create interviews for accepted applications
+  // Interviews for accepted applications
   const interviews = await Interview.insertMany([
     {
-      applicationId: applications[2]._id, companyId: companies[2]._id,
+      applicationId: applications[2]._id, companyId: companies[1]._id,
       candidateId: candidates[1]._id, jobOfferId: jobOffers[1]._id,
       scheduledAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-      channelName: `shape-interview-${applications[2]._id}`, status: 'scheduled',
+      channelName: `shape-${applications[2]._id}`,
+      status: 'scheduled', confirmedByCandidate: true, confirmedByCompany: true,
     },
     {
-      applicationId: applications[4]._id, companyId: companies[3]._id,
-      candidateId: candidates[3]._id, jobOfferId: jobOffers[2]._id,
-      scheduledAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-      channelName: `shape-interview-${applications[4]._id}`, status: 'scheduled',
+      applicationId: applications[4]._id, companyId: companies[2]._id,
+      candidateId: candidates[2]._id, jobOfferId: jobOffers[2]._id,
+      scheduledAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+      channelName: `shape-${applications[4]._id}`,
+      status: 'scheduled', confirmedByCandidate: false, confirmedByCompany: true,
     },
   ]);
   console.log(`✅ ${interviews.length} entretiens planifiés`);
 
+  // Tasks (digital marketing related)
+  const tasks = await Task.insertMany([
+    { title: { fr: 'Créer un calendrier éditorial', en: 'Create editorial calendar' }, description: { fr: 'Planifier les publications pour le mois prochain sur tous les réseaux.', en: 'Plan next month\'s posts across all networks.' }, deadLineInHours: 48 },
+    { title: { fr: 'Audit SEO du site web', en: 'Website SEO audit' }, description: { fr: 'Analyser les performances SEO et identifier les axes d\'amélioration.', en: 'Analyze SEO performance and identify areas for improvement.' }, deadLineInHours: 72 },
+    { title: { fr: 'Rédiger 5 articles de blog', en: 'Write 5 blog articles' }, description: { fr: 'Rédiger des articles optimisés SEO sur les tendances du marketing digital.', en: 'Write SEO-optimized articles on digital marketing trends.' }, deadLineInHours: 120 },
+    { title: { fr: 'Configurer une campagne Google Ads', en: 'Set up Google Ads campaign' }, description: { fr: 'Créer et lancer une campagne de notoriété sur Google Ads.', en: 'Create and launch a brand awareness campaign on Google Ads.' }, deadLineInHours: 24 },
+    { title: { fr: 'Créer une séquence email de bienvenue', en: 'Create welcome email sequence' }, description: { fr: 'Configurer une séquence automatisée de 5 emails de bienvenue.', en: 'Set up an automated welcome email sequence of 5 emails.' }, deadLineInHours: 96 },
+    { title: { fr: 'Analyser les métriques des réseaux sociaux', en: 'Analyze social media metrics' }, description: { fr: 'Préparer le rapport mensuel des performances sur Instagram, LinkedIn et Facebook.', en: 'Prepare monthly performance report for Instagram, LinkedIn and Facebook.' }, deadLineInHours: 36 },
+  ]);
+  console.log(`✅ ${tasks.length} tâches créées`);
+
+  // Task responses
+  await TaskResponse.insertMany([
+    { task: tasks[0]._id, owner: candidates[0]._id, status: 1 },
+    { task: tasks[1]._id, owner: candidates[1]._id, status: 2 },
+    { task: tasks[2]._id, owner: candidates[2]._id, status: 0 },
+    { task: tasks[3]._id, owner: candidates[3]._id, status: 3 },
+    { task: tasks[4]._id, owner: candidates[4]._id, status: 0 },
+    { task: tasks[5]._id, owner: candidates[8]._id, status: 1 },
+  ]);
+  console.log('✅ TaskResponses créées');
+
   console.log('\n🎉 Seed terminé avec succès !');
-  console.log('📧 Login test : rh@techcorp.fr / Shape2025!');
-  console.log('📧 Candidat test : alice@example.com / Shape2025!');
+  console.log('📧 Login company : rh@mediaspark.fr / Shape2025!');
+  console.log('📧 Login candidat : sarah@example.com / Shape2025!');
 
   await mongoose.disconnect();
 }

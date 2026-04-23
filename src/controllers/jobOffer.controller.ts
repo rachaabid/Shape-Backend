@@ -18,7 +18,9 @@ export const getAll = async (_req: Request, res: Response): Promise<void> => {
     const offers = await JobOffer.find({ deleted: false })
       .populate('company', 'name logo')
       .populate('workingMode', 'name')
-      .populate('jobOfferModel', 'name');
+      .populate('jobOfferModel', 'name')
+      .populate('hardSkills.skill', 'name')
+      .populate('softwareSkills.skill', 'name');
     res.json(offers);
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
@@ -43,7 +45,10 @@ export const getByAttribute = async (req: Request, res: Response): Promise<void>
     const filter = { ...buildFilter(attributeName, value), deleted: false };
     const offers = await JobOffer.find(filter)
       .populate('company', 'name logo')
-      .populate('workingMode', 'name');
+      .populate('workingMode', 'name')
+      .populate('jobOfferModel', 'name')
+      .populate('hardSkills.skill', 'name')
+      .populate('softwareSkills.skill', 'name');
     res.json(offers);
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
@@ -81,7 +86,9 @@ export const getById = async (req: Request, res: Response): Promise<void> => {
     const offer = await JobOffer.findById(req.params.id)
       .populate('company', 'name logo address')
       .populate('workingMode', 'name description')
-      .populate('jobOfferModel', 'name');
+      .populate('jobOfferModel', 'name')
+      .populate('hardSkills.skill', 'name')
+      .populate('softwareSkills.skill', 'name');
     if (!offer) { res.status(404).json({ message: 'Offre non trouvée' }); return; }
     res.json(offer);
   } catch (err) {

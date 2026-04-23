@@ -7,17 +7,19 @@ export interface IUser extends Document {
   roles:                   string[];
   firstName?:              { default?: string; fr?: string; en?: string; ar?: string };
   lastName?:               { default?: string; fr?: string; en?: string; ar?: string };
+  firstNameDisplay?:       string;
+  lastNameDisplay?:        string;
   phoneNumber?:            string;
   gender?:                 number; // 0=Male 1=Female 2=NoGender
   country?:                string;
   address?:                string;
   postalCode?:             string;
-  profession?:             string;
+  jobTitle?:               string;
   interfaceLanguage?:      string;
   avatarStorage?:          string;
   cvStorage?:              string;
-  hardSkills?:             { skill: string; level: number }[];
-  softwares?:              { skill: string; level: number }[];
+  hardSkills?:             { skill: mongoose.Types.ObjectId; level: number }[];
+  softwares?:              { skill: mongoose.Types.ObjectId; level: number }[];
   softSkills?:             string[];
   focusedSkills?:          string[];
   languages?:              string[];
@@ -51,12 +53,12 @@ const UserSchema = new Schema<IUser>({
   country:            String,
   address:            String,
   postalCode:         String,
-  profession:         String,
+  jobTitle:           String,
   interfaceLanguage:  String,
   avatarStorage:      String,
   cvStorage:          String,
-  hardSkills:         [{ skill: String, level: Number }],
-  softwares:          [{ skill: String, level: Number }],
+  hardSkills:         [{ skill: { type: Schema.Types.ObjectId, ref: 'HardSkill' }, level: Number }],
+  softwares:          [{ skill: { type: Schema.Types.ObjectId, ref: 'SoftwareSkill' }, level: Number }],
   softSkills:         [String],
   focusedSkills:      [String],
   languages:          [String],
@@ -75,6 +77,19 @@ const UserSchema = new Schema<IUser>({
   verificationCode:  String,
   isTermsAccepted:   Boolean,
   deleted:           { type: Boolean, default: false },
-}, { timestamps: true, toJSON: { virtuals: true } });
+}, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
+
+// Computed display names from multilingual firstName/lastName
+UserSchema.virtual('firstNameDisplay').get(function () {
+  const n = this.firstName as any;
+  if (!n) return undefined;
+  return n.default || n.fr || n.en || n.ar || undefined;
+});
+
+UserSchema.virtual('lastNameDisplay').get(function () {
+  const n = this.lastName as any;
+  if (!n) return undefined;
+  return n.default || n.fr || n.en || n.ar || undefined;
+});
 
 export default mongoose.model<IUser>('User', UserSchema);

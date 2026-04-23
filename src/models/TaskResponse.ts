@@ -17,6 +17,6 @@ const TaskResponseSchema = new Schema<ITaskResponse>({
   status:      { type: Number, default: 0 },
   files:       [{ name: String, url: String }],
   deleted:     { type: Boolean, default: false },
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 export default mongoose.model<ITaskResponse>('TaskResponse', TaskResponseSchema);

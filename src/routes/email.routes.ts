@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { sendInterviewInvite, sendInterviewConfirmation, sendInterviewReminder } from '../services/email.service';
+import { sendInterviewInvite, sendInterviewConfirmation, sendInterviewReminder, sendCompanyProposal } from '../services/email.service';
 import { authMiddleware } from '../middleware/auth.middleware';
 import User from '../models/User';
 import nodemailer from 'nodemailer';
@@ -37,6 +37,12 @@ router.post('/verify-code', async (req: Request, res: Response) => {
     await User.findByIdAndUpdate(user._id, { verifiedAccount: true, verificationCode: undefined });
     res.json({ message: 'Compte vérifié' });
   } catch (err) { res.status(500).json({ error: err }); }
+});
+
+// POST /api/email/company-proposal — notify company that a candidate was retained by AI
+router.post('/company-proposal', authMiddleware, async (req, res) => {
+  try { await sendCompanyProposal({ ...req.body, frontendUrl: process.env.FRONTEND_URL! }); res.json({ ok: true }); }
+  catch (err) { res.status(500).json({ error: err }); }
 });
 
 // Interview email endpoints (used by AI matching)

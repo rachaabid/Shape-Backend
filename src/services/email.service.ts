@@ -19,12 +19,49 @@ interface InterviewEmailData {
   scheduledAt:    Date;
   channelName:    string;
   frontendUrl:    string;
+  confirmToken?:  string;
 }
 
-export const sendInterviewInvite = async (data: InterviewEmailData): Promise<void> => {
-  const dateStr    = new Date(data.scheduledAt).toLocaleString('fr-FR');
-  const meetingUrl = `${data.frontendUrl}/company-panel/video-call/${data.channelName}`;
+interface CompanyProposalData {
+  companyEmail:  string;
+  companyName:   string;
+  candidateName: string;
+  jobTitle:      string;
+  score:         number;
+  proposedDate:  string;
+  proposedTime:  string;
+  frontendUrl:   string;
+}
 
+export const sendCompanyProposal = async (data: CompanyProposalData): Promise<void> => {
+  await transporter.sendMail({
+    from:    process.env.MAIL_FROM,
+    to:      data.companyEmail,
+    subject: `Candidature retenue — ${data.candidateName} pour ${data.jobTitle}`,
+    html: `
+      <h2>Candidature retenue par l'IA</h2>
+      <p>Le candidat <strong>${data.candidateName}</strong> a obtenu un score de
+         <strong>${data.score}%</strong> pour le poste de <strong>${data.jobTitle}</strong>.</p>
+      <p>Date d'entretien proposée : <strong>${data.proposedDate} à ${data.proposedTime}</strong></p>
+      <p>
+        <a href="${data.frontendUrl}/company-panel/matching/candidates"
+           style="background:#27a8ba;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
+          Voir les candidats retenus
+        </a>
+      </p>
+      <hr/><small>Shape Platform</small>
+    `,
+  });
+};
+
+export const sendInterviewInvite = async (data: InterviewEmailData): Promise<void> => {
+  const dateStr     = new Date(data.scheduledAt).toLocaleString('fr-FR');
+  const meetingUrl  = `${data.frontendUrl}/company-panel/video-call/${data.channelName}`;
+  const confirmUrl  = data.confirmToken
+    ? `${data.frontendUrl}/confirm-interview?token=${data.confirmToken}&party=candidate`
+    : meetingUrl;
+
+  // Send to candidate
   await transporter.sendMail({
     from:    process.env.MAIL_FROM,
     to:      data.candidateEmail,
@@ -33,14 +70,46 @@ export const sendInterviewInvite = async (data: InterviewEmailData): Promise<voi
       <h2>Bonjour ${data.candidateName},</h2>
       <p><strong>${data.companyName}</strong> vous invite à un entretien vidéo pour le poste de <strong>${data.jobTitle}</strong>.</p>
       <p><strong>Date :</strong> ${dateStr}</p>
-      <p><a href="${meetingUrl}" style="background:#4F46E5;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
-        Rejoindre l'entretien
-      </a></p>
+      <p>
+        <a href="${confirmUrl}" style="background:#27a8ba;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;margin-right:8px;">
+          Confirmer ma présence
+        </a>
+        <a href="${meetingUrl}" style="background:#4F46E5;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
+          Rejoindre l'entretien
+        </a>
+      </p>
       <p>Le lien sera actif à l'heure prévue. Bonne chance !</p>
       <hr/>
       <small>Shape Platform</small>
     `,
   });
+
+  // Also notify company
+  if (data.companyEmail) {
+    const companyConfirmUrl = data.confirmToken
+      ? `${data.frontendUrl}/confirm-interview?token=${data.confirmToken}&party=company`
+      : meetingUrl;
+    await transporter.sendMail({
+      from:    process.env.MAIL_FROM,
+      to:      data.companyEmail,
+      subject: `Entretien planifié — ${data.candidateName} pour ${data.jobTitle}`,
+      html: `
+        <h2>Entretien planifié</h2>
+        <p>Un entretien avec <strong>${data.candidateName}</strong> a été planifié pour le poste <strong>${data.jobTitle}</strong>.</p>
+        <p><strong>Date :</strong> ${dateStr}</p>
+        <p>
+          <a href="${companyConfirmUrl}" style="background:#27a8ba;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;margin-right:8px;">
+            Confirmer l'entretien
+          </a>
+          <a href="${meetingUrl}" style="background:#4F46E5;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
+            Ouvrir la salle vidéo
+          </a>
+        </p>
+        <hr/>
+        <small>Shape Platform</small>
+      `,
+    });
+  }
 };
 
 export const sendInterviewConfirmation = async (data: InterviewEmailData): Promise<void> => {
