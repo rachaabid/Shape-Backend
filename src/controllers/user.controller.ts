@@ -4,7 +4,6 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User';
 import Company from '../models/Company';
-import { runAutoMatchPipeline } from '../services/autoMatch.service';
 import NotificationSetting from '../models/NotificationSetting';
 import { jwtConfig } from '../config/jwt';
 import { AuthRequest } from '../middleware/auth.middleware';
@@ -57,10 +56,6 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     const token = signToken(user._id.toString(), user.roles);
     res.status(201).json({ ...user.toObject(), password: undefined, token });
 
-    // Si c'est un candidat → déclencher le matching contre toutes les offres ouvertes
-    if (user.roles.includes('CANDIDATE')) {
-      setImmediate(() => runAutoMatchPipeline({ candidateId: user._id.toString() }));
-    }
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }

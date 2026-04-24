@@ -63,7 +63,7 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
       applications = await Application.find({
         jobOffer: options.jobOfferId,
         deleted:  false,
-        status:   1, // Only Applied (not yet decided)
+        status:   1, 
       }).populate({
         path: 'user', select: '-password',
         populate: [

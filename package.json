@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.19.0",
+    "agora-token": "^2.0.5",
     "axios": "^1.7.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

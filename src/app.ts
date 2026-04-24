@@ -1,6 +1,8 @@
+import dotenv from 'dotenv';
+dotenv.config(); // doit s'exécuter avant tout import de module qui lit process.env
+
 import express  from 'express';
 import cors     from 'cors';
-import dotenv   from 'dotenv';
 import mongoose from 'mongoose';
 
 import userRoutes                from './routes/user.routes';
@@ -15,10 +17,9 @@ import referenceRoutes           from './routes/reference.routes';
 import taskRoutes                from './routes/task.routes';
 import inscriptionRoutes         from './routes/inscription.routes';
 import interviewRoutes           from './routes/interview.routes';
+import agoraRoutes               from './routes/agora.routes';
 
 import { startScheduler } from './services/scheduler.service';
-
-dotenv.config();
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -39,6 +40,7 @@ app.use('/api/Email',               emailRoutes);  // uppercase pour interview-i
 app.use('/api/Storage',             storageRoutes);
 app.use('/api/Inscription',         inscriptionRoutes);
 app.use('/api/Interview',           interviewRoutes);
+app.use('/api/agora',               agoraRoutes);
 
 // Référence : Language, Country, HardSkill, SoftwareSkill, FocusedSkill, Program, WorkingMode, JobOfferModel
 app.use('/api', referenceRoutes);

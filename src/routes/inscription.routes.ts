@@ -9,6 +9,16 @@ router.get('/count', authMiddleware, async (_req: Request, res: Response) => {
   catch (err) { res.status(500).json({ error: err }); }
 });
 
+// GET /byattribute/User/:userId → inscription de l'utilisateur
+router.get('/byattribute/User/:userId', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const inscription = await Inscription.findOne({ user: req.params['userId'], deleted: false })
+      .populate('user', '-password')
+      .populate('program');
+    res.json(inscription ?? null);
+  } catch (err) { res.status(500).json({ error: err }); }
+});
+
 router.get('/', authMiddleware, async (_req: Request, res: Response) => {
   try { res.json(await Inscription.find({ deleted: false }).populate('user', '-password').populate('program')); }
   catch (err) { res.status(500).json({ error: err }); }
