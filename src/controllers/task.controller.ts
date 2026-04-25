@@ -6,12 +6,12 @@ import { AuthRequest } from '../middleware/auth.middleware';
 // ── Task ─────────────────────────────────────────────────────
 
 export const getTasks = async (_req: Request, res: Response): Promise<void> => {
-  try { res.json(await Task.find({ deleted: false })); }
+  try { res.json(await Task.find({ deleted: { $ne: true } })); }
   catch (err) { res.status(500).json({ error: err }); }
 };
 
 export const getTaskCount = async (_req: Request, res: Response): Promise<void> => {
-  try { res.json(await Task.countDocuments({ deleted: false })); }
+  try { res.json(await Task.countDocuments({ deleted: { $ne: true } })); }
   catch (err) { res.status(500).json({ error: err }); }
 };
 
@@ -26,7 +26,7 @@ export const getTaskById = async (req: Request, res: Response): Promise<void> =>
 export const getTaskByAttribute = async (req: Request, res: Response): Promise<void> => {
   try {
     const { attributeName, value } = req.params;
-    const tasks = await Task.find({ [attributeName]: value, deleted: false });
+    const tasks = await Task.find({ [attributeName]: value, deleted: { $ne: true } });
     res.json(tasks);
   } catch (err) { res.status(500).json({ error: err }); }
 };
@@ -53,7 +53,7 @@ export const patchTask = async (req: AuthRequest, res: Response): Promise<void> 
 // ── TaskResponse ─────────────────────────────────────────────
 
 export const getTaskResponses = async (_req: Request, res: Response): Promise<void> => {
-  try { res.json(await TaskResponse.find({ deleted: false })); }
+  try { res.json(await TaskResponse.find({ deleted: { $ne: true } })); }
   catch (err) { res.status(500).json({ error: err }); }
 };
 
@@ -68,7 +68,7 @@ export const getTaskResponseById = async (req: Request, res: Response): Promise<
 export const getTaskResponseByAttribute = async (req: Request, res: Response): Promise<void> => {
   try {
     const { attributeName, value } = req.params;
-    const filter: Record<string, unknown> = { deleted: false };
+    const filter: Record<string, unknown> = { deleted: { $ne: true } };
     if (attributeName === 'task')        filter['task']        = value;
     if (attributeName === 'inscription') filter['inscription'] = value;
     if (attributeName === 'status')      filter['status']      = Number(value);
@@ -80,7 +80,7 @@ export const getTaskResponseByAttribute = async (req: Request, res: Response): P
 export const getTaskResponseCountByAttribute = async (req: Request, res: Response): Promise<void> => {
   try {
     const { attributeName, value } = req.params;
-    const filter: Record<string, unknown> = { deleted: false };
+    const filter: Record<string, unknown> = { deleted: { $ne: true } };
     if (attributeName === 'status') filter['status'] = Number(value);
     else filter[attributeName] = value;
     res.json(await TaskResponse.countDocuments(filter));
