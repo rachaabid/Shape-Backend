@@ -38,6 +38,15 @@ export const deleteNotification = async (req: AuthRequest, res: Response): Promi
   }
 };
 
+export const getUnreadCount = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const total = await Notification.countDocuments({ userId: req.userId, read: false });
+    res.json({ total });
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+
 export const createNotification = async (
   userId: string, type: string, message: string, data?: Record<string, unknown>
 ): Promise<void> => {

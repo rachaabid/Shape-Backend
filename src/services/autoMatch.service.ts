@@ -210,10 +210,9 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
           });
         }
 
-        console.log(`✅ Retenu — ${candidateName} × ${jobTitle} (score: ${result.score}% | skills: ${result.skillScore} | sémantique: ${result.semanticScore})`);
       }
     }
-  } catch (err) {
-    console.error('AutoMatch pipeline error:', err);
+  } catch {
+    // silently ignore pipeline errors to avoid crashing the server
   }
 };

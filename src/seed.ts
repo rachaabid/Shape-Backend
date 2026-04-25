@@ -688,6 +688,18 @@ async function seed() {
   await TaskResponse.insertMany(taskRespData);
   console.log(`✅ ${taskRespData.length} réponses de tâches créées`);
 
+  // ── Admin user ────────────────────────────────────────────────
+  const adminPassword = await bcrypt.hash('Admin2025!', 10);
+  await User.create({
+    login: 'admin',
+    email: 'admin@shape.fr',
+    password: adminPassword,
+    roles: ['ADMIN'],
+    verifiedAccount: true,
+    deleted: false,
+  });
+  console.log('✅ Admin créé : admin@shape.fr / Admin2025!');
+
   // ── Summary ───────────────────────────────────────────────────
   console.log('\n🎉 Seed riche terminé avec succès !');
   console.log('─────────────────────────────────────────');
@@ -698,6 +710,7 @@ async function seed() {
   console.log(`   • Inscriptions : ${inscriptionData.length}  |  Programmes : ${programsData.length}`);
   console.log(`   • Candidats    : ${candidateRaw.length} (FR:9  DZ:7  MA:3  TN:4  BE:2  CA:1)`);
   console.log('─────────────────────────────────────────');
+  console.log('🔑 Login admin    : admin@shape.fr / Admin2025!');
   console.log('🔑 Login company  : rh@mediaspark.fr / Shape2025!');
   console.log('🔑 Login candidat : sarah.dubois@example.com / Shape2025!');
   await mongoose.disconnect();

@@ -1,15 +1,11 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User';
 import Company from '../models/Company';
 import NotificationSetting from '../models/NotificationSetting';
-import { jwtConfig } from '../config/jwt';
+import { signToken } from '../config/jwt';
 import { AuthRequest } from '../middleware/auth.middleware';
-
-const signToken = (id: string, roles: string[]) =>
-  jwt.sign({ id, roles }, jwtConfig.secret, { expiresIn: jwtConfig.expiresIn } as jwt.SignOptions);
 
 // POST /api/User/Authenticate
 export const authenticate = async (req: Request, res: Response): Promise<void> => {
