@@ -127,6 +127,16 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   }
 };
 
+// GET /api/User/candidates
+export const getCandidateUsers = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await User.find({ roles: 'CANDIDATE', deleted: false }).select('-password');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+
 // GET /api/User/authenticaterecovery/:email/:code
 export const authenticateRecovery = async (req: Request, res: Response): Promise<void> => {
   try {
