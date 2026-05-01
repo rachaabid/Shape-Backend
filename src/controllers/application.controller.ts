@@ -121,9 +121,26 @@ export const getById = async (req: Request, res: Response): Promise<void> => {
 // POST /api/JobOfferApplication
 export const create = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const app = await Application.create({ ...req.body, user: req.body.user || req.userId });
+    const userId    = req.body.user || req.userId;
+    const jobOfferId = req.body.jobOffer;
+
+    // If an auto-suggested application (status 0) exists, upgrade it to status 1
+    const existing = jobOfferId
+      ? await Application.findOne({ user: userId, jobOffer: jobOfferId, status: 0, deleted: false })
+      : null;
+
+    let app: any;
+    if (existing) {
+      app = await Application.findByIdAndUpdate(
+        existing._id,
+        { status: 1, cv: req.body.cv, coverLetter: req.body.coverLetter },
+        { new: true }
+      );
+    } else {
+      app = await Application.create({ ...req.body, user: userId });
+    }
+
     res.status(201).json(app);
-    // Trigger AI matching for this new application in the background
     setImmediate(() => runAutoMatchPipeline({ applicationId: app._id.toString() }));
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });

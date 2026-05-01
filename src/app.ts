@@ -8,21 +8,24 @@ import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
 import jwt             from 'jsonwebtoken';
 
-import userRoutes                from './routes/user.routes';
-import companyRoutes             from './routes/company.routes';
-import jobOfferRoutes            from './routes/jobOffer.routes';
-import applicationRoutes         from './routes/application.routes';
-import notificationRoutes        from './routes/notification.routes';
-import notificationSettingRoutes from './routes/notificationSetting.routes';
-import emailRoutes               from './routes/email.routes';
-import storageRoutes             from './routes/storage.routes';
-import referenceRoutes           from './routes/reference.routes';
-import taskRoutes                from './routes/task.routes';
-import inscriptionRoutes         from './routes/inscription.routes';
-import interviewRoutes           from './routes/interview.routes';
-import agoraRoutes               from './routes/agora.routes';
-import conversationRoutes        from './routes/conversation.routes';
-import statsRoutes               from './routes/stats.routes';
+import userRoutes                  from './routes/user.routes';
+import companyRoutes               from './routes/company.routes';
+import jobOfferRoutes              from './routes/jobOffer.routes';
+import applicationRoutes           from './routes/application.routes';
+import notificationRoutes          from './routes/notification.routes';
+import notificationSettingRoutes   from './routes/notificationSetting.routes';
+import emailRoutes                 from './routes/email.routes';
+import storageRoutes               from './routes/storage.routes';
+import referenceRoutes             from './routes/reference.routes';
+import taskRoutes                  from './routes/task.routes';
+import inscriptionRoutes           from './routes/inscription.routes';
+import interviewRoutes             from './routes/interview.routes';
+import agoraRoutes                 from './routes/agora.routes';
+import conversationRoutes          from './routes/conversation.routes';
+import statsRoutes                 from './routes/stats.routes';
+import quizRoutes                  from './routes/quiz.routes';
+import contentRoutes               from './routes/content.routes';
+import taskResponseCommentRoutes   from './routes/taskResponseComment.routes';
 
 import Conversation from './models/Conversation';
 import Message      from './models/Message';
@@ -174,6 +177,9 @@ app.use('/api/stats',               statsRoutes);
 app.use('/api', referenceRoutes);
 app.use('/api', taskRoutes);
 app.use('/api', notificationSettingRoutes);
+app.use('/api', quizRoutes);
+app.use('/api', contentRoutes);
+app.use('/api', taskResponseCommentRoutes);
 
 // ── MongoDB + démarrage ───────────────────────────────────────
 mongoose

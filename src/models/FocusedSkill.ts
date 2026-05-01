@@ -8,6 +8,6 @@ export interface IFocusedSkill extends Document {
 const FocusedSkillSchema = new Schema<IFocusedSkill>({
   name:     { fr: String, en: String, ar: String },
   category: String,
-});
+}, { toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 export default mongoose.model<IFocusedSkill>('FocusedSkill', FocusedSkillSchema);

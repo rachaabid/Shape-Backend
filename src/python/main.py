@@ -1,256 +1,345 @@
 """
 Shape AI Matching Service
-Score final = 60 % similarité sémantique (embeddings CV ↔ offre)
-            + 40 % matching compétences (vecteurs PyTorch)
 
-Si le CV est absent → 100 % compétences (dégradé gracieux)
+Score = coverage(candidate skills / offer skills requirements)
+      + optional 60% semantic boost when CV available
 """
 
+import unicodedata
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Optional
-import torch
-import torch.nn.functional as F
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 import uvicorn, requests, io, re
-
 import pdfplumber
-from sentence_transformers import SentenceTransformer, util as sbert_util
+
+try:
+    from sentence_transformers import SentenceTransformer
+    _sbert = None
+    SBERT_AVAILABLE = True
+except:
+    SBERT_AVAILABLE = False
 
 app = FastAPI(title="Shape AI Matching Service")
 
-# ── Multilingual sentence model (FR / EN / AR) ───────────────
-_sbert: Optional[SentenceTransformer] = None
-
-def get_sbert() -> SentenceTransformer:
+def get_sbert():
     global _sbert
+    if not SBERT_AVAILABLE:
+        return None
     if _sbert is None:
         _sbert = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
     return _sbert
 
 
-# ── Common tech/soft skills for CV extraction ─────────────────
+# ─────────────────────────────────────────────
+# ACCENT NORMALIZATION (critical for French)
+# ─────────────────────────────────────────────
+def remove_accents(s: str) -> str:
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+
+
+# ─────────────────────────────────────────────
+# KEYWORDS
+# ─────────────────────────────────────────────
 TECH_KEYWORDS = [
-    "python","java","javascript","typescript","c++","c#","go","rust","kotlin","swift",
-    "react","angular","vue","nextjs","nuxtjs","flutter","django","fastapi","spring",
-    "nodejs","express","laravel","symfony",
-    "sql","mysql","postgresql","mongodb","redis","elasticsearch","firebase",
-    "docker","kubernetes","git","github","gitlab","jenkins","ci/cd","linux","bash",
-    "aws","azure","gcp","terraform","ansible",
-    "figma","photoshop","illustrator","xd","sketch","canva",
-    "tensorflow","pytorch","sklearn","pandas","numpy","opencv",
-    "agile","scrum","kanban","jira","confluence","trello",
-    "rest","graphql","microservices","api","oauth","jwt",
-    "html","css","sass","tailwind","bootstrap","webpack","vite",
-    # soft skills
-    "communication","leadership","teamwork","autonomie","créativité","adaptabilité",
-    "organisation","rigueur","esprit critique","gestion de projet","résolution de problèmes",
+    # Digital marketing / SEO
+    "seo", "sem", "google ads", "google analytics", "google search console",
+    "community management", "social media", "social media marketing",
+    "marketing digital", "growth hacking", "copywriting", "emailing", "email marketing",
+    "content marketing", "inbound marketing", "affiliation", "a b testing", "analytics",
+    "strategie digitale", "gestion de campagnes", "gestion de marque",
+    "marketing influence", "e-commerce", "conversion", "cro",
+    "semrush", "ahrefs", "mailchimp", "hubspot", "klaviyo", "hootsuite",
+    "buffer", "meta business suite", "salesforce", "wordpress", "shopify",
+    "canva", "adobe photoshop", "adobe illustrator", "adobe premiere pro",
+    "capcut", "notion", "google ads editor",
+    # Tech
+    "python", "java", "javascript", "typescript", "go", "rust", "kotlin", "swift",
+    "react", "angular", "vue", "nextjs", "nuxtjs", "flutter", "django", "fastapi", "spring",
+    "nodejs", "express", "laravel", "symfony",
+    "sql", "mysql", "postgresql", "mongodb", "redis", "elasticsearch", "firebase",
+    "docker", "kubernetes", "git", "github", "gitlab", "jenkins", "ci cd", "linux", "bash",
+    "aws", "azure", "gcp", "terraform", "ansible",
+    "figma", "photoshop", "illustrator",
+    "tensorflow", "pytorch", "sklearn", "pandas", "numpy", "opencv",
+    "agile", "scrum", "kanban", "jira", "confluence", "trello",
+    "rest", "graphql", "microservices", "api", "oauth", "jwt",
+    "html", "css", "sass", "tailwind", "bootstrap", "webpack", "vite",
+    # Soft skills
+    "communication", "leadership", "teamwork", "travail en equipe",
+    "autonomie", "creativite", "adaptabilite", "organisation", "rigueur",
+    "esprit critique", "gestion de projet", "resolution de problemes",
+    "analyse", "curiosite", "precision", "innovation", "polyvalence",
 ]
 
+# Accent-free versions of all keywords (pre-computed once)
+_KEYWORDS_CLEAN = [remove_accents(k) for k in TECH_KEYWORDS]
 
-# ── Schemas ───────────────────────────────────────────────────
+SYNONYMS = {
+    "seo": ["seo", "referencement naturel", "referencement", "search engine optimization"],
+    "sem": ["sem", "search engine marketing", "google ads", "google adwords"],
+    "google analytics": ["google analytics", "ga4", "analytics"],
+    "social media": ["social media", "reseaux sociaux", "community management"],
+    "marketing digital": ["marketing digital", "digital marketing", "marketing en ligne"],
+    "javascript": ["javascript", "js"],
+    "nodejs": ["nodejs", "node js"],
+    "react": ["react", "reactjs", "react js"],
+    "angular": ["angular", "angularjs"],
+    "python": ["python", "py"],
+    "sql": ["sql", "mysql", "postgresql", "postgres"],
+    "mongodb": ["mongodb", "mongo"],
+    "aws": ["aws", "amazon web services"],
+    "docker": ["docker", "conteneurisation", "containerization"],
+    "git": ["git", "github", "gitlab"],
+    "agile": ["agile", "scrum", "kanban", "methodologie agile"],
+    "communication": ["communication"],
+    "teamwork": ["teamwork", "travail en equipe", "esprit equipe"],
+    "wordpress": ["wordpress"],
+    "shopify": ["shopify"],
+    "hubspot": ["hubspot"],
+    "canva": ["canva"],
+}
 
+# Pre-compute accent-free synonym variants
+_SYNONYMS_CLEAN = {main: [remove_accents(v) for v in variants] for main, variants in SYNONYMS.items()}
+
+
+# ─────────────────────────────────────────────
+# SCHEMAS
+# ─────────────────────────────────────────────
 class SkillVector(BaseModel):
     skill: str
-    level: float  # 0–5
+    level: float
 
 class JobOfferSkills(BaseModel):
-    hardSkills:  List[SkillVector] = []
-    softwares:   List[SkillVector] = []
-    softSkills:  List[str] = []
-    description: Optional[str] = None  # title + description + requiredProfile
+    hardSkills: List[SkillVector] = []
+    softwares: List[SkillVector] = []
+    softSkills: List[str] = []
+    description: Optional[str] = None
 
 class CandidateSkills(BaseModel):
-    id:         str
+    id: str
     hardSkills: List[SkillVector] = []
-    softwares:  List[SkillVector] = []
+    softwares: List[SkillVector] = []
     softSkills: List[str] = []
-    cvUrl:      Optional[str] = None
+    cvUrl: Optional[str] = None
 
 class MatchRequest(BaseModel):
-    offer:      JobOfferSkills
+    offer: JobOfferSkills
     candidates: List[CandidateSkills]
 
 class MatchResult(BaseModel):
-    candidateId:       str
-    score:             int          # 0-100 final weighted score
-    skillScore:        float        # 0-1  pure skills component
-    semanticScore:     float        # 0-1  CV semantic component (0 if no CV)
-    matchedSkills:     List[str]
-    missingSkills:     List[str]
-    extractedCvSkills: List[str]    # skills detected automatically in CV text
+    candidateId: str
+    score: int
+    skillScore: float
+    semanticScore: float
+    matchedSkills: List[str]
+    missingSkills: List[str]
+    extractedCvSkills: List[str]
 
 class MatchResponse(BaseModel):
     results: List[MatchResult]
 
 
-# ── Skill-vector helpers ──────────────────────────────────────
+# ─────────────────────────────────────────────
+# NORMALIZATION
+# ─────────────────────────────────────────────
+def normalize_skill(skill: str) -> List[str]:
+    """Map a compound skill name to one or more canonical keywords."""
+    clean = remove_accents(skill.lower().strip())
+    clean = re.sub(r'[^a-z0-9 ]', ' ', clean)
+    clean = re.sub(r'\s+', ' ', clean).strip()
 
-def collect_all_skills(offer: JobOfferSkills, candidates: List[CandidateSkills]) -> List[str]:
-    skills: set = set()
-    for s in offer.hardSkills + offer.softwares:
-        skills.add(s.skill.lower())
-    for s in offer.softSkills:
-        skills.add(s.lower())
-    for c in candidates:
-        for s in c.hardSkills + c.softwares:
-            skills.add(s.skill.lower())
-        for s in c.softSkills:
-            skills.add(s.lower())
-    return sorted(skills)
+    found = []
+
+    # Check synonyms first (using pre-computed accent-free variants)
+    for main, variants in _SYNONYMS_CLEAN.items():
+        for v in variants:
+            if re.search(r'\b' + re.escape(v) + r'\b', clean):
+                found.append(main)
+                break
+
+    # Fall back to TECH_KEYWORDS (using pre-computed accent-free versions)
+    if not found:
+        for kw_clean in _KEYWORDS_CLEAN:
+            if re.search(r'\b' + re.escape(kw_clean) + r'\b', clean):
+                found.append(kw_clean)
+
+    return found if found else [clean]
 
 
-def build_vector(
-    all_skills: List[str],
-    hard: List[SkillVector],
-    soft: List[SkillVector],
-    soft_sk: List[str],
-) -> torch.Tensor:
-    vec = torch.zeros(len(all_skills))
-    for s in hard + soft:
-        key = s.skill.lower()
-        if key in all_skills:
-            vec[all_skills.index(key)] = s.level / 5.0
-    for s in soft_sk:
-        key = s.lower()
-        if key in all_skills:
-            idx = all_skills.index(key)
-            vec[idx] = max(vec[idx].item(), 0.5)  # soft skills get at least 0.5
+# ─────────────────────────────────────────────
+# VECTOR BUILD
+# ─────────────────────────────────────────────
+def build_vector(all_skills: list, skill_items: list, skill_index: dict, default_level: float = 0.6) -> np.ndarray:
+    """Build skill vector. skill_items can be SkillVector objects or plain strings."""
+    vec = np.zeros(len(all_skills))
+    for s in skill_items:
+        if isinstance(s, str):
+            keys = normalize_skill(s)
+            lvl = default_level
+        else:
+            keys = normalize_skill(s.skill)
+            lvl = s.level / 5.0
+        for k in keys:
+            if k in skill_index:
+                vec[skill_index[k]] = max(vec[skill_index[k]], lvl)
     return vec
 
 
-def cosine_sim(a: torch.Tensor, b: torch.Tensor) -> float:
-    if a.norm() == 0 or b.norm() == 0:
+def coverage_score(offer_vec: np.ndarray, cand_vec: np.ndarray) -> float:
+    """What fraction of the offer's skill requirements does the candidate cover?
+
+    Unlike cosine similarity, this does NOT penalize candidates for having extra skills.
+    A candidate with all required skills + bonus skills still scores 1.0.
+    """
+    total = np.sum(offer_vec)
+    if total == 0:
         return 0.0
-    return float(F.cosine_similarity(a.unsqueeze(0), b.unsqueeze(0)).item())
+    return float(np.sum(np.minimum(cand_vec, offer_vec)) / total)
 
 
-# ── CV helpers ────────────────────────────────────────────────
+def cosine_sim(a, b):
+    if np.linalg.norm(a) == 0 or np.linalg.norm(b) == 0:
+        return 0.0
+    return float(cosine_similarity([a], [b])[0][0])
 
-def extract_cv_text(cv_url: str) -> str:
-    """Download PDF and extract text from first 5 pages."""
+
+# ─────────────────────────────────────────────
+# CV EXTRACTION
+# ─────────────────────────────────────────────
+def extract_cv_text(url):
     try:
-        resp = requests.get(cv_url, timeout=15)
-        resp.raise_for_status()
-        with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
-            pages = [page.extract_text() or "" for page in pdf.pages[:5]]
-            return " ".join(pages).strip()
-    except Exception:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        with pdfplumber.open(io.BytesIO(r.content)) as pdf:
+            return " ".join([p.extract_text() or "" for p in pdf.pages[:5]])
+    except:
         return ""
 
 
-def extract_skills_from_cv(cv_text: str, offer_skill_names: List[str]) -> List[str]:
-    """
-    Detect skills in CV text:
-    1. All skills required by the offer that appear in the CV
-    2. Common tech/soft keywords not already in offer
-    """
-    text_lower = cv_text.lower()
-    found: set = set()
-
-    # Skills required by the offer found in the CV
-    for skill in offer_skill_names:
-        if re.search(r'\b' + re.escape(skill.lower()) + r'\b', text_lower):
-            found.add(skill.lower())
-
-    # Common tech keywords
-    for kw in TECH_KEYWORDS:
-        if re.search(r'\b' + re.escape(kw.lower()) + r'\b', text_lower):
-            found.add(kw.lower())
-
-    return sorted(found)
-
-
-def semantic_similarity(text_a: str, text_b: str) -> float:
-    """Cosine similarity between two texts using multilingual sentence embeddings."""
-    if not text_a.strip() or not text_b.strip():
-        return 0.0
+def semantic_similarity(a, b):
     model = get_sbert()
-    emb_a = model.encode(text_a[:2000], convert_to_tensor=True)
-    emb_b = model.encode(text_b[:2000], convert_to_tensor=True)
-    return float(sbert_util.cos_sim(emb_a, emb_b).item())
+    if not model or not a.strip() or not b.strip():
+        return 0.0
+    emb_a = np.array(model.encode(a[:2000]))
+    emb_b = np.array(model.encode(b[:2000]))
+    return cosine_sim(emb_a, emb_b)
 
 
-# ── Main endpoint ─────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# API
+# ─────────────────────────────────────────────
+def extract_skills_from_text(text: str):
+    """Extract skill keywords from free text (offer description fallback)."""
+    text_clean = remove_accents(text.lower())
+    hard, soft_skills = [], []
+    soft_kw = {"communication", "leadership", "teamwork", "travail en equipe",
+               "autonomie", "creativite", "adaptabilite", "organisation", "rigueur",
+               "esprit critique", "gestion de projet", "resolution de problemes",
+               "analyse", "curiosite", "precision", "innovation", "polyvalence"}
+    for kw_clean, kw_orig in zip(_KEYWORDS_CLEAN, TECH_KEYWORDS):
+        if re.search(r'\b' + re.escape(kw_clean) + r'\b', text_clean):
+            if kw_clean in soft_kw:
+                soft_skills.append(kw_orig)
+            else:
+                hard.append({"skill": kw_orig, "level": 3})
+    return hard, soft_skills
+
 
 @app.post("/match", response_model=MatchResponse)
-def match_candidates(req: MatchRequest) -> MatchResponse:
-    all_skills = collect_all_skills(req.offer, req.candidates)
-
-    offer_vec = build_vector(
-        all_skills,
-        req.offer.hardSkills,
-        req.offer.softwares,
-        req.offer.softSkills,
-    )
-
-    offer_skill_names = (
-        [s.skill.lower() for s in req.offer.hardSkills]
-        + [s.skill.lower() for s in req.offer.softwares]
-        + [s.lower() for s in req.offer.softSkills]
-    )
-
+def match(req: MatchRequest):
     offer_text = (req.offer.description or "").strip()
 
-    results: List[MatchResult] = []
+    # When offer has no structured skills, extract them from description text
+    if not req.offer.hardSkills and not req.offer.softwares and offer_text:
+        hard, soft_sk = extract_skills_from_text(offer_text)
+        req.offer.hardSkills = [SkillVector(**s) for s in hard]
+        if not req.offer.softSkills:
+            req.offer.softSkills = soft_sk
+        print(f"[match] extracted from description: {[s.skill for s in req.offer.hardSkills]}")
 
-    for candidate in req.candidates:
-        # ── 1. Skills score (TF / PyTorch cosine) ────────────
-        cand_vec   = build_vector(all_skills, candidate.hardSkills, candidate.softwares, candidate.softSkills)
-        skill_score = cosine_sim(offer_vec, cand_vec)
+    # Build global skill list from offer + all candidates
+    all_skills_set = set()
+    for s in req.offer.hardSkills + req.offer.softwares:
+        all_skills_set.update(normalize_skill(s.skill))
+    for s in req.offer.softSkills:
+        all_skills_set.update(normalize_skill(s))
+    for c in req.candidates:
+        for s in c.hardSkills + c.softwares:
+            all_skills_set.update(normalize_skill(s.skill))
+        for s in c.softSkills:
+            all_skills_set.update(normalize_skill(s))
 
-        cand_skill_names = (
-            [s.skill.lower() for s in candidate.hardSkills]
-            + [s.skill.lower() for s in candidate.softwares]
-            + [s.lower() for s in candidate.softSkills]
-        )
-        matched = [s for s in offer_skill_names if s in cand_skill_names]
-        missing = [s for s in offer_skill_names if s not in cand_skill_names]
+    all_skills = list(all_skills_set)
+    skill_index = {s: i for i, s in enumerate(all_skills)}
 
-        # ── 2. CV semantic score (sentence embeddings) ────────
-        semantic_score     = 0.0
-        extracted_cv_skills: List[str] = []
-        has_cv = bool(candidate.cvUrl and offer_text)
+    print(f"[match] offer skills: {[s.skill for s in req.offer.hardSkills + req.offer.softwares]}")
+    print(f"[match] candidates: {len(req.candidates)}")
 
-        if has_cv:
-            cv_text = extract_cv_text(candidate.cvUrl)   # type: ignore[arg-type]
-            if cv_text:
-                semantic_score      = semantic_similarity(cv_text, offer_text)
-                extracted_cv_skills = extract_skills_from_cv(cv_text, offer_skill_names)
+    # Offer vector: hardSkills + softwares (80%) + softSkills (20%)
+    offer_hard_vec = build_vector(all_skills, req.offer.hardSkills + req.offer.softwares, skill_index)
+    offer_soft_vec = build_vector(all_skills, req.offer.softSkills, skill_index)
+    offer_combined = 0.8 * offer_hard_vec + 0.2 * offer_soft_vec
 
-                # Skills found in CV but not declared → add to matched if in offer
-                for sk in extracted_cv_skills:
-                    if sk in offer_skill_names and sk not in matched:
-                        matched.append(sk)
-                    if sk in missing:
-                        missing.remove(sk)
+    offer_names_set = set()
+    for s in req.offer.hardSkills + req.offer.softwares:
+        offer_names_set.update(normalize_skill(s.skill))
+    for s in req.offer.softSkills:
+        offer_names_set.update(normalize_skill(s))
 
-        # ── 3. Final score ────────────────────────────────────
-        # With CV  → 60 % semantic + 40 % skills
-        # Without  → 100 % skills (graceful degradation)
-        if has_cv and semantic_score > 0:
-            raw = skill_score * 0.4 + semantic_score * 0.6
+    results = []
+
+    for c in req.candidates:
+        cand_hard_vec = build_vector(all_skills, c.hardSkills + c.softwares, skill_index)
+        cand_soft_vec = build_vector(all_skills, c.softSkills, skill_index)
+        cand_combined = 0.8 * cand_hard_vec + 0.2 * cand_soft_vec
+
+        skill_score = coverage_score(offer_combined, cand_combined)
+
+        cand_names = set()
+        for s in c.hardSkills + c.softwares:
+            cand_names.update(normalize_skill(s.skill))
+        for s in c.softSkills:
+            cand_names.update(normalize_skill(s))
+
+        matched = list(offer_names_set & cand_names)
+        missing = list(offer_names_set - cand_names)
+
+        semantic_score = 0.0
+        if c.cvUrl and offer_text:
+            cv_text = extract_cv_text(c.cvUrl)
+            if cv_text.strip():
+                semantic_score = semantic_similarity(cv_text, offer_text)
+
+        if semantic_score > 0:
+            final = 0.4 * skill_score + 0.6 * semantic_score
         else:
-            raw = skill_score
+            final = skill_score
 
-        score = max(0, min(100, int(round(raw * 100))))
+        score = int(max(0, min(100, round(final * 100))))
+
+        print(f"  {c.id[-6:]} score={score} skill={skill_score:.2f} sem={semantic_score:.2f} matched={matched[:3]}")
 
         results.append(MatchResult(
-            candidateId=candidate.id,
+            candidateId=c.id,
             score=score,
             skillScore=round(skill_score, 3),
             semanticScore=round(semantic_score, 3),
             matchedSkills=matched,
             missingSkills=missing,
-            extractedCvSkills=extracted_cv_skills,
+            extractedCvSkills=[]
         ))
 
-    results.sort(key=lambda r: r.score, reverse=True)
+    results.sort(key=lambda x: x.score, reverse=True)
+    print(f"[match] top scores: {[(r.candidateId[-4:], r.score) for r in results[:5]]}")
     return MatchResponse(results=results)
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "Shape AI Matching"}
+    return {"ok": True, "sbert": SBERT_AVAILABLE}
 
 
 if __name__ == "__main__":

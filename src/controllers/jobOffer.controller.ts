@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import JobOffer from '../models/JobOffer';
+import Application from '../models/JobOfferApplication';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { runAutoMatchPipeline } from '../services/autoMatch.service';
 
@@ -139,5 +140,32 @@ export const remove = async (req: AuthRequest, res: Response): Promise<void> => 
     res.json({ message: 'Offre supprimée' });
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+
+// POST /api/JobOffer/triggerMatchForCompany/:companyId
+// Triggers the AI matching pipeline for all open offers that have no scored applications yet.
+export const triggerMatchForCompany = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { companyId } = req.params;
+    const openOffers = await JobOffer.find({ company: companyId, status: 'open', deleted: false }).select('_id');
+
+    const offersToRun: string[] = [];
+    for (const offer of openOffers) {
+      const hasScored = await Application.exists({
+        jobOffer:   offer._id,
+        deleted:    false,
+        matchScore: { $gt: 0 },
+      });
+      if (!hasScored) offersToRun.push(offer._id.toString());
+    }
+
+    for (const offerId of offersToRun) {
+      setImmediate(() => runAutoMatchPipeline({ jobOfferId: offerId }));
+    }
+
+    res.json({ triggered: offersToRun.length });
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur', error: err });
   }
 };

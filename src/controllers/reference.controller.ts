@@ -24,7 +24,7 @@ export const getLanguages = async (req: Request, res: Response): Promise<void> =
   } catch (err) { res.status(500).json({ error: err }); }
 };
 
-export const getCountries = async (req: Request, res: Response): Promise<void> => {
+export const getCountries = async (_req: Request, res: Response): Promise<void> => {
   try {
     const items = await Country.find();
     res.json(items);
@@ -92,17 +92,9 @@ export const getCareers = async (_req: Request, res: Response): Promise<void> =>
   } catch (err) { res.status(500).json({ error: err }); }
 };
 
-export const getQuizzes = async (req: Request, res: Response): Promise<void> => {
+export const getQuizzes = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const items = await Quiz.find().populate('program');
+    const items = await Quiz.find({ deleted: { $ne: true } });
     res.json(items);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
-
-export const getQuizByProgram = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const item = await Quiz.findOne({ program: req.params.programId }).populate('program');
-    if (!item) { res.status(404).json({ message: 'Non trouvé' }); return; }
-    res.json(item);
   } catch (err) { res.status(500).json({ error: err }); }
 };

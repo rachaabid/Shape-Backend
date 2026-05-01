@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-// status: 1=Applied 2=Rejected 3=Interview 4=Hired 5=Intern
+// status: 0=AutoSuggested 1=Applied 2=Rejected 3=Interview 4=Hired 5=Intern
 export interface IApplication extends Document {
   user?:              mongoose.Types.ObjectId;
   jobOffer?:          mongoose.Types.ObjectId;

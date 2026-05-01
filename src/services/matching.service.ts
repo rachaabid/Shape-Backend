@@ -1,6 +1,31 @@
 import * as tf from '@tensorflow/tfjs';
 import axios from 'axios';
 
+const SKILL_KEYWORDS = [
+  // tech
+  'javascript','typescript','python','java','c#','c++','go','php','ruby','swift','kotlin',
+  'react','angular','vue','nextjs','nodejs','express','django','fastapi','spring','laravel',
+  'sql','mysql','postgresql','mongodb','redis','firebase','elasticsearch',
+  'docker','kubernetes','git','linux','bash','aws','azure','gcp','terraform',
+  'html','css','sass','tailwind','bootstrap','figma','photoshop','illustrator','canva',
+  'tensorflow','pytorch','sklearn','pandas','numpy','opencv','machine learning','deep learning',
+  'rest','graphql','api','microservices','agile','scrum','jira',
+  // digital marketing / SEO
+  'seo','sem','google analytics','google ads','meta ads','community management',
+  'social media','réseaux sociaux','content','marketing digital','growth hacking',
+  'emailing','copywriting','inbound marketing','wordpress','shopify','hubspot',
+  // soft skills FR/EN
+  'communication','leadership','teamwork','travail en équipe','autonomie','créativité',
+  'adaptabilité','organisation','rigueur','esprit critique','gestion de projet',
+  'management','analyse','analytique','data','design','stratégie','négociation',
+];
+
+const extractKeywordsFromText = (text: string): string[] => {
+  if (!text) return [];
+  const lower = text.toLowerCase();
+  return SKILL_KEYWORDS.filter(kw => lower.includes(kw));
+};
+
 export interface SkillVector {
   skill: string;
   level: number;
@@ -54,11 +79,14 @@ export const rankCandidates = (
   offer: JobOfferSkills,
   candidates: CandidateSkills[]
 ): MatchResult[] => {
+  const descKeywordsForIndex = extractKeywordsFromText(offer.description || '');
+
   const allSkills = [
     ...new Set([
       ...offer.hardSkills.map(s => s.skill.toLowerCase()),
       ...offer.softwares.map(s => s.skill.toLowerCase()),
       ...offer.softSkills.map(s => s.toLowerCase()),
+      ...descKeywordsForIndex,
       ...candidates.flatMap(c => [
         ...c.hardSkills.map(s => s.skill.toLowerCase()),
         ...c.softwares.map(s => s.skill.toLowerCase()),
@@ -67,26 +95,36 @@ export const rankCandidates = (
     ]),
   ];
 
-  const offerHard    = buildVector(allSkills, offer.hardSkills);
-  const offerSoft    = buildVector(allSkills, offer.softwares);
-  const offerSoftSk  = buildVector(allSkills, offer.softSkills.map(s => ({ skill: s, level: 3 })));
+  // When offer has no structured skills, extract from description text
+  const descKeywords = extractKeywordsFromText(offer.description || '');
+  let effectiveHardSkills = offer.hardSkills;
+  let effectiveSoftwareSkills = offer.softwares;
+  if (effectiveHardSkills.length === 0 && effectiveSoftwareSkills.length === 0 && descKeywords.length > 0) {
+    effectiveHardSkills = descKeywords.map(s => ({ skill: s, level: 3 }));
+  }
+  const effectiveSoftSkills = [...new Set([...offer.softSkills, ...descKeywords])];
+
+  const offerHard    = buildVector(allSkills, effectiveHardSkills);
+  const offerSoft    = buildVector(allSkills, effectiveSoftwareSkills);
+  const offerSoftSk  = buildVector(allSkills, effectiveSoftSkills.map(s => ({ skill: s, level: 3 })));
+
+  const offerSkillNames = [
+    ...effectiveHardSkills.map(s => s.skill.toLowerCase()),
+    ...effectiveSoftwareSkills.map(s => s.skill.toLowerCase()),
+    ...effectiveSoftSkills.map(s => s.toLowerCase()),
+  ];
 
   const results: MatchResult[] = candidates.map(candidate => {
     const candHard   = buildVector(allSkills, candidate.hardSkills);
     const candSoft   = buildVector(allSkills, candidate.softwares);
     const candSoftSk = buildVector(allSkills, candidate.softSkills.map(s => ({ skill: s, level: 3 })));
 
-    const simHard  = cosineSimilarity(offerHard,   candHard);
-    const simSoft  = cosineSimilarity(offerSoft,   candSoft);
-    const simSoftSk= cosineSimilarity(offerSoftSk, candSoftSk);
+    const simHard   = cosineSimilarity(offerHard,   candHard);
+    const simSoft   = cosineSimilarity(offerSoft,   candSoft);
+    const simSoftSk = cosineSimilarity(offerSoftSk, candSoftSk);
 
     const score = Math.round(((simHard * 0.5) + (simSoft * 0.3) + (simSoftSk * 0.2)) * 100);
 
-    const offerSkillNames = [
-      ...offer.hardSkills.map(s => s.skill.toLowerCase()),
-      ...offer.softwares.map(s => s.skill.toLowerCase()),
-      ...offer.softSkills.map(s => s.toLowerCase()),
-    ];
     const candSkillNames = [
       ...candidate.hardSkills.map(s => s.skill.toLowerCase()),
       ...candidate.softwares.map(s => s.skill.toLowerCase()),
@@ -96,10 +134,14 @@ export const rankCandidates = (
     const matchedSkills = offerSkillNames.filter(s => candSkillNames.includes(s));
     const missingSkills = offerSkillNames.filter(s => !candSkillNames.includes(s));
 
-    [offerHard, offerSoft, offerSoftSk, candHard, candSoft, candSoftSk].forEach(t => t.dispose());
+    // Dispose only candidate tensors — offer tensors are reused across iterations
+    [candHard, candSoft, candSoftSk].forEach(t => t.dispose());
 
     return { candidateId: candidate.id, score, matchedSkills, missingSkills };
   });
+
+  // Dispose offer tensors once, after all candidates are processed
+  [offerHard, offerSoft, offerSoftSk].forEach(t => t.dispose());
 
   return results.sort((a, b) => b.score - a.score);
 };
@@ -111,8 +153,8 @@ export const rankWithPython = async (
   try {
     const { data } = await axios.post(`${process.env.PYTHON_SERVICE_URL}/match`, { offer, candidates });
     return data.results;
-  } catch {
-    // fallback to TF.js if Python service is down
-    return rankCandidates(offer, candidates);
-  }
+  } catch (err) {
+  console.error("Python service failed", err)
+  throw err
+}
 };

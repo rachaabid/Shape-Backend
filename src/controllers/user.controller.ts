@@ -6,6 +6,7 @@ import Company from '../models/Company';
 import NotificationSetting from '../models/NotificationSetting';
 import { signToken } from '../config/jwt';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { triggerMatchForNewCandidate } from '../services/autoMatch.service';
 
 // POST /api/User/Authenticate
 export const authenticate = async (req: Request, res: Response): Promise<void> => {
@@ -32,7 +33,8 @@ export const authenticate = async (req: Request, res: Response): Promise<void> =
 // POST /api/User
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, login, password, roles, companyName } = req.body;
+    const { email: rawEmail, login, password, roles, companyName } = req.body;
+    const email = rawEmail?.toLowerCase().trim();
 
     if (await User.findOne({ $or: [{ email }, { login }] })) {
       res.status(400).json({ message: 'Email ou login déjà utilisé' });
@@ -40,7 +42,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     }
 
     const hashed = await bcrypt.hash(password, 10);
-    const user   = await User.create({ ...req.body, password: hashed, verifiedAccount: false });
+    const user   = await User.create({ ...req.body, email, password: hashed, verifiedAccount: false });
 
     // auto-create company profile for COMPANY role
     if (roles?.includes('COMPANY')) {
@@ -52,7 +54,16 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     const token = signToken(user._id.toString(), user.roles);
     res.status(201).json({ ...user.toObject(), password: undefined, token });
 
-  } catch (err) {
+    // trigger AI matching against all open offers for new candidates
+    if ((user.roles || []).includes('CANDIDATE')) {
+      setImmediate(() => triggerMatchForNewCandidate(user._id.toString()));
+    }
+
+  } catch (err: any) {
+    if (err.code === 11000) {
+      res.status(400).json({ message: 'Email ou login déjà utilisé' });
+      return;
+    }
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }
 };
@@ -71,13 +82,26 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 // PUT /api/User  (full update)
 export const updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { password, ...rest } = req.body;
+    const { password, email: rawEmail, ...rest } = req.body;
     const updates: Record<string, unknown> = { ...rest };
+
+    if (rawEmail) {
+      const email = rawEmail.toLowerCase().trim();
+      if (await User.findOne({ email, _id: { $ne: req.userId } })) {
+        res.status(400).json({ message: 'Email déjà utilisé' });
+        return;
+      }
+      updates.email = email;
+    }
     if (password) updates.password = await bcrypt.hash(password, 10);
 
     const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select('-password');
     res.json(user);
-  } catch (err) {
+  } catch (err: any) {
+    if (err.code === 11000) {
+      res.status(400).json({ message: 'Email ou login déjà utilisé' });
+      return;
+    }
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }
 };
@@ -85,14 +109,27 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
 // PATCH /api/User  (partial update with id in body)
 export const patchUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id, password, ...rest } = req.body;
+    const { id, password, email: rawEmail, ...rest } = req.body;
     const targetId = id || req.userId;
     const updates: Record<string, unknown> = { ...rest };
+
+    if (rawEmail) {
+      const email = rawEmail.toLowerCase().trim();
+      if (await User.findOne({ email, _id: { $ne: targetId } })) {
+        res.status(400).json({ message: 'Email déjà utilisé' });
+        return;
+      }
+      updates.email = email;
+    }
     if (password) updates.password = await bcrypt.hash(password, 10);
 
     const user = await User.findByIdAndUpdate(targetId, updates, { new: true }).select('-password');
     res.json(user);
-  } catch (err) {
+  } catch (err: any) {
+    if (err.code === 11000) {
+      res.status(400).json({ message: 'Email ou login déjà utilisé' });
+      return;
+    }
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }
 };

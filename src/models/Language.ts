@@ -10,6 +10,6 @@ const LanguageSchema = new Schema<ILanguage>({
   name: { fr: String, en: String, ar: String },
   code: String,
   flag: String,
-});
+}, { toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 export default mongoose.model<ILanguage>('Language', LanguageSchema);

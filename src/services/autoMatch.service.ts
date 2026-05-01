@@ -7,6 +7,14 @@ import Notification from '../models/Notification';
 import { rankWithPython }      from './matching.service';
 import { sendCompanyProposal } from './email.service';
 
+// Extract a plain string from a potentially multilingual skill name object
+const getSkillName = (s: any): string => {
+  const n = s.skill?.name;
+  if (!n) return s.skill?.toString?.() ?? '';
+  if (typeof n === 'string') return n;
+  return n.fr || n.en || n.ar || s.skill?.toString?.() || '';
+};
+
 // ── Smart scheduling ─────────────────────────────────────────
 // Find the next free slot for a company, avoiding existing interviews.
 // Slots: every 2h from 10:00 to 16:00, Mon–Fri, min 3 days ahead.
@@ -60,10 +68,26 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
         .populate('softwareSkills.skill', 'name');
       if (!offer || offer.status !== 'open') return;
 
+      // Auto-create status-0 (auto-suggested) applications for candidates without one
+      const allCandidateIds = (await User.find({ roles: 'CANDIDATE', deleted: { $ne: true } }).select('_id'))
+        .map((u: any) => u._id.toString());
+
+      const existingUserIds = new Set(
+        (await Application.find({ jobOffer: options.jobOfferId, deleted: false }).distinct('user'))
+          .map((id: any) => id.toString())
+      );
+
+      const newApps = allCandidateIds
+        .filter(id => !existingUserIds.has(id))
+        .map(userId => ({ user: userId, jobOffer: options.jobOfferId, status: 0 }));
+
+      if (newApps.length > 0) await Application.insertMany(newApps);
+
+      // Match all pending: auto-suggested (0) + manually applied (1)
       applications = await Application.find({
         jobOffer: options.jobOfferId,
         deleted:  false,
-        status:   1, 
+        status:   { $in: [0, 1] },
       }).populate({
         path: 'user', select: '-password',
         populate: [
@@ -89,7 +113,12 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
       if (!offer || offer.status !== 'open') return;
     }
 
-    if (!offer || applications.length === 0) return;
+    if (!offer || applications.length === 0) {
+      console.log('[autoMatch] no offer or no applications, aborting');
+      return;
+    }
+
+    console.log(`[autoMatch] offer="${offer.title}" | ${applications.length} candidate(s) to score`);
 
     const company      = await Company.findById(offer.company);
     if (!company) return;
@@ -106,8 +135,8 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
         const u = a.user;
         return {
           id:         u._id.toString(),
-          hardSkills: (u.hardSkills  || []).map((s: any) => ({ skill: s.skill?.name ?? s.skill?.toString() ?? s.skill, level: s.level })),
-          softwares:  (u.softwares   || []).map((s: any) => ({ skill: s.skill?.name ?? s.skill?.toString() ?? s.skill, level: s.level })),
+          hardSkills: (u.hardSkills || []).map((s: any) => ({ skill: getSkillName(s), level: s.level ?? 1 })).filter((s: any) => s.skill),
+          softwares:  (u.softwares  || []).map((s: any) => ({ skill: getSkillName(s), level: s.level ?? 1 })).filter((s: any) => s.skill),
           softSkills: u.softSkills  || [],
           cvUrl:      a.cv ? `${backendUrl}/api/Storage/${a.cv}` : undefined,
         };
@@ -117,90 +146,96 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
 
     // Combine offer text fields for CV semantic comparison
     const offerDescription = [
-      offer.title,
-      offer.description,
-      offer.whoAreThey,
-      offer.requiredProfile,
-    ].filter(Boolean).join(' ');
+    offer.title,
+    offer.description,
+    offer.whoAreThey,
+    offer.requiredProfile,
+  ].filter(Boolean).join(' ').toLowerCase();
 
     const offerInput = {
-      hardSkills:  (offer.hardSkills     || []).map((s: any) => ({ skill: s.skill?.name ?? s.skill?.toString() ?? s.skill, level: s.level })),
-      softwares:   (offer.softwareSkills || []).map((s: any) => ({ skill: s.skill?.name ?? s.skill?.toString() ?? s.skill, level: s.level })),
+      hardSkills:  (offer.hardSkills     || []).map((s: any) => ({ skill: getSkillName(s), level: s.level ?? 1 })).filter((s: any) => s.skill),
+      softwares:   (offer.softwareSkills || []).map((s: any) => ({ skill: getSkillName(s), level: s.level ?? 1 })).filter((s: any) => s.skill),
       softSkills:  offer.softSkills || [],
       description: offerDescription || undefined,
     };
 
+    console.log(`[autoMatch] offerSkills: ${offerInput.hardSkills.slice(0,3).map((s:any)=>s.skill).join(', ')}`);
+    console.log(`[autoMatch] sample candidate skills: ${candidateInputs[0]?.hardSkills?.slice(0,2).map((s:any)=>s.skill).join(', ') || 'none'}`);
+
     const results = await rankWithPython(offerInput, candidateInputs);
+
+    console.log(`[autoMatch] top 5 scores: ${results.slice(0,5).map(r => `${r.candidateId.slice(-4)}→${r.score}`).join(' | ')}`);
 
     for (const result of results) {
       const app = applications.find((a: any) => a.user?._id.toString() === result.candidateId);
       if (!app) continue;
 
+      const isRealApplication = (app.status ?? 0) === 1;
       const candidate     = app.user as any;
       const candidateName = (candidate.firstName?.fr || candidate.firstName?.en || candidate.login || '').trim();
 
+      const scoreUpdate = {
+        matchScore:        result.score,
+        skillScore:        result.skillScore,
+        semanticScore:     result.semanticScore,
+        matchedSkills:     result.matchedSkills,
+        missingSkills:     result.missingSkills,
+        extractedCvSkills: result.extractedCvSkills,
+      };
+
       if (result.score < 70) {
-        // ── Auto-reject ───────────────────────────────────────
-        await Application.findByIdAndUpdate(app._id, {
-          status:            2, // Rejected
-          matchScore:        result.score,
-          skillScore:        result.skillScore,
-          semanticScore:     result.semanticScore,
-          matchedSkills:     result.matchedSkills,
-          missingSkills:     result.missingSkills,
-          extractedCvSkills: result.extractedCvSkills,
-        });
-
-        await Notification.create({
-          userId:  candidate._id,
-          type:    'APPLICATION_REJECTED',
-          message: `Votre candidature pour "${jobTitle}" n'a pas été retenue (score : ${result.score}%).`,
-          data:    { jobOfferId: offer._id },
-        });
-
-      } else {
-        // ── Retained ──────────────────────────────────────────
-        const proposedDate = await nextSlot(company._id.toString());
-
-        await Application.findByIdAndUpdate(app._id, {
-          matchScore:        result.score,
-          skillScore:        result.skillScore,
-          semanticScore:     result.semanticScore,
-          proposedDate,
-          matchedSkills:     result.matchedSkills,
-          missingSkills:     result.missingSkills,
-          extractedCvSkills: result.extractedCvSkills,
-        });
-
-        // In-app notification to candidate
-        await Notification.create({
-          userId:  candidate._id,
-          type:    'APPLICATION_RETAINED',
-          message: `Votre candidature pour "${jobTitle}" est retenue (score : ${result.score}%). L'entreprise va vous contacter.`,
-          data:    { jobOfferId: offer._id, score: result.score },
-        });
-
-        // Email to company only
-        if (companyEmail) {
-          await sendCompanyProposal({
-            companyEmail,
-            companyName,
-            candidateName,
-            jobTitle,
-            score:        result.score,
-            proposedDate: proposedDate.toLocaleDateString('fr-FR'),
-            proposedTime: proposedDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-            frontendUrl:  process.env.FRONTEND_URL!,
+        if (isRealApplication) {
+          // ── Auto-reject real application ──────────────────────
+          await Application.findByIdAndUpdate(app._id, { ...scoreUpdate, status: 2 });
+          await Notification.create({
+            userId:  candidate._id,
+            type:    'APPLICATION_REJECTED',
+            message: `Votre candidature pour "${jobTitle}" n'a pas été retenue (score : ${result.score}%).`,
+            data:    { jobOfferId: offer._id },
           });
+        } else {
+          // ── Low-score auto-suggestion: store score silently ────
+          await Application.findByIdAndUpdate(app._id, scoreUpdate);
+        }
+      } else {
+        // ── Score >= 70 ───────────────────────────────────────────
+        if (isRealApplication) {
+          const proposedDate = await nextSlot(company._id.toString());
+          await Application.findByIdAndUpdate(app._id, { ...scoreUpdate, proposedDate });
+
+          await Notification.create({
+            userId:  candidate._id,
+            type:    'APPLICATION_RETAINED',
+            message: `Votre candidature pour "${jobTitle}" est retenue (score : ${result.score}%). L'entreprise va vous contacter.`,
+            data:    { jobOfferId: offer._id, score: result.score },
+          });
+
+          if (companyEmail) {
+            await sendCompanyProposal({
+              companyEmail,
+              companyName,
+              candidateName,
+              jobTitle,
+              score:        result.score,
+              proposedDate: proposedDate.toLocaleDateString('fr-FR'),
+              proposedTime: proposedDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+              frontendUrl:  process.env.FRONTEND_URL!,
+            });
+          }
+        } else {
+          // ── Good auto-suggestion: store score, notify company only ──
+          await Application.findByIdAndUpdate(app._id, scoreUpdate);
         }
 
-        // In-app notification to company
+        // In-app notification to company for both cases
         if (companyUser) {
           await Notification.create({
             userId:  companyUser._id,
             type:    'CANDIDATE_RETAINED',
-            message: `Candidature retenue — ${candidateName} pour "${jobTitle}" (score : ${result.score}%)`,
-            data:    {
+            message: isRealApplication
+              ? `Candidature retenue — ${candidateName} pour "${jobTitle}" (score : ${result.score}%)`
+              : `Profil compatible — ${candidateName} pour "${jobTitle}" (score : ${result.score}%)`,
+            data: {
               applicationId:  app._id,
               candidateId:    candidate._id,
               score:          result.score,
@@ -209,10 +244,30 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
             },
           });
         }
-
       }
     }
-  } catch {
-    // silently ignore pipeline errors to avoid crashing the server
+  } catch (err) {
+    console.error('[autoMatch] pipeline error:', err);
+  }
+};
+
+// Triggered when a new CANDIDATE registers: match against all open offers
+export const triggerMatchForNewCandidate = async (candidateId: string): Promise<void> => {
+  try {
+    const openOffers = await JobOffer.find({ status: 'open', deleted: { $ne: true } }).select('_id');
+    for (const offer of openOffers) {
+      let app = await Application.findOne({
+        user:     candidateId,
+        jobOffer: offer._id,
+        deleted:  false,
+        status:   { $in: [0, 1] },
+      });
+      if (!app) {
+        app = await Application.create({ user: candidateId, jobOffer: offer._id, status: 0 });
+      }
+      await runAutoMatchPipeline({ applicationId: app._id.toString() });
+    }
+  } catch (err) {
+    console.error('[autoMatch] triggerMatchForNewCandidate error:', err);
   }
 };

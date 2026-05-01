@@ -8,6 +8,6 @@ export interface IWorkingMode extends Document {
 const WorkingModeSchema = new Schema<IWorkingMode>({
   name:        { fr: String, en: String, ar: String },
   description: { fr: String, en: String, ar: String },
-});
+}, { toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 export default mongoose.model<IWorkingMode>('WorkingMode', WorkingModeSchema);
