@@ -3,6 +3,7 @@ import JobOffer from '../models/JobOffer';
 import Application from '../models/JobOfferApplication';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { runAutoMatchPipeline } from '../services/autoMatch.service';
+import { notifyAdmins } from './notification.controller';
 
 const buildFilter = (attributeName: string, value: string) => {
   const map: Record<string, Record<string, unknown>> = {
@@ -16,7 +17,7 @@ const buildFilter = (attributeName: string, value: string) => {
 // GET /api/JobOffer
 export const getAll = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const offers = await JobOffer.find({ deleted: false })
+    const offers = await JobOffer.find({ deleted: { $ne: true } })
       .populate('company', 'name logo')
       .populate('workingMode', 'name')
       .populate('jobOfferModel', 'name')
@@ -31,7 +32,7 @@ export const getAll = async (_req: Request, res: Response): Promise<void> => {
 // GET /api/JobOffer/count
 export const getCount = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const count = await JobOffer.countDocuments({ deleted: false });
+    const count = await JobOffer.countDocuments({ deleted: { $ne: true } });
     res.json(count);
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
@@ -43,7 +44,7 @@ export const getCount = async (_req: Request, res: Response): Promise<void> => {
 export const getByAttribute = async (req: Request, res: Response): Promise<void> => {
   try {
     const { attributeName, value } = req.params;
-    const filter = { ...buildFilter(attributeName, value), deleted: false };
+    const filter = { ...buildFilter(attributeName, value), deleted: { $ne: true } };
     const offers = await JobOffer.find(filter)
       .populate('company', 'name logo')
       .populate('workingMode', 'name')
@@ -60,7 +61,7 @@ export const getByAttribute = async (req: Request, res: Response): Promise<void>
 export const getCountByAttribute = async (req: Request, res: Response): Promise<void> => {
   try {
     const { attributeName, value } = req.params;
-    const filter = { ...buildFilter(attributeName, value), deleted: false };
+    const filter = { ...buildFilter(attributeName, value), deleted: { $ne: true } };
     const count  = await JobOffer.countDocuments(filter);
     res.json(count);
   } catch (err) {
@@ -102,8 +103,12 @@ export const create = async (req: AuthRequest, res: Response): Promise<void> => 
   try {
     const offer = await JobOffer.create(req.body);
     res.status(201).json(offer);
-    // Déclencher le pipeline de matching en arrière-plan
     setImmediate(() => runAutoMatchPipeline({ jobOfferId: offer._id.toString() }));
+    setImmediate(() => notifyAdmins(
+      'NEW_JOB_OFFER',
+      `Nouvelle offre d'emploi publiée : "${offer.title || 'Sans titre'}"`,
+      { offerId: offer._id.toString() }
+    ).catch(() => {}));
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }
@@ -148,7 +153,7 @@ export const remove = async (req: AuthRequest, res: Response): Promise<void> => 
 export const triggerMatchForCompany = async (req: Request, res: Response): Promise<void> => {
   try {
     const { companyId } = req.params;
-    const openOffers = await JobOffer.find({ company: companyId, status: 'open', deleted: false }).select('_id');
+    const openOffers = await JobOffer.find({ company: companyId, status: 'open', deleted: { $ne: true } }).select('_id');
 
     const offersToRun: string[] = [];
     for (const offer of openOffers) {
@@ -169,3 +174,21 @@ export const triggerMatchForCompany = async (req: Request, res: Response): Promi
     res.status(500).json({ message: 'Erreur', error: err });
   }
 };
+
+// GET /api/JobOffer/company/:companyId
+export const getJobOffersByCompany = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { companyId } = req.params;
+    const offers = await JobOffer.find({ company: companyId, deleted: { $ne: true } })
+      .populate('company', 'name logo')
+      .populate('workingMode', 'name')
+      .populate('jobOfferModel', 'name')
+      .populate('hardSkills.skill', 'name')
+      .populate('softwareSkills.skill', 'name')
+      .sort({ createdAt: -1 });
+    res.json(offers);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+

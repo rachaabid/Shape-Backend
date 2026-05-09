@@ -67,11 +67,12 @@ export const getTaskResponseById = async (req: Request, res: Response): Promise<
 
 export const getTaskResponseByAttribute = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { attributeName, value } = req.params;
+    const { value } = req.params;
+    const attr = req.params['attributeName'].toLowerCase();
     const filter: Record<string, unknown> = { deleted: { $ne: true } };
-    if (attributeName === 'task')        filter['task']        = value;
-    if (attributeName === 'inscription') filter['inscription'] = value;
-    if (attributeName === 'status')      filter['status']      = Number(value);
+    if (attr === 'task')        filter['task']        = value;
+    if (attr === 'inscription') filter['inscription'] = value;
+    if (attr === 'status')      filter['status']      = Number(value);
     const results = await TaskResponse.find(filter).populate('task').populate('owner', '-password');
     res.json(results);
   } catch (err) { res.status(500).json({ error: err }); }

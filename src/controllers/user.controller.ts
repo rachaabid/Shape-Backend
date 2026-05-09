@@ -7,6 +7,8 @@ import NotificationSetting from '../models/NotificationSetting';
 import { signToken } from '../config/jwt';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { triggerMatchForNewCandidate } from '../services/autoMatch.service';
+import { sendAccountValidationEmail } from '../services/email.service';
+import { notifyAdmins } from './notification.controller';
 
 // POST /api/User/Authenticate
 export const authenticate = async (req: Request, res: Response): Promise<void> => {
@@ -20,6 +22,12 @@ export const authenticate = async (req: Request, res: Response): Promise<void> =
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       res.status(401).json({ message: 'Identifiants invalides' });
+      return;
+    }
+
+    const needsAdminValidation = user.roles.some(r => r === 'CANDIDATE' || r === 'COMPANY');
+    if (needsAdminValidation && !user.verifiedAccount) {
+      res.status(403).json({ message: 'Compte en attente de validation par un administrateur' });
       return;
     }
 
@@ -53,6 +61,15 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
     const token = signToken(user._id.toString(), user.roles);
     res.status(201).json({ ...user.toObject(), password: undefined, token });
+
+    const roleLabel = (user.roles || []).includes('COMPANY') ? 'entreprise' : 'candidat';
+    if ((user.roles || []).includes('COMPANY') || (user.roles || []).includes('CANDIDATE')) {
+      setImmediate(() => notifyAdmins(
+        'NEW_REGISTRATION',
+        `Nouvelle inscription ${roleLabel} : ${user.email}`,
+        { userId: user._id.toString(), role: roleLabel }
+      ).catch(() => {}));
+    }
 
     // trigger AI matching against all open offers for new candidates
     if ((user.roles || []).includes('CANDIDATE')) {
@@ -160,11 +177,44 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   }
 };
 
+// GET /api/User  → tous les utilisateurs (admin)
+export const getAllUsers = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await User.find({ deleted: false }).select('-password');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+
 // GET /api/User/candidates
 export const getCandidateUsers = async (_req: Request, res: Response): Promise<void> => {
   try {
     const users = await User.find({ roles: 'CANDIDATE', deleted: false }).select('-password');
     res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+
+// PATCH /api/User/:id/validate  (admin validates a COMPANY or CANDIDATE account)
+export const validateUserAccount = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { verifiedAccount: true },
+      { new: true }
+    ).select('-password');
+
+    if (!user) { res.status(404).json({ message: 'Utilisateur non trouvé' }); return; }
+
+    const name = (user as any).firstNameDisplay || user.login || user.email;
+    const frontendUrl = process.env.FRONTEND_URL || '';
+    setImmediate(() =>
+      sendAccountValidationEmail({ userEmail: user.email, userName: name, frontendUrl }).catch(() => {})
+    );
+
+    res.json(user);
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }

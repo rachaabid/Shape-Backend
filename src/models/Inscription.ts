@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IInscription extends Document {
   user?:      mongoose.Types.ObjectId;
+  mentor?:    mongoose.Types.ObjectId;
   programs?:  mongoose.Types.ObjectId[]; // liste des programmes inscrits
   payement?:  mongoose.Types.ObjectId;
   closed?:    boolean;
@@ -12,6 +13,7 @@ export interface IInscription extends Document {
 
 const InscriptionSchema = new Schema<IInscription>({
   user:     { type: Schema.Types.ObjectId, ref: 'User' },
+  mentor:   { type: Schema.Types.ObjectId, ref: 'User' },
   programs: [{ type: Schema.Types.ObjectId, ref: 'Program' }],
   payement: { type: Schema.Types.ObjectId },
   closed:   { type: Boolean, default: false },

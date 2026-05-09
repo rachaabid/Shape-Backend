@@ -1,19 +1,20 @@
 import { Request, Response } from 'express';
-import User        from '../models/User';
-import JobOffer    from '../models/JobOffer';
+import User from '../models/User';
+import JobOffer from '../models/JobOffer';
 import Application from '../models/JobOfferApplication';
-import Interview   from '../models/Interview';
-
-// Application status codes
-// 1 = Applied (pending)  2 = Rejected  3 = Retained/Interview  4 = Hired  5 = Intern
+import Interview from '../models/Interview';
+import Program from '../models/Program';
 
 export const getStats = async (_req: Request, res: Response): Promise<void> => {
   try {
-    // ── Comptages simples en parallèle ────────────────────────
+    const now        = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
     const [
       totalUsers,
       totalCandidates,
       totalCompanies,
+      newThisMonth,
       totalOffers,
       openOffers,
       totalApplications,
@@ -22,122 +23,118 @@ export const getStats = async (_req: Request, res: Response): Promise<void> => {
       hiredApps,
       totalInterviews,
       scheduledInterviews,
+      totalPrograms,
       scoreAgg,
+      byMonthAgg,
+      missingSkillsAgg,
+      scoreDistAgg,
     ] = await Promise.all([
       User.countDocuments({ deleted: false }),
       User.countDocuments({ roles: 'CANDIDATE', deleted: false }),
-      User.countDocuments({ roles: 'COMPANY',   deleted: false }),
+      User.countDocuments({ roles: 'COMPANY', deleted: false }),
+      User.countDocuments({ createdAt: { $gte: monthStart }, deleted: false }),
       JobOffer.countDocuments({ deleted: false }),
       JobOffer.countDocuments({ status: 'open', deleted: false }),
       Application.countDocuments({ deleted: false }),
-      Application.countDocuments({ status: 3, deleted: false }),  // Retained
-      Application.countDocuments({ status: 2, deleted: false }),  // Rejected
-      Application.countDocuments({ status: 4, deleted: false }),  // Hired
+      Application.countDocuments({ status: 3, deleted: false }),
+      Application.countDocuments({ status: 2, deleted: false }),
+      Application.countDocuments({ status: 4, deleted: false }),
       Interview.countDocuments(),
       Interview.countDocuments({ status: 'scheduled' }),
-      Application.aggregate([
+      Program.countDocuments({ deleted: false }),
+
+      Application.aggregate<{ avg: number }>([
         { $match: { matchScore: { $exists: true, $ne: null }, deleted: false } },
         { $group: { _id: null, avg: { $avg: '$matchScore' } } },
       ]),
-    ]);
 
-    // ── Nouvelles inscriptions ce mois-ci ─────────────────────
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    const newUsersThisMonth = await User.countDocuments({
-      createdAt: { $gte: startOfMonth },
-      deleted: false,
-    });
-
-    // ── Candidatures par mois (6 derniers mois) ───────────────
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-    sixMonthsAgo.setDate(1);
-    sixMonthsAgo.setHours(0, 0, 0, 0);
-
-    const byMonthRaw = await Application.aggregate([
-      { $match: { createdAt: { $gte: sixMonthsAgo }, deleted: false } },
-      {
-        $group: {
-          _id:   { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
+      Application.aggregate<{ month: string; count: number }>([
+        { $match: { deleted: false, createdAt: { $exists: true } } },
+        { $group: {
+          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
           count: { $sum: 1 },
-        },
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } },
-    ]);
+        }},
+        { $sort: { _id: 1 } },
+        { $limit: 12 },
+        { $project: { _id: 0, month: '$_id', count: 1 } },
+      ]),
 
-    const monthNames = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc'];
-    const byMonth = byMonthRaw.map(d => ({
-      month: monthNames[d._id.month - 1],
-      count: d.count,
-    }));
+      Application.aggregate<{ skill: string; count: number }>([
+        { $match: { deleted: false, missingSkills: { $exists: true, $ne: [] } } },
+        { $unwind: '$missingSkills' },
+        { $group: { _id: '$missingSkills', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+        { $project: { _id: 0, skill: '$_id', count: 1 } },
+      ]),
 
-    // ── Compétences manquantes les plus fréquentes ────────────
-    const missingSkillsAgg = await Application.aggregate([
-      { $match: { missingSkills: { $exists: true, $ne: [] }, deleted: false } },
-      { $unwind: '$missingSkills' },
-      { $group: { _id: '$missingSkills', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 6 },
-    ]);
-
-    // ── Distribution des scores ────────────────────────────────
-    const scoreDistRaw = await Application.aggregate([
-      { $match: { matchScore: { $exists: true, $ne: null }, deleted: false } },
-      {
-        $bucket: {
+      Application.aggregate<{ range: string; count: number }>([
+        { $match: { deleted: false, matchScore: { $exists: true, $ne: null } } },
+        { $bucket: {
           groupBy: '$matchScore',
           boundaries: [0, 30, 50, 70, 85, 101],
-          default: 'Autre',
+          default: 'other',
           output: { count: { $sum: 1 } },
-        },
-      },
+        }},
+        { $project: {
+          _id: 0,
+          range: {
+            $switch: {
+              branches: [
+                { case: { $eq: ['$_id', 0]  }, then: '0–30'   },
+                { case: { $eq: ['$_id', 30] }, then: '30–50'  },
+                { case: { $eq: ['$_id', 50] }, then: '50–70'  },
+                { case: { $eq: ['$_id', 70] }, then: '70–85'  },
+                { case: { $eq: ['$_id', 85] }, then: '85–100' },
+              ],
+              default: 'other',
+            },
+          },
+          count: 1,
+        }},
+      ]),
     ]);
 
-    const scoreLabels = ['0–30', '30–50', '50–70', '70–85', '85–100'];
-    const scoreDist = [0, 30, 50, 70, 85].map((bound, i) => ({
-      range: scoreLabels[i],
-      count: scoreDistRaw.find((b: any) => b._id === bound)?.count || 0,
-    }));
+    const avgScore = Array.isArray(scoreAgg) && scoreAgg.length > 0
+      ? Math.round(scoreAgg[0].avg || 0)
+      : 0;
 
-    // ── Taux calculés ─────────────────────────────────────────
     const retentionRate = totalApplications > 0
       ? Math.round((retainedApps / totalApplications) * 100)
       : 0;
 
-    const avgScore = Math.round(scoreAgg[0]?.avg || 0);
-
     res.json({
       users: {
-        total:          totalUsers,
-        candidates:     totalCandidates,
-        companies:      totalCompanies,
-        newThisMonth:   newUsersThisMonth,
+        total: totalUsers,
+        candidates: totalCandidates,
+        companies: totalCompanies,
+        newThisMonth,
       },
       offers: {
-        total:  totalOffers,
-        open:   openOffers,
+        total: totalOffers,
+        open: openOffers,
         closed: totalOffers - openOffers,
       },
       applications: {
-        total:         totalApplications,
-        pending:       totalApplications - retainedApps - rejectedApps - hiredApps,
-        retained:      retainedApps,
-        rejected:      rejectedApps,
-        hired:         hiredApps,
+        total: totalApplications,
+        pending: Math.max(0, totalApplications - retainedApps - rejectedApps - hiredApps),
+        retained: retainedApps,
+        rejected: rejectedApps,
+        hired: hiredApps,
         retentionRate,
         avgMatchScore: avgScore,
       },
       interviews: {
-        total:     totalInterviews,
+        total: totalInterviews,
         scheduled: scheduledInterviews,
         completed: totalInterviews - scheduledInterviews,
       },
-      byMonth,
-      missingSkills: missingSkillsAgg.map((s: any) => ({ skill: s._id, count: s.count })),
-      scoreDist,
+      programs: totalPrograms,
+      byMonth:       Array.isArray(byMonthAgg)       ? byMonthAgg       : [],
+      missingSkills: Array.isArray(missingSkillsAgg) ? missingSkillsAgg : [],
+      scoreDist:     Array.isArray(scoreDistAgg)     ? scoreDistAgg     : [],
     });
+
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }

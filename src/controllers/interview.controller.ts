@@ -3,6 +3,19 @@ import crypto from 'crypto';
 import Interview from '../models/Interview';
 import Application from '../models/JobOfferApplication';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { notifyAdmins } from './notification.controller';
+
+// GET /api/Interview/bycandidate/:candidateId
+export const getByCandidate = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const interviews = await Interview.find({ candidateId: req.params.candidateId })
+      .populate('jobOfferId')
+      .sort({ scheduledAt: 1 });
+    res.json(interviews);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
 
 // GET /api/Interview/bycompany/:companyId
 export const getByCompany = async (req: Request, res: Response): Promise<void> => {
@@ -36,6 +49,11 @@ export const create = async (req: AuthRequest, res: Response): Promise<void> => 
     const confirmToken = crypto.randomBytes(32).toString('hex');
     const interview = await Interview.create({ ...req.body, confirmToken });
     res.status(201).json(interview);
+    setImmediate(() => notifyAdmins(
+      'NEW_INTERVIEW',
+      `Entretien planifié le ${new Date(interview.scheduledAt).toLocaleDateString('fr-FR')}`,
+      { interviewId: interview._id.toString() }
+    ).catch(() => {}));
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }
@@ -80,3 +98,32 @@ export const confirm = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }
 };
+
+// GET /api/Interview - tous les entretiens
+export const getInterviews = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const interviews = await Interview.find({})
+      .populate('candidateId', '-password')
+      .populate('companyId', 'name logo')
+      .populate('jobOfferId')
+      .sort({ scheduledAt: 1 });
+    res.json(interviews);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+
+// PUT /api/Interview - update complet
+export const updateInterview = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id, ...rest } = req.body;
+    const interview = await Interview.findByIdAndUpdate(id, rest, { new: true })
+      .populate('candidateId', '-password')
+      .populate('companyId', 'name logo')
+      .populate('jobOfferId');
+    res.json(interview);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+

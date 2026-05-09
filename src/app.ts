@@ -26,6 +26,10 @@ import statsRoutes                 from './routes/stats.routes';
 import quizRoutes                  from './routes/quiz.routes';
 import contentRoutes               from './routes/content.routes';
 import taskResponseCommentRoutes   from './routes/taskResponseComment.routes';
+import mentorRoutes                from './routes/mentor.routes';
+import programRoutes               from './routes/program.routes';
+import programRequestRoutes            from './routes/programRequest.routes';
+import companyProgramProposalRoutes    from './routes/companyProgramProposal.routes';
 
 import Conversation from './models/Conversation';
 import Message      from './models/Message';
@@ -37,17 +41,21 @@ const httpServer = createServer(app);
 const PORT       = process.env.PORT || 3000;
 
 // ── CORS ──────────────────────────────────────────────────────
-const corsOrigins = process.env.FRONTEND_URL
-  ? [process.env.FRONTEND_URL]
-  : ['http://localhost:4200'];
+const corsOrigin = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+  if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin) || origin === process.env.FRONTEND_URL) {
+    callback(null, true);
+  } else {
+    callback(new Error(`CORS bloqué : ${origin}`));
+  }
+};
 
-app.use(cors({ origin: corsOrigins, credentials: true }));
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── Socket.io ─────────────────────────────────────────────────
 const io = new SocketServer(httpServer, {
-  cors: { origin: corsOrigins, credentials: true },
+  cors: { origin: corsOrigin, credentials: true },
 });
 
 // Auth middleware socket.io
@@ -180,6 +188,10 @@ app.use('/api', notificationSettingRoutes);
 app.use('/api', quizRoutes);
 app.use('/api', contentRoutes);
 app.use('/api', taskResponseCommentRoutes);
+app.use('/api/Mentor',          mentorRoutes);
+app.use('/api/Program',         programRoutes);
+app.use('/api/ProgramRequest',          programRequestRoutes);
+app.use('/api/CompanyProgramProposal',  companyProgramProposalRoutes);
 
 // ── MongoDB + démarrage ───────────────────────────────────────
 mongoose

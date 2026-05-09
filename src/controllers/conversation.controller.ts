@@ -80,3 +80,32 @@ export const getUnreadMessageCount = async (req: AuthRequest, res: Response): Pr
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }
 };
+
+// PATCH /api/Conversation/:id/read - Marquer conversation comme lue
+export const markConversationRead = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    await Message.updateMany(
+      { conversationId: id, sender: { $ne: req.userId }, read: false },
+      { read: true }
+    );
+    await Conversation.findByIdAndUpdate(id, {
+      $set: { [`unreadCounts.${req.userId}`]: 0 }
+    });
+    res.json({ message: 'Conversation marquée comme lue' });
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+
+// DELETE /api/Conversation/:id
+export const deleteConversation = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    await Conversation.findByIdAndUpdate(id, { deleted: true });
+    res.json({ message: 'Conversation supprimée' });
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+

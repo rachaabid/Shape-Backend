@@ -134,6 +134,63 @@ export const sendInterviewConfirmation = async (data: InterviewEmailData): Promi
   });
 };
 
+interface MentorCredentialsData {
+  mentorName:  string;
+  mentorEmail: string;
+  login:       string;
+  tempPassword: string;
+  frontendUrl: string;
+}
+
+export const sendMentorCredentials = async (data: MentorCredentialsData): Promise<void> => {
+  await transporter.sendMail({
+    from:    process.env.MAIL_FROM,
+    to:      data.mentorEmail,
+    subject: 'Bienvenue sur Shape — Vos identifiants Mentor',
+    html: `
+      <h2>Bienvenue sur Shape, ${data.mentorName} !</h2>
+      <p>Un compte Mentor a été créé pour vous. Voici vos identifiants de connexion :</p>
+      <table style="border-collapse:collapse;margin:16px 0;">
+        <tr><td style="padding:4px 12px;font-weight:bold;">Login :</td><td style="padding:4px 12px;">${data.login}</td></tr>
+        <tr><td style="padding:4px 12px;font-weight:bold;">Mot de passe temporaire :</td><td style="padding:4px 12px;font-family:monospace;font-size:16px;">${data.tempPassword}</td></tr>
+      </table>
+      <p style="color:#c0392b;"><strong>Vous devrez changer votre mot de passe à la première connexion.</strong></p>
+      <p>
+        <a href="${data.frontendUrl}/login"
+           style="background:#27a8ba;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
+          Se connecter
+        </a>
+      </p>
+      <hr/><small>Shape Platform</small>
+    `,
+  });
+};
+
+interface AccountValidationData {
+  userEmail: string;
+  userName:  string;
+  frontendUrl: string;
+}
+
+export const sendAccountValidationEmail = async (data: AccountValidationData): Promise<void> => {
+  await transporter.sendMail({
+    from:    process.env.MAIL_FROM,
+    to:      data.userEmail,
+    subject: 'Votre compte Shape a été validé',
+    html: `
+      <h2>Bienvenue sur Shape, ${data.userName} !</h2>
+      <p>Votre compte a été <strong>validé par notre équipe</strong>. Vous pouvez maintenant vous connecter à la plateforme.</p>
+      <p>
+        <a href="${data.frontendUrl}/login"
+           style="background:#27a8ba;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
+          Se connecter
+        </a>
+      </p>
+      <hr/><small>Shape Platform</small>
+    `,
+  });
+};
+
 export const sendInterviewReminder = async (data: InterviewEmailData): Promise<void> => {
   const dateStr    = new Date(data.scheduledAt).toLocaleString('fr-FR');
   const meetingUrl = `${data.frontendUrl}/company-panel/video-call/${data.channelName}`;

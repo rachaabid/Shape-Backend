@@ -7,6 +7,7 @@ export interface ITask extends Document {
   online?:          boolean;
   deadLineInHours?: number;
   documents?:       { name: string; url: string }[];
+  createdBy?:       mongoose.Types.ObjectId; // mentor who created the task
   deleted?:         boolean;
 }
 
@@ -17,6 +18,7 @@ const TaskSchema = new Schema<ITask>({
   online:          Boolean,
   deadLineInHours: Number,
   documents:       [{ name: String, url: String }],
+  createdBy:       { type: Schema.Types.ObjectId, ref: 'User' },
   deleted:         { type: Boolean, default: false },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 

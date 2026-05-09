@@ -1,9 +1,13 @@
-import User         from '../models/User';
-import Company      from '../models/Company';
-import JobOffer     from '../models/JobOffer';
-import Application  from '../models/JobOfferApplication';
-import Interview    from '../models/Interview';
-import Notification from '../models/Notification';
+import User             from '../models/User';
+import Company          from '../models/Company';
+import JobOffer         from '../models/JobOffer';
+import Application      from '../models/JobOfferApplication';
+import Interview        from '../models/Interview';
+import Notification     from '../models/Notification';
+import QuizResponse     from '../models/QuizResponse';
+import Quiz             from '../models/Quiz';
+import TaskResponse     from '../models/TaskResponse';
+import MentorEvaluation from '../models/MentorEvaluation';
 import { rankWithPython }      from './matching.service';
 import { sendCompanyProposal } from './email.service';
 
@@ -13,6 +17,101 @@ const getSkillName = (s: any): string => {
   if (!n) return s.skill?.toString?.() ?? '';
   if (typeof n === 'string') return n;
   return n.fr || n.en || n.ar || s.skill?.toString?.() || '';
+};
+
+// ── Enhanced scoring helpers ──────────────────────────────────
+// Compute quiz score (0-100) for a list of candidates in one DB round
+const computeQuizScoresForCandidates = async (ids: string[]): Promise<Record<string, number>> => {
+  if (ids.length === 0) return {};
+  const responses = await QuizResponse.find({ owner: { $in: ids }, deleted: { $ne: true } })
+    .populate({ path: 'quiz', select: 'sections' });
+
+  const scoreMap: Record<string, { got: number; max: number }> = {};
+  for (const resp of responses) {
+    const ownerId = resp.owner?.toString();
+    if (!ownerId) continue;
+    const quiz = resp.quiz as any;
+    if (!quiz?.sections) continue;
+
+    const allQuestions = quiz.sections.flatMap((s: any) => s.questions ?? []);
+    const optionScore  = new Map<string, number>(
+      allQuestions.flatMap((q: any) => (q.options ?? []).map((o: any) => [o._id.toString(), o.score ?? 0]))
+    );
+    const maxScore = allQuestions.reduce((s: number, q: any) => {
+      const scores = (q.options ?? []).map((o: any) => o.score ?? 0);
+      return s + (scores.length ? Math.max(...scores) : 0);
+    }, 0);
+    const gotScore = (resp.reponses ?? []).reduce((s: number, qr: any) => {
+      return s + (qr.options ?? []).reduce((s2: number, optId: any) => {
+        return s2 + (optionScore.get(optId.toString()) ?? 0);
+      }, 0);
+    }, 0);
+
+    if (!scoreMap[ownerId]) scoreMap[ownerId] = { got: 0, max: 0 };
+    scoreMap[ownerId].got += gotScore;
+    scoreMap[ownerId].max += maxScore;
+  }
+
+  const result: Record<string, number> = {};
+  for (const id of ids) {
+    const s = scoreMap[id];
+    result[id] = s && s.max > 0 ? Math.round((s.got / s.max) * 100) : 0;
+  }
+  return result;
+};
+
+const computeTaskScoresForCandidates = async (ids: string[]): Promise<Record<string, number>> => {
+  if (ids.length === 0) return {};
+  const responses = await TaskResponse.find({ owner: { $in: ids }, deleted: { $ne: true } });
+  const map: Record<string, { total: number; closed: number }> = {};
+  for (const r of responses) {
+    const ownerId = r.owner?.toString();
+    if (!ownerId) continue;
+    if (!map[ownerId]) map[ownerId] = { total: 0, closed: 0 };
+    map[ownerId].total++;
+    if (r.status === 3) map[ownerId].closed++;
+  }
+  const result: Record<string, number> = {};
+  for (const id of ids) {
+    const s = map[id];
+    result[id] = s && s.total > 0 ? Math.round((s.closed / s.total) * 100) : 0;
+  }
+  return result;
+};
+
+const computeMentorScoresForCandidates = async (ids: string[]): Promise<Record<string, number>> => {
+  if (ids.length === 0) return {};
+  const evals = await MentorEvaluation.find({ intern: { $in: ids }, deleted: { $ne: true } });
+  const map: Record<string, { sum: number; count: number }> = {};
+  for (const e of evals) {
+    const id = e.intern.toString();
+    if (!map[id]) map[id] = { sum: 0, count: 0 };
+    map[id].sum   += e.globalScore;
+    map[id].count += 1;
+  }
+  const result: Record<string, number> = {};
+  for (const id of ids) {
+    const s = map[id];
+    // globalScore is 0-10, convert to 0-100
+    result[id] = s && s.count > 0 ? Math.round((s.sum / s.count) * 10) : 0;
+  }
+  return result;
+};
+
+const computeBehaviorScoresForCandidates = async (ids: string[]): Promise<Record<string, number>> => {
+  if (ids.length === 0) return {};
+  const users = await User.find({ _id: { $in: ids } });
+  const result: Record<string, number> = {};
+  for (const u of users) {
+    let score = 0;
+    const ua = u as any;
+    if (ua.hardSkills?.length > 0) score += 25;
+    if (ua.softSkills?.length  > 0) score += 25;
+    if (ua.softwares?.length   > 0) score += 25;
+    if (ua.cvUrl || ua.cv)          score += 25;
+    result[u._id.toString()] = score;
+  }
+  return result;
 };
 
 // ── Smart scheduling ─────────────────────────────────────────
@@ -164,7 +263,33 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
 
     const results = await rankWithPython(offerInput, candidateInputs);
 
-    console.log(`[autoMatch] top 5 scores: ${results.slice(0,5).map(r => `${r.candidateId.slice(-4)}→${r.score}`).join(' | ')}`);
+    // ── Enhanced multi-factor scoring ─────────────────────────────────────────
+    // Formula: 30% skills + 20% quiz + 25% tasks + 15% mentor + 10% behavior
+    const candidateIds = candidateInputs.map(c => c.id);
+    const [quizScores, taskScores, mentorScores, behaviorScores] = await Promise.all([
+      computeQuizScoresForCandidates(candidateIds),
+      computeTaskScoresForCandidates(candidateIds),
+      computeMentorScoresForCandidates(candidateIds),
+      computeBehaviorScoresForCandidates(candidateIds),
+    ]);
+
+    for (const r of results) {
+      const skillScore    = r.score;                                // 0-100 from Python
+      const quizScore     = quizScores[r.candidateId]    ?? 0;
+      const taskScore     = taskScores[r.candidateId]    ?? 0;
+      const mentorScore   = mentorScores[r.candidateId]  ?? 0;
+      const behaviorScore = behaviorScores[r.candidateId] ?? 0;
+
+      r.score      = Math.min(100, Math.round(
+        skillScore * 0.30 + quizScore * 0.20 + taskScore * 0.25 + mentorScore * 0.15 + behaviorScore * 0.10
+      ));
+      r.skillScore = skillScore / 100; // keep raw skill fraction for display
+    }
+
+    // Re-sort after enhanced scoring
+    results.sort((a, b) => b.score - a.score);
+
+    console.log(`[autoMatch] top 5 scores (enhanced): ${results.slice(0,5).map(r => `${r.candidateId.slice(-4)}→${r.score}`).join(' | ')}`);
 
     for (const result of results) {
       const app = applications.find((a: any) => a.user?._id.toString() === result.candidateId);

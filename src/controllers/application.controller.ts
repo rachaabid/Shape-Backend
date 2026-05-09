@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import Application from '../models/JobOfferApplication';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { runAutoMatchPipeline } from '../services/autoMatch.service';
+import { notifyAdmins }        from './notification.controller';
 
 const buildFilter = (attributeName: string, value: string) => {
   const map: Record<string, Record<string, unknown>> = {
@@ -142,6 +143,11 @@ export const create = async (req: AuthRequest, res: Response): Promise<void> => 
 
     res.status(201).json(app);
     setImmediate(() => runAutoMatchPipeline({ applicationId: app._id.toString() }));
+    setImmediate(() => notifyAdmins(
+      'NEW_APPLICATION',
+      `Nouvelle candidature soumise pour une offre`,
+      { applicationId: app._id.toString(), userId: userId?.toString() }
+    ).catch(() => {}));
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }
@@ -178,3 +184,63 @@ export const remove = async (req: AuthRequest, res: Response): Promise<void> => 
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }
 };
+
+// GET /api/JobOfferApplication/company/:companyId - Toutes candidatures pour une entreprise
+export const getApplicationsByCompany = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { companyId } = req.params;
+    const apps = await Application.find({ 
+      'jobOffer.company': companyId, 
+      deleted: false 
+    })
+      .populate({
+        path: 'user', select: '-password',
+        populate: [{ path: 'hardSkills.skill', model: 'HardSkill' }, { path: 'softwares.skill', model: 'SoftwareSkill' }]
+      })
+      .populate({
+        path: 'jobOffer',
+        populate: [{ path: 'company', model: 'Company', select: 'name logo' }]
+      })
+      .sort({ createdAt: -1 });
+    res.json(apps);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+
+// GET /api/JobOfferApplication/interns/:companyId - Interns (status = 4)
+export const getInternsByCompany = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { companyId } = req.params;
+    const apps = await Application.find({ 
+      'jobOffer.company': companyId, 
+      status: 4,
+      deleted: false 
+    })
+      .populate('user', 'firstName lastName login avatar -_id')
+      .populate('jobOffer', 'title company -_id')
+      .sort({ confirmedDate: -1 });
+    res.json(apps);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+
+// GET /api/JobOfferApplication/recruited/:companyId - Recruited (status = 5)
+export const getRecruitedByCompany = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { companyId } = req.params;
+    const apps = await Application.find({ 
+      'jobOffer.company': companyId, 
+      status: 5,
+      deleted: false 
+    })
+      .populate('user', 'firstName lastName login avatar -_id')
+      .populate('jobOffer', 'title company -_id')
+      .sort({ confirmedDate: -1 });
+    res.json(apps);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+

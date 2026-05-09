@@ -15,6 +15,8 @@ import WorkingMode   from './models/WorkingMode';
 import JobOfferModel from './models/JobOfferModel';
 import Career        from './models/Career';
 import Quiz          from './models/Quiz';
+import TextBloc      from './models/TextBloc';
+import VideoYoutube  from './models/VideoYoutube';
 import JobOffer      from './models/JobOffer';
 import Application   from './models/JobOfferApplication';
 import Interview     from './models/Interview';
@@ -154,6 +156,7 @@ async function seed() {
     FocusedSkill.deleteMany({}), Program.deleteMany({}),
     WorkingMode.deleteMany({}), JobOfferModel.deleteMany({}),
     Career.deleteMany({}), Quiz.deleteMany({}),
+    TextBloc.deleteMany({}), VideoYoutube.deleteMany({}),
     JobOffer.deleteMany({}), Application.deleteMany({}),
     Interview.deleteMany({}), Task.deleteMany({}),
     TaskResponse.deleteMany({}), Inscription.deleteMany({}),
@@ -180,112 +183,119 @@ async function seed() {
   const sw: Record<string, mongoose.Types.ObjectId> = {};
   softSkills.forEach((s: any) => { sw[s.name.fr] = s._id; sw[s.name.en] = s._id; });
 
-  // ── Quizzes ───────────────────────────────────────────────────
-  await Quiz.insertMany([
-    {
-      title: { fr: 'Quiz Social Media Marketing', en: 'Social Media Marketing Quiz' },
-      program: programs[0]._id, passingScore: 70,
-      questions: [
-        { question: { fr: 'Quelle métrique mesure l\'engagement sur Instagram ?', en: 'Which metric measures engagement on Instagram?' },
-          options: { fr: ['Impressions', 'Taux d\'engagement', 'Portée', 'CPM'], en: ['Impressions', 'Engagement Rate', 'Reach', 'CPM'] }, correctIndex: 1 },
-        { question: { fr: 'Quel format favorise le plus la portée sur Facebook ?', en: 'Which format boosts reach most on Facebook?' },
-          options: { fr: ['Texte seul', 'Image', 'Vidéo native', 'Lien externe'], en: ['Text only', 'Image', 'Native video', 'External link'] }, correctIndex: 2 },
-        { question: { fr: 'Qu\'est-ce qu\'un KPI en marketing ?', en: 'What is a KPI in marketing?' },
-          options: { fr: ['Un type de pub', 'Un indicateur clé', 'Un réseau social', 'Un CRM'], en: ['Ad type', 'Key performance indicator', 'Social network', 'CRM'] }, correctIndex: 1 },
-        { question: { fr: 'Quelle est la fréquence de publication idéale sur LinkedIn ?', en: 'What is the ideal posting frequency on LinkedIn?' },
-          options: { fr: ['10 fois/jour', '1 fois/semaine', '3-5 fois/semaine', '1 fois/mois'], en: ['10/day', '1/week', '3-5/week', '1/month'] }, correctIndex: 2 },
-      ],
+  // ── Quizzes (format correct selon le schéma Quiz) ────────────
+  const mkQ = (frText: string, enText: string, opts: {fr: string, en: string, score: number}[]) => ({
+    text: { fr: frText, en: enText },
+    options: opts.map(o => ({ text: { fr: o.fr, en: o.en }, score: o.score })),
+  });
+  const quizzes = await Quiz.insertMany([
+    { title: { fr: 'Quiz Social Media Marketing', en: 'Social Media Marketing Quiz' }, online: true, duration: 15, deadLineInHours: 72, keyWords: ['social media', 'KPI', 'engagement'],
+      sections: [{ text: { fr: 'Fondamentaux', en: 'Fundamentals' }, questions: [
+        mkQ('Quelle métrique mesure l\'engagement sur Instagram ?', 'Which metric measures Instagram engagement?', [{fr:'Impressions',en:'Impressions',score:0},{fr:'Taux d\'engagement',en:'Engagement rate',score:10},{fr:'Portée',en:'Reach',score:0},{fr:'CPM',en:'CPM',score:0}]),
+        mkQ('Quel format booste le plus la portée sur Facebook ?', 'Which format boosts Facebook reach most?', [{fr:'Texte',en:'Text',score:0},{fr:'Image',en:'Image',score:0},{fr:'Vidéo native',en:'Native video',score:10},{fr:'Lien',en:'Link',score:0}]),
+        mkQ('Fréquence idéale de publication sur LinkedIn ?', 'Ideal LinkedIn posting frequency?', [{fr:'10/jour',en:'10/day',score:0},{fr:'1/semaine',en:'1/week',score:0},{fr:'3-5/semaine',en:'3-5/week',score:10},{fr:'1/mois',en:'1/month',score:0}]),
+      ]}],
     },
-    {
-      title: { fr: 'Quiz SEO & Référencement', en: 'SEO Quiz' },
-      program: programs[1]._id, passingScore: 70,
-      questions: [
-        { question: { fr: 'Que signifie SEO ?', en: 'What does SEO stand for?' },
-          options: { fr: ['Social Engine Opt.', 'Search Engine Opt.', 'Search Engine Op.', 'Social Exchange'], en: ['Social Engine Opt.', 'Search Engine Opt.', 'Search Engine Op.', 'Social Exchange'] }, correctIndex: 1 },
-        { question: { fr: 'Quel outil Google permet de suivre les performances SEO ?', en: 'Which Google tool tracks SEO?' },
-          options: { fr: ['Google Ads', 'Google Analytics', 'Search Console', 'Tag Manager'], en: ['Google Ads', 'Google Analytics', 'Search Console', 'Tag Manager'] }, correctIndex: 2 },
-        { question: { fr: 'Qu\'est-ce qu\'un backlink ?', en: 'What is a backlink?' },
-          options: { fr: ['Lien interne', 'Lien externe entrant', 'Bouton retour', 'Lien brisé'], en: ['Internal link', 'Inbound external link', 'Back button', 'Broken link'] }, correctIndex: 1 },
-        { question: { fr: 'Qu\'est-ce que le taux de rebond ?', en: 'What is the bounce rate?' },
-          options: { fr: ['% visiteurs qui convertissent', '% visiteurs qui quittent sans cliquer', '% pages vues', '% de sessions mobile'], en: ['% converting', '% leaving without click', '% page views', '% mobile sessions'] }, correctIndex: 1 },
-      ],
+    { title: { fr: 'Quiz SEO & Référencement', en: 'SEO Quiz' }, online: true, duration: 15, deadLineInHours: 72, keyWords: ['SEO', 'backlink', 'Google'],
+      sections: [{ text: { fr: 'Bases du SEO', en: 'SEO Basics' }, questions: [
+        mkQ('Que signifie SEO ?', 'What does SEO stand for?', [{fr:'Social Engine Opt.',en:'Social Engine Opt.',score:0},{fr:'Search Engine Opt.',en:'Search Engine Opt.',score:10},{fr:'Search Engine Op.',en:'Search Engine Op.',score:0},{fr:'Social Exchange',en:'Social Exchange',score:0}]),
+        mkQ('Quel outil Google suit les performances SEO ?', 'Which Google tool tracks SEO performance?', [{fr:'Google Ads',en:'Google Ads',score:0},{fr:'Google Analytics',en:'Google Analytics',score:0},{fr:'Search Console',en:'Search Console',score:10},{fr:'Tag Manager',en:'Tag Manager',score:0}]),
+        mkQ('Qu\'est-ce qu\'un backlink ?', 'What is a backlink?', [{fr:'Lien interne',en:'Internal link',score:0},{fr:'Lien externe entrant',en:'Inbound external link',score:10},{fr:'Bouton retour',en:'Back button',score:0},{fr:'Lien brisé',en:'Broken link',score:0}]),
+      ]}],
     },
-    {
-      title: { fr: 'Quiz Content Marketing', en: 'Content Marketing Quiz' },
-      program: programs[2]._id, passingScore: 65,
-      questions: [
-        { question: { fr: 'Quel est l\'objectif principal du content marketing ?', en: 'Main goal of content marketing?' },
-          options: { fr: ['Vendre directement', 'Attirer et fidéliser', 'Faire de la pub payante', 'SEO uniquement'], en: ['Sell directly', 'Attract & retain audience', 'Run paid ads', 'SEO only'] }, correctIndex: 1 },
-        { question: { fr: 'Qu\'est-ce que le storytelling ?', en: 'What is storytelling?' },
-          options: { fr: ['Écrire des blogs', 'Raconter une histoire de marque', 'Créer des pubs vidéo', 'Rédiger des emails'], en: ['Writing blogs', 'Brand story to engage audience', 'Video ads', 'Writing emails'] }, correctIndex: 1 },
-        { question: { fr: 'Quel format de contenu génère le plus d\'engagement ?', en: 'Which content format drives most engagement?' },
-          options: { fr: ['Texte long', 'Infographie', 'Vidéo courte', 'Podcast'], en: ['Long text', 'Infographic', 'Short video', 'Podcast'] }, correctIndex: 2 },
-      ],
+    { title: { fr: 'Quiz Content Marketing', en: 'Content Marketing Quiz' }, online: true, duration: 10, deadLineInHours: 72, keyWords: ['content', 'storytelling', 'engagement'],
+      sections: [{ text: { fr: 'Stratégie contenu', en: 'Content Strategy' }, questions: [
+        mkQ('Objectif principal du content marketing ?', 'Main goal of content marketing?', [{fr:'Vendre directement',en:'Sell directly',score:0},{fr:'Attirer et fidéliser',en:'Attract & retain',score:10},{fr:'Pub payante',en:'Run paid ads',score:0},{fr:'SEO uniquement',en:'SEO only',score:0}]),
+        mkQ('Qu\'est-ce que le storytelling ?', 'What is storytelling?', [{fr:'Écrire des blogs',en:'Writing blogs',score:0},{fr:'Raconter une histoire de marque',en:'Brand storytelling',score:10},{fr:'Créer des pubs vidéo',en:'Video ads',score:0},{fr:'Rédiger des emails',en:'Writing emails',score:0}]),
+        mkQ('Format de contenu le plus engageant ?', 'Most engaging content format?', [{fr:'Texte long',en:'Long text',score:0},{fr:'Infographie',en:'Infographic',score:0},{fr:'Vidéo courte',en:'Short video',score:10},{fr:'Podcast',en:'Podcast',score:0}]),
+      ]}],
     },
-    {
-      title: { fr: 'Quiz Email Marketing', en: 'Email Marketing Quiz' },
-      program: programs[3]._id, passingScore: 70,
-      questions: [
-        { question: { fr: 'Qu\'est-ce que le taux d\'ouverture ?', en: 'What is open rate?' },
-          options: { fr: ['% emails reçus', '% emails ouverts/envoyés', '% de clics', '% désinscriptions'], en: ['% received', '% opened/sent', '% clicks', '% unsubscribes'] }, correctIndex: 1 },
-        { question: { fr: 'Quelle plateforme domine l\'email marketing ?', en: 'Which platform dominates email marketing?' },
-          options: { fr: ['Notion', 'Slack', 'Mailchimp', 'Figma'], en: ['Notion', 'Slack', 'Mailchimp', 'Figma'] }, correctIndex: 2 },
-        { question: { fr: 'Qu\'est-ce que l\'A/B testing en emailing ?', en: 'What is A/B testing in email?' },
-          options: { fr: ['Tester 2 designs', 'Comparer 2 versions d\'email', 'Tester la délivrabilité', 'Mesurer les ouvertures'], en: ['Test 2 designs', 'Compare 2 email versions', 'Test deliverability', 'Measure opens'] }, correctIndex: 1 },
-      ],
+    { title: { fr: 'Quiz Email Marketing', en: 'Email Marketing Quiz' }, online: true, duration: 10, deadLineInHours: 72, keyWords: ['email', 'open rate', 'A/B testing'],
+      sections: [{ text: { fr: 'Email Marketing', en: 'Email Marketing' }, questions: [
+        mkQ('Qu\'est-ce que le taux d\'ouverture ?', 'What is the open rate?', [{fr:'% emails reçus',en:'% received',score:0},{fr:'% emails ouverts/envoyés',en:'% opened/sent',score:10},{fr:'% de clics',en:'% clicks',score:0},{fr:'% désinscriptions',en:'% unsubscribes',score:0}]),
+        mkQ('Plateforme qui domine l\'email marketing ?', 'Dominant email marketing platform?', [{fr:'Notion',en:'Notion',score:0},{fr:'Slack',en:'Slack',score:0},{fr:'Mailchimp',en:'Mailchimp',score:10},{fr:'Figma',en:'Figma',score:0}]),
+        mkQ('Qu\'est-ce que l\'A/B testing en emailing ?', 'What is A/B testing in email?', [{fr:'Tester 2 designs',en:'Test 2 designs',score:0},{fr:'Comparer 2 versions d\'email',en:'Compare 2 email versions',score:10},{fr:'Tester la délivrabilité',en:'Test deliverability',score:0},{fr:'Mesurer les ouvertures',en:'Measure opens',score:0}]),
+      ]}],
     },
-    {
-      title: { fr: 'Quiz Google Ads & Paid Media', en: 'Google Ads Quiz' },
-      program: programs[4]._id, passingScore: 70,
-      questions: [
-        { question: { fr: 'Que signifie CPC ?', en: 'What is CPC?' },
-          options: { fr: ['Cost Per Click', 'Content Per Campaign', 'Click Per Customer', 'Cost Per Content'], en: ['Cost Per Click', 'Content Per Campaign', 'Click Per Customer', 'Cost Per Content'] }, correctIndex: 0 },
-        { question: { fr: 'Quel réseau pub est le plus utilisé ?', en: 'Most used ad network?' },
-          options: { fr: ['Bing Ads', 'Twitter Ads', 'Google Ads', 'TikTok Ads'], en: ['Bing Ads', 'Twitter Ads', 'Google Ads', 'TikTok Ads'] }, correctIndex: 2 },
-        { question: { fr: 'Qu\'est-ce que le ROAS ?', en: 'What is ROAS?' },
-          options: { fr: ['Return on Ad Spend', 'Rate of Ad Success', 'Revenue on All Sales', 'Return on Assets'], en: ['Return on Ad Spend', 'Rate of Ad Success', 'Revenue on All Sales', 'Return on Assets'] }, correctIndex: 0 },
-      ],
+    { title: { fr: 'Quiz Google Ads & Paid Media', en: 'Google Ads Quiz' }, online: true, duration: 10, deadLineInHours: 72, keyWords: ['CPC', 'ROAS', 'Google Ads'],
+      sections: [{ text: { fr: 'Publicité digitale', en: 'Digital Advertising' }, questions: [
+        mkQ('Que signifie CPC ?', 'What is CPC?', [{fr:'Cost Per Click',en:'Cost Per Click',score:10},{fr:'Content Per Campaign',en:'Content Per Campaign',score:0},{fr:'Click Per Customer',en:'Click Per Customer',score:0},{fr:'Cost Per Content',en:'Cost Per Content',score:0}]),
+        mkQ('Réseau pub le plus utilisé ?', 'Most used ad network?', [{fr:'Bing Ads',en:'Bing Ads',score:0},{fr:'Twitter Ads',en:'Twitter Ads',score:0},{fr:'Google Ads',en:'Google Ads',score:10},{fr:'TikTok Ads',en:'TikTok Ads',score:0}]),
+        mkQ('Qu\'est-ce que le ROAS ?', 'What is ROAS?', [{fr:'Return on Ad Spend',en:'Return on Ad Spend',score:10},{fr:'Rate of Ad Success',en:'Rate of Ad Success',score:0},{fr:'Revenue on All Sales',en:'Revenue on All Sales',score:0},{fr:'Return on Assets',en:'Return on Assets',score:0}]),
+      ]}],
     },
-    {
-      title: { fr: 'Quiz Analytics & Data', en: 'Analytics & Data Quiz' },
-      program: programs[5]._id, passingScore: 75,
-      questions: [
-        { question: { fr: 'Qu\'est-ce qu\'une session Google Analytics ?', en: 'What is a GA session?' },
-          options: { fr: ['Une page vue', 'Un groupe d\'interactions d\'un utilisateur', 'Un clic', 'Une conversion'], en: ['A page view', 'A group of user interactions', 'A click', 'A conversion'] }, correctIndex: 1 },
-        { question: { fr: 'Qu\'est-ce que le taux de conversion ?', en: 'What is conversion rate?' },
-          options: { fr: ['% visites/ventes', '% objectifs atteints/visites', '% clics/impressions', '% pages vues'], en: ['% visits/sales', '% goals achieved/visits', '% clicks/impressions', '% page views'] }, correctIndex: 1 },
-        { question: { fr: 'Qu\'est-ce qu\'un entonnoir de conversion ?', en: 'What is a conversion funnel?' },
-          options: { fr: ['Un outil de design', 'Le parcours utilisateur vers l\'achat', 'Un filtre analytics', 'Un rapport mensuel'], en: ['A design tool', 'User journey to purchase', 'An analytics filter', 'A monthly report'] }, correctIndex: 1 },
-        { question: { fr: 'Quelle dimension GA mesure la source de trafic ?', en: 'Which GA dimension measures traffic source?' },
-          options: { fr: ['Appareil', 'Source/Medium', 'Pays', 'Page de destination'], en: ['Device', 'Source/Medium', 'Country', 'Landing Page'] }, correctIndex: 1 },
-      ],
+    { title: { fr: 'Quiz Analytics & Data', en: 'Analytics & Data Quiz' }, online: true, duration: 15, deadLineInHours: 72, keyWords: ['Google Analytics', 'conversion', 'KPI'],
+      sections: [{ text: { fr: 'Analyse web', en: 'Web Analytics' }, questions: [
+        mkQ('Qu\'est-ce qu\'une session Google Analytics ?', 'What is a GA session?', [{fr:'Une page vue',en:'A page view',score:0},{fr:'Un groupe d\'interactions utilisateur',en:'A group of user interactions',score:10},{fr:'Un clic',en:'A click',score:0},{fr:'Une conversion',en:'A conversion',score:0}]),
+        mkQ('Qu\'est-ce que le taux de conversion ?', 'What is conversion rate?', [{fr:'% visites/ventes',en:'% visits/sales',score:0},{fr:'% objectifs atteints/visites',en:'% goals/visits',score:10},{fr:'% clics/impressions',en:'% clicks/impressions',score:0},{fr:'% pages vues',en:'% page views',score:0}]),
+        mkQ('Qu\'est-ce qu\'un entonnoir de conversion ?', 'What is a conversion funnel?', [{fr:'Outil de design',en:'Design tool',score:0},{fr:'Parcours utilisateur vers l\'achat',en:'User journey to purchase',score:10},{fr:'Filtre analytics',en:'Analytics filter',score:0},{fr:'Rapport mensuel',en:'Monthly report',score:0}]),
+      ]}],
     },
-    {
-      title: { fr: 'Quiz Community Management', en: 'Community Management Quiz' },
-      program: programs[6]._id, passingScore: 65,
-      questions: [
-        { question: { fr: 'Qu\'est-ce qu\'une charte éditoriale ?', en: 'What is an editorial charter?' },
-          options: { fr: ['Un contrat légal', 'Un guide de tone of voice & contenu', 'Un calendrier', 'Un budget pub'], en: ['Legal contract', 'Tone of voice & content guide', 'A calendar', 'Ad budget'] }, correctIndex: 1 },
-        { question: { fr: 'Comment gérer un commentaire négatif ?', en: 'How to handle a negative comment?' },
-          options: { fr: ['Supprimer', 'Ignorer', 'Répondre avec empathie', 'Bloquer l\'utilisateur'], en: ['Delete', 'Ignore', 'Reply with empathy', 'Block user'] }, correctIndex: 2 },
-        { question: { fr: 'Qu\'est-ce que le social listening ?', en: 'What is social listening?' },
-          options: { fr: ['Écouter les podcasts', 'Surveiller les mentions de marque', 'Créer des stories', 'Gérer les DMs'], en: ['Listen to podcasts', 'Monitor brand mentions', 'Create stories', 'Manage DMs'] }, correctIndex: 1 },
-      ],
+    { title: { fr: 'Quiz Community Management', en: 'Community Management Quiz' }, online: true, duration: 10, deadLineInHours: 72, keyWords: ['community', 'social listening', 'modération'],
+      sections: [{ text: { fr: 'Gestion de communauté', en: 'Community Management' }, questions: [
+        mkQ('Qu\'est-ce qu\'une charte éditoriale ?', 'What is an editorial charter?', [{fr:'Contrat légal',en:'Legal contract',score:0},{fr:'Guide de tone of voice & contenu',en:'Tone & content guide',score:10},{fr:'Un calendrier',en:'A calendar',score:0},{fr:'Budget pub',en:'Ad budget',score:0}]),
+        mkQ('Comment gérer un commentaire négatif ?', 'How to handle a negative comment?', [{fr:'Supprimer',en:'Delete',score:0},{fr:'Ignorer',en:'Ignore',score:0},{fr:'Répondre avec empathie',en:'Reply with empathy',score:10},{fr:'Bloquer',en:'Block',score:0}]),
+        mkQ('Qu\'est-ce que le social listening ?', 'What is social listening?', [{fr:'Écouter les podcasts',en:'Listen to podcasts',score:0},{fr:'Surveiller les mentions de marque',en:'Monitor brand mentions',score:10},{fr:'Créer des stories',en:'Create stories',score:0},{fr:'Gérer les DMs',en:'Manage DMs',score:0}]),
+      ]}],
     },
-    {
-      title: { fr: 'Quiz Marketing d\'Influence', en: 'Influencer Marketing Quiz' },
-      program: programs[7]._id, passingScore: 65,
-      questions: [
-        { question: { fr: 'Qu\'est-ce qu\'un micro-influenceur ?', en: 'What is a micro-influencer?' },
-          options: { fr: ['1M+ abonnés', '10K–100K abonnés', 'Moins de 1K', '100K–1M'], en: ['1M+ followers', '10K–100K followers', 'Under 1K', '100K–1M'] }, correctIndex: 1 },
-        { question: { fr: 'Quel KPI mesure l\'authenticité d\'un influenceur ?', en: 'Which KPI measures influencer authenticity?' },
-          options: { fr: ['Nombre d\'abonnés', 'Taux d\'engagement', 'Portée', 'Impressions'], en: ['Followers count', 'Engagement rate', 'Reach', 'Impressions'] }, correctIndex: 1 },
-        { question: { fr: 'Que doit comporter un brief influenceur ?', en: 'What must an influencer brief include?' },
-          options: { fr: ['Juste un budget', 'Objectifs, messages clés, contraintes créatives', 'Seulement la date', 'Un contrat légal seulement'], en: ['Just a budget', 'Objectives, key messages, creative constraints', 'Only the date', 'Legal contract only'] }, correctIndex: 1 },
-      ],
+    { title: { fr: 'Quiz Marketing d\'Influence', en: 'Influencer Marketing Quiz' }, online: true, duration: 10, deadLineInHours: 72, keyWords: ['influenceur', 'micro-influenceur', 'KPI'],
+      sections: [{ text: { fr: 'Marketing d\'influence', en: 'Influencer Marketing' }, questions: [
+        mkQ('Qu\'est-ce qu\'un micro-influenceur ?', 'What is a micro-influencer?', [{fr:'1M+ abonnés',en:'1M+ followers',score:0},{fr:'10K–100K abonnés',en:'10K–100K followers',score:10},{fr:'Moins de 1K',en:'Under 1K',score:0},{fr:'100K–1M',en:'100K–1M',score:0}]),
+        mkQ('KPI qui mesure l\'authenticité d\'un influenceur ?', 'KPI measuring influencer authenticity?', [{fr:'Nombre d\'abonnés',en:'Followers count',score:0},{fr:'Taux d\'engagement',en:'Engagement rate',score:10},{fr:'Portée',en:'Reach',score:0},{fr:'Impressions',en:'Impressions',score:0}]),
+        mkQ('Que doit comporter un brief influenceur ?', 'What must an influencer brief include?', [{fr:'Juste un budget',en:'Just a budget',score:0},{fr:'Objectifs, messages clés, contraintes créatives',en:'Objectives, key messages, creative constraints',score:10},{fr:'Seulement la date',en:'Only the date',score:0},{fr:'Contrat légal seulement',en:'Legal contract only',score:0}]),
+      ]}],
     },
   ]);
   console.log('✅ 8 quiz créés');
+
+  // ── TextBlocs (contenu texte/HTML par programme) ──────────────
+  const textBlocs = await TextBloc.insertMany([
+    { title: { fr: 'Introduction au Social Media Marketing', en: 'Intro to Social Media Marketing' }, online: true, keyWords: ['social media', 'marketing', 'réseaux sociaux'], html: '<h2>Bienvenue dans le Social Media Marketing</h2><p>Le Social Media Marketing consiste à utiliser les réseaux sociaux pour promouvoir votre marque, engager votre audience et générer des conversions. Dans ce module, vous découvrirez les fondamentaux : choisir les bons réseaux, créer du contenu engageant et analyser vos performances.</p><ul><li><strong>Instagram</strong> : idéal pour le visuel et les stories</li><li><strong>LinkedIn</strong> : parfait pour le B2B et le personal branding</li><li><strong>Facebook</strong> : portée large, publicité ciblée</li></ul>' },
+    { title: { fr: 'Introduction au SEO', en: 'Intro to SEO' }, online: true, keyWords: ['SEO', 'référencement', 'mots-clés'], html: '<h2>Les bases du SEO</h2><p>Le SEO (Search Engine Optimization) vise à améliorer la visibilité de votre site dans les résultats de recherche organiques. Un bon SEO repose sur trois piliers :</p><ol><li><strong>Technique</strong> : vitesse, mobile, structure</li><li><strong>Contenu</strong> : mots-clés, qualité, fraîcheur</li><li><strong>Popularité</strong> : backlinks, autorité de domaine</li></ol><p>Utilisez Google Search Console pour suivre vos positions et détecter les opportunités.</p>' },
+    { title: { fr: 'Stratégie de Content Marketing', en: 'Content Marketing Strategy' }, online: true, keyWords: ['content', 'blog', 'storytelling'], html: '<h2>Créer une stratégie de contenu efficace</h2><p>Le content marketing attire et retient une audience clairement définie. Les étapes clés :</p><ul><li>Définir vos personas et leurs besoins</li><li>Choisir les formats adaptés (blog, vidéo, podcast, infographie)</li><li>Planifier avec un calendrier éditorial</li><li>Mesurer : trafic, partages, taux de conversion</li></ul>' },
+    { title: { fr: 'Fondamentaux de l\'Email Marketing', en: 'Email Marketing Fundamentals' }, online: true, keyWords: ['email', 'newsletter', 'automation'], html: '<h2>L\'email marketing en 2024</h2><p>Malgré l\'essor des réseaux sociaux, l\'email reste le canal digital au ROI le plus élevé. Les bonnes pratiques :</p><ul><li><strong>Segmentez</strong> votre liste pour personnaliser les messages</li><li><strong>Optimisez</strong> l\'objet : 40-60 caractères, emoji possible</li><li><strong>Automatisez</strong> : welcome series, relances panier abandonné</li><li><strong>Mesurez</strong> : taux d\'ouverture, clic, désinscription</li></ul>' },
+    { title: { fr: 'Introduction à Google Ads', en: 'Intro to Google Ads' }, online: true, keyWords: ['Google Ads', 'CPC', 'campagne'], html: '<h2>Google Ads : la publicité au clic</h2><p>Google Ads permet d\'afficher vos annonces sur Google Search, YouTube et des millions de sites partenaires. Types de campagnes :</p><ul><li><strong>Search</strong> : annonces textuelles sur les requêtes ciblées</li><li><strong>Display</strong> : bannières visuelles sur le réseau display</li><li><strong>Shopping</strong> : fiches produits pour le e-commerce</li><li><strong>YouTube</strong> : publicités vidéo pré-roll et in-stream</li></ul><p>Le CPC moyen varie selon le secteur : de 0,10€ à plus de 10€ par clic.</p>' },
+    { title: { fr: 'Comprendre Google Analytics', en: 'Understanding Google Analytics' }, online: true, keyWords: ['analytics', 'KPI', 'données'], html: '<h2>Google Analytics : votre boussole digitale</h2><p>Google Analytics mesure le comportement de vos visiteurs. Les métriques essentielles :</p><ul><li><strong>Sessions</strong> : nombre de visites</li><li><strong>Taux de rebond</strong> : % qui quittent sans interaction</li><li><strong>Durée de session</strong> : temps moyen passé sur le site</li><li><strong>Taux de conversion</strong> : % d\'objectifs atteints</li></ul><p>Créez des entonnoirs de conversion pour identifier où vous perdez vos utilisateurs.</p>' },
+    { title: { fr: 'Bases du Community Management', en: 'Community Management Basics' }, online: true, keyWords: ['community', 'modération', 'engagement'], html: '<h2>Gérer une communauté en ligne</h2><p>Le Community Manager est le gardien de l\'image de marque sur les réseaux sociaux. Ses missions :</p><ul><li>Animer les comptes (publications, stories, lives)</li><li>Modérer les commentaires avec tact et empathie</li><li>Gérer les crises et les bad buzz</li><li>Analyser les performances et ajuster la stratégie</li></ul><p>Le social listening (veille des mentions) est indispensable pour réagir rapidement.</p>' },
+    { title: { fr: 'Introduction au Marketing d\'Influence', en: 'Intro to Influencer Marketing' }, online: true, keyWords: ['influenceur', 'collaboration', 'UGC'], html: '<h2>Le marketing d\'influence en pratique</h2><p>Collaborer avec des influenceurs permet d\'atteindre des audiences ciblées avec authenticité. Les types d\'influenceurs :</p><ul><li><strong>Nano</strong> (1K–10K) : très fort taux d\'engagement</li><li><strong>Micro</strong> (10K–100K) : niche spécialisée, communauté fidèle</li><li><strong>Macro</strong> (100K–1M) : grande portée</li><li><strong>Mega</strong> (1M+) : célébrités, portée maximale</li></ul><p>Un brief influenceur doit inclure : objectifs, messages clés, contraintes créatives et KPIs attendus.</p>' },
+  ]);
+  console.log('✅ 8 TextBlocs créés');
+
+  // ── VideoYoutubes (vidéos pédagogiques par programme) ─────────
+  const videos = await VideoYoutube.insertMany([
+    { title: { fr: 'Stratégie Social Media en 10 min', en: 'Social Media Strategy in 10 min' }, online: true, keyWords: ['social media', 'stratégie'], url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    { title: { fr: 'SEO pour débutants', en: 'SEO for beginners' }, online: true, keyWords: ['SEO', 'référencement'], url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    { title: { fr: 'Content Marketing expliqué', en: 'Content Marketing explained' }, online: true, keyWords: ['content', 'marketing'], url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    { title: { fr: 'Email Marketing : guide complet', en: 'Email Marketing complete guide' }, online: true, keyWords: ['email', 'newsletter'], url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    { title: { fr: 'Google Ads de A à Z', en: 'Google Ads from A to Z' }, online: true, keyWords: ['Google Ads', 'publicité'], url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    { title: { fr: 'Google Analytics 4 : tutoriel', en: 'Google Analytics 4 tutorial' }, online: true, keyWords: ['analytics', 'GA4'], url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    { title: { fr: 'Community Management : bonnes pratiques', en: 'Community Management best practices' }, online: true, keyWords: ['community', 'réseaux sociaux'], url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    { title: { fr: 'Marketing d\'influence : trouver les bons influenceurs', en: 'Influencer Marketing: finding the right influencers' }, online: true, keyWords: ['influenceur', 'collaboration'], url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+  ]);
+  console.log('✅ 8 VideoYoutubes créés');
+
+  // ── Mise à jour des Programmes avec les semaines (courses) ────
+  // program 0=Social Media  1=SEO  2=Content  3=Email  4=Google Ads  5=Analytics  6=Community  7=Influence
+  const weekTitles = [
+    { fr: 'Semaine 1 – Introduction',  en: 'Week 1 – Introduction'  },
+    { fr: 'Semaine 2 – Approfondissement', en: 'Week 2 – Deep Dive' },
+  ];
+  await Promise.all(
+    programs.map((prog: any, i: number) =>
+      Program.findByIdAndUpdate(prog._id, {
+        courses: [
+          { title: weekTitles[0], contents: [
+            { contentType: 'TextBloc',     content: textBlocs[i]._id },
+            { contentType: 'VideoYoutube', content: videos[i]._id    },
+          ]},
+          { title: weekTitles[1], contents: [
+            { contentType: 'Quiz', content: quizzes[i]._id },
+          ]},
+        ],
+      })
+    )
+  );
+  console.log('✅ 8 programmes mis à jour avec les semaines');
 
   // ── Company & Users ───────────────────────────────────────────
   const password = await bcrypt.hash('Shape2025!', 10);
@@ -584,23 +594,19 @@ async function seed() {
   // ── Inscriptions (interns + hired enrolled in programs) ───────
   // program 0=Social Media  1=SEO  2=Content  3=Email  4=Google Ads  5=Analytics  6=Community  7=Influence
   const inscriptionData = [
-    { user: candidates[0]._id,  program: programs[0]._id, status: 'active',    createdAt: daysAgo(125) },
-    { user: candidates[1]._id,  program: programs[1]._id, status: 'active',    createdAt: daysAgo(118) },
-    { user: candidates[2]._id,  program: programs[2]._id, status: 'active',    createdAt: daysAgo(112) },
-    { user: candidates[3]._id,  program: programs[3]._id, status: 'completed', createdAt: daysAgo(108) },
-    { user: candidates[4]._id,  program: programs[0]._id, status: 'active',    createdAt: daysAgo(102) },
-    { user: candidates[5]._id,  program: programs[5]._id, status: 'active',    createdAt: daysAgo(98)  },
-    { user: candidates[6]._id,  program: programs[1]._id, status: 'completed', createdAt: daysAgo(94)  },
-    { user: candidates[7]._id,  program: programs[2]._id, status: 'active',    createdAt: daysAgo(90)  },
-    { user: candidates[8]._id,  program: programs[3]._id, status: 'completed', createdAt: daysAgo(84)  },
-    { user: candidates[9]._id,  program: programs[0]._id, status: 'completed', createdAt: daysAgo(78)  },
-    { user: candidates[10]._id, program: programs[5]._id, status: 'active',    createdAt: daysAgo(72)  },
-    { user: candidates[11]._id, program: programs[2]._id, status: 'active',    createdAt: daysAgo(66)  },
-    { user: candidates[12]._id, program: programs[1]._id, status: 'active',    createdAt: daysAgo(60)  },
-    // Some interns enrolled in 2nd program
-    { user: candidates[0]._id,  program: programs[6]._id, status: 'active',    createdAt: daysAgo(100) },
-    { user: candidates[4]._id,  program: programs[7]._id, status: 'active',    createdAt: daysAgo(88)  },
-    { user: candidates[5]._id,  program: programs[4]._id, status: 'active',    createdAt: daysAgo(76)  },
+    { user: candidates[0]._id,  programs: [programs[0]._id, programs[6]._id], status: 'active',    createdAt: daysAgo(125) },
+    { user: candidates[1]._id,  programs: [programs[1]._id],                  status: 'active',    createdAt: daysAgo(118) },
+    { user: candidates[2]._id,  programs: [programs[2]._id],                  status: 'active',    createdAt: daysAgo(112) },
+    { user: candidates[3]._id,  programs: [programs[3]._id],                  status: 'completed', createdAt: daysAgo(108) },
+    { user: candidates[4]._id,  programs: [programs[0]._id, programs[7]._id], status: 'active',    createdAt: daysAgo(102) },
+    { user: candidates[5]._id,  programs: [programs[5]._id, programs[4]._id], status: 'active',    createdAt: daysAgo(98)  },
+    { user: candidates[6]._id,  programs: [programs[1]._id],                  status: 'completed', createdAt: daysAgo(94)  },
+    { user: candidates[7]._id,  programs: [programs[2]._id],                  status: 'active',    createdAt: daysAgo(90)  },
+    { user: candidates[8]._id,  programs: [programs[3]._id],                  status: 'completed', createdAt: daysAgo(84)  },
+    { user: candidates[9]._id,  programs: [programs[0]._id],                  status: 'completed', createdAt: daysAgo(78)  },
+    { user: candidates[10]._id, programs: [programs[5]._id],                  status: 'active',    createdAt: daysAgo(72)  },
+    { user: candidates[11]._id, programs: [programs[2]._id],                  status: 'active',    createdAt: daysAgo(66)  },
+    { user: candidates[12]._id, programs: [programs[1]._id],                  status: 'active',    createdAt: daysAgo(60)  },
   ];
   await Inscription.insertMany(inscriptionData);
   console.log('✅ 16 inscriptions créées');

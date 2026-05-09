@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import Notification from '../models/Notification';
+import User         from '../models/User';
 import { AuthRequest } from '../middleware/auth.middleware';
 
 export const getMyNotifications = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -51,4 +52,11 @@ export const createNotification = async (
   userId: string, type: string, message: string, data?: Record<string, unknown>
 ): Promise<void> => {
   await Notification.create({ userId, type, message, data });
+};
+
+export const notifyAdmins = async (
+  type: string, message: string, data?: Record<string, unknown>
+): Promise<void> => {
+  const admins = await User.find({ roles: 'ADMIN', deleted: false }).select('_id');
+  await Promise.all(admins.map(a => createNotification(a._id.toString(), type, message, data)));
 };
