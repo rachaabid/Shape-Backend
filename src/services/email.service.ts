@@ -10,6 +10,10 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+transporter.verify()
+  .then(() => console.log(`📧 SMTP prêt (${process.env.MAIL_HOST} as ${process.env.MAIL_USER})`))
+  .catch(err => console.error('❌ SMTP non disponible :', err?.message || err));
+
 interface InterviewEmailData {
   candidateName:  string;
   candidateEmail: string;
