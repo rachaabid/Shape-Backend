@@ -154,7 +154,7 @@ export const patchUser = async (req: AuthRequest, res: Response): Promise<void> 
 // DELETE /api/User/:id
 export const deleteUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    await User.findByIdAndUpdate(req.params.id, { deleted: true });
+    await User.findByIdAndDelete(req.params.id);
     res.json({ message: 'Utilisateur supprimé' });
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });

@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import ProgramRequest        from '../models/ProgramRequest';
 import Inscription           from '../models/Inscription';
+import User                  from '../models/User';
 import { AuthRequest }       from '../middleware/auth.middleware';
+import { sendProgramApproved, sendProgramRejected } from '../services/email.service';
 
 export const getAll = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -47,16 +49,26 @@ export const approve = async (req: Request, res: Response): Promise<void> => {
       req.params.id,
       { status: 'approved' },
       { new: true }
-    );
+    ).populate('user', 'email firstName lastName login').populate('program', 'title');
     if (!request) { res.status(404).json({ message: 'Demande non trouvée.' }); return; }
 
-    // Add program to the inscription's programs list (avoid duplicates)
     await Inscription.findByIdAndUpdate(
       request.inscription,
       { $addToSet: { programs: request.program } }
     );
 
     res.json(request);
+
+    setImmediate(() => {
+      const u = request.user as any;
+      const p = request.program as any;
+      const userName    = u?.firstName?.fr || u?.firstName?.en || u?.login || u?.email || '';
+      const programTitle = p?.title?.fr   || p?.title?.en    || p?.title?.ar || '';
+      const frontendUrl  = process.env.FRONTEND_URL || 'http://localhost:4200';
+      if (u?.email && programTitle) {
+        sendProgramApproved({ userEmail: u.email, userName, programTitle, frontendUrl }).catch(() => {});
+      }
+    });
   } catch (err) { res.status(500).json({ error: err }); }
 };
 
@@ -66,8 +78,19 @@ export const reject = async (req: Request, res: Response): Promise<void> => {
       req.params.id,
       { status: 'rejected' },
       { new: true }
-    );
+    ).populate('user', 'email firstName lastName login').populate('program', 'title');
     if (!request) { res.status(404).json({ message: 'Demande non trouvée.' }); return; }
     res.json(request);
+
+    setImmediate(() => {
+      const u = request.user as any;
+      const p = request.program as any;
+      const userName     = u?.firstName?.fr || u?.firstName?.en || u?.login || u?.email || '';
+      const programTitle = p?.title?.fr    || p?.title?.en    || p?.title?.ar || '';
+      const frontendUrl  = process.env.FRONTEND_URL || 'http://localhost:4200';
+      if (u?.email && programTitle) {
+        sendProgramRejected({ userEmail: u.email, userName, programTitle, frontendUrl }).catch(() => {});
+      }
+    });
   } catch (err) { res.status(500).json({ error: err }); }
 };

@@ -156,7 +156,7 @@ export const sendMentorCredentials = async (data: MentorCredentialsData): Promis
       </table>
       <p style="color:#c0392b;"><strong>Vous devrez changer votre mot de passe à la première connexion.</strong></p>
       <p>
-        <a href="${data.frontendUrl}/login"
+        <a href="${data.frontendUrl}/login?role=mentor"
            style="background:#27a8ba;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
           Se connecter
         </a>
@@ -171,6 +171,46 @@ interface AccountValidationData {
   userName:  string;
   frontendUrl: string;
 }
+
+export const sendProgramApproved = async (data: { userEmail: string; userName: string; programTitle: string; frontendUrl: string }): Promise<void> => {
+  await transporter.sendMail({
+    from:    process.env.MAIL_FROM,
+    to:      data.userEmail,
+    subject: `Demande acceptée — ${data.programTitle}`,
+    html: `
+      <h2>Bonne nouvelle, ${data.userName} !</h2>
+      <p>Votre demande d'inscription au programme <strong>${data.programTitle}</strong> a été <strong style="color:#27a8ba;">approuvée</strong>.</p>
+      <p>Vous pouvez maintenant commencer ce programme depuis votre espace.</p>
+      <p>
+        <a href="${data.frontendUrl}/shaper-panel/courses"
+           style="background:#27a8ba;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
+          Accéder à mes programmes
+        </a>
+      </p>
+      <hr/><small>Shape Platform</small>
+    `,
+  });
+};
+
+export const sendProgramRejected = async (data: { userEmail: string; userName: string; programTitle: string; frontendUrl: string }): Promise<void> => {
+  await transporter.sendMail({
+    from:    process.env.MAIL_FROM,
+    to:      data.userEmail,
+    subject: `Demande refusée — ${data.programTitle}`,
+    html: `
+      <h2>Bonjour ${data.userName},</h2>
+      <p>Votre demande d'inscription au programme <strong>${data.programTitle}</strong> a été <strong style="color:#e74c3c;">refusée</strong> par notre équipe.</p>
+      <p>Pour plus d'informations, veuillez contacter votre administrateur.</p>
+      <p>
+        <a href="${data.frontendUrl}/shaper-panel/available-programs"
+           style="background:#27a8ba;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
+          Voir les programmes disponibles
+        </a>
+      </p>
+      <hr/><small>Shape Platform</small>
+    `,
+  });
+};
 
 export const sendAccountValidationEmail = async (data: AccountValidationData): Promise<void> => {
   await transporter.sendMail({

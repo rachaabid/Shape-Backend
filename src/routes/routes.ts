@@ -5,7 +5,7 @@ import { authMiddleware } from '../middleware/auth.middleware';
 import { authenticate, createUser, getUserById, updateUser, patchUser, deleteUser, resetPassword, authenticateRecovery, getCandidateUsers }
   from '../controllers/user.controller';
 
-import { getById as getCompany, getByOwner as getCompanyByOwner, createCompany, updateCompany }
+import { getAll as getAllCompanies, getById as getCompany, getByOwner as getCompanyByOwner, createCompany, updateCompany }
   from '../controllers/company.controller';
 
 import { getAll as getJobOffers, getById as getJobOfferById, getByAttribute as getJobOfferByAttribute, create as createJobOffer, update as updateJobOffer, remove as deleteJobOffer, getJobOffersByCompany, triggerMatchForCompany }
@@ -56,8 +56,9 @@ router.patch ('/User',               authMiddleware,      patchUser);
 router.delete('/User/:id',           authMiddleware,      deleteUser);
 
 // ── Company ──────────────────────────────────────────────────────────────────
-router.get   ('/Company',            authMiddleware,      getCompany);
+router.get   ('/Company',            authMiddleware,      getAllCompanies);
 router.get   ('/Company/owner',      authMiddleware,      getCompanyByOwner);
+router.get   ('/Company/:id',        authMiddleware,      getCompany);
 router.post  ('/Company',            authMiddleware,      createCompany);
 router.put   ('/Company',            authMiddleware,      updateCompany);
 

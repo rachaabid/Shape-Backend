@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { getByOwner, getById, createCompany, updateCompany, patchCompany, deleteCompany } from '../controllers/company.controller';
+import { getAll, getByOwner, getById, createCompany, updateCompany, patchCompany, deleteCompany } from '../controllers/company.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 
+router.get   ('/',                          authMiddleware, getAll);
 router.get   ('/byattribute/owner/:userId', authMiddleware, getByOwner);
 router.get   ('/:id',                       authMiddleware, getById);
 router.post  ('/',                          authMiddleware, createCompany);

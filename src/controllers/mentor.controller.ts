@@ -182,14 +182,27 @@ export const createMentor = async (req: Request, res: Response): Promise<void> =
     const { email: rawEmail, firstName, lastName, expertise } = req.body;
     const email = rawEmail?.toLowerCase().trim();
 
-    if (await User.findOne({ email })) {
-      res.status(400).json({ message: 'Email déjà utilisé' });
-      return;
+    const existingByEmail = await User.findOne({ email });
+    if (existingByEmail) {
+      if (!existingByEmail.deleted) {
+        res.status(400).json({ message: 'Email déjà utilisé par un compte actif.' });
+        return;
+      }
+      await User.findByIdAndDelete(existingByEmail._id);
     }
 
     const tempPassword = crypto.randomBytes(4).toString('hex');
     const hashed       = await bcrypt.hash(tempPassword, 10);
     const login        = email.split('@')[0] + '_mentor';
+
+    const existingByLogin = await User.findOne({ login });
+    if (existingByLogin) {
+      if (!existingByLogin.deleted) {
+        res.status(400).json({ message: `Le login "${login}" est déjà utilisé par un compte actif.` });
+        return;
+      }
+      await User.findByIdAndDelete(existingByLogin._id);
+    }
 
     const mentor = await User.create({
       email,
@@ -205,13 +218,13 @@ export const createMentor = async (req: Request, res: Response): Promise<void> =
 
     await NotificationSetting.create({ userId: mentor._id });
 
-    await sendMentorCredentials({
+    setImmediate(() => sendMentorCredentials({
       mentorName:  `${firstName} ${lastName}`,
       mentorEmail: email,
       login,
       tempPassword,
-      frontendUrl: process.env.FRONTEND_URL || 'http://localhost:4200',
-    });
+      frontendUrl: process.env.MENTOR_FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:4201',
+    }).catch(() => {}));
 
     res.status(201).json({ ...mentor.toObject(), password: undefined });
   } catch (err: any) {

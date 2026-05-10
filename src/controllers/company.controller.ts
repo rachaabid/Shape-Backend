@@ -13,6 +13,16 @@ export const getByOwner = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+// GET /api/Company
+export const getAll = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const companies = await Company.find({ deleted: false });
+    res.json(companies);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err });
+  }
+};
+
 // GET /api/Company/:id
 export const getById = async (req: Request, res: Response): Promise<void> => {
   try {
