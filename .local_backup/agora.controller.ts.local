@@ -1,0 +1,46 @@
+import { Request, Response } from 'express';
+import { RtcTokenBuilder, RtcRole } from 'agora-token';
+
+const APP_ID          = process.env.AGORA_APP_ID          || '';
+const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE  || '';
+const EXPIRE_SECONDS  = 3600;
+
+export const generateRtcToken = (req: Request, res: Response) => {
+  if (!APP_ID || !APP_CERTIFICATE) {
+    return res.status(500).json({
+      error: 'Agora App ID or App Certificate not configured on the server'
+    });
+  }
+
+  const channel = (req.query.channel as string) || (req.body?.channel as string);
+  const uidRaw  = (req.query.uid as string)     ?? (req.body?.uid as string) ?? '0';
+  const role    = ((req.query.role as string) || 'publisher').toLowerCase();
+
+  if (!channel) {
+    return res.status(400).json({ error: 'channel is required' });
+  }
+
+  const uid = Number.parseInt(uidRaw, 10) || 0;
+  const rtcRole = role === 'subscriber' ? RtcRole.SUBSCRIBER : RtcRole.PUBLISHER;
+
+  const now             = Math.floor(Date.now() / 1000);
+  const privilegeExpire = now + EXPIRE_SECONDS;
+
+  const token = RtcTokenBuilder.buildTokenWithUid(
+    APP_ID,
+    APP_CERTIFICATE,
+    channel,
+    uid,
+    rtcRole,
+    EXPIRE_SECONDS,
+    privilegeExpire
+  );
+
+  return res.json({
+    appId: APP_ID,
+    channel,
+    uid,
+    token,
+    expiresIn: EXPIRE_SECONDS
+  });
+};
