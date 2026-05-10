@@ -9,7 +9,7 @@ const router = Router();
 
 router.get   ('/count', authMiddleware, countPrograms);
 router.get   ('/:id',   authMiddleware, getProgramById);
-router.get   ('/',      authMiddleware, getPrograms);
+router.get   ('/',      getPrograms); // public — needed during signup program selection
 router.post  ('/',      authMiddleware, createProgram);
 router.put   ('/',      authMiddleware, updateProgram);
 router.delete('/:id',   authMiddleware, deleteProgram);
