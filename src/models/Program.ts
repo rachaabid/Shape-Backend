@@ -66,6 +66,7 @@ export interface IProgram extends Document {
   online?:      boolean;
   deleted?:     boolean;
   weeks?:       IWeek[];
+  owner?:       mongoose.Types.ObjectId; // mentor who created the program
 }
 
 const QuizMcOptionSchema = new Schema<IQuizMcOption>({
@@ -134,6 +135,7 @@ const ProgramSchema = new Schema<IProgram>({
   online:      { type: Boolean, default: false },
   deleted:     { type: Boolean, default: false },
   weeks:       [WeekSchema],
+  owner:       { type: Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 export default mongoose.model<IProgram>('Program', ProgramSchema);
