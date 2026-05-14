@@ -8,6 +8,6 @@ export interface IJobOfferModel extends Document {
 const JobOfferModelSchema = new Schema<IJobOfferModel>({
   name:        { fr: String, en: String, ar: String },
   description: { fr: String, en: String, ar: String },
-});
+}, { toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 export default mongoose.model<IJobOfferModel>('JobOfferModel', JobOfferModelSchema);

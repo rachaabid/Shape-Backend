@@ -283,6 +283,7 @@ async function seed() {
   await Promise.all(
     programs.map((prog: any, i: number) =>
       Program.findByIdAndUpdate(prog._id, {
+        online: true,
         courses: [
           { title: weekTitles[0], contents: [
             { contentType: 'TextBloc',     content: textBlocs[i]._id },

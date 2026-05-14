@@ -66,7 +66,8 @@ export const approve = async (req: Request, res: Response): Promise<void> => {
       const programTitle = p?.title?.fr   || p?.title?.en    || p?.title?.ar || '';
       const frontendUrl  = process.env.FRONTEND_URL || 'http://localhost:4200';
       if (u?.email && programTitle) {
-        sendProgramApproved({ userEmail: u.email, userName, programTitle, frontendUrl }).catch(() => {});
+        sendProgramApproved({ userEmail: u.email, userName, programTitle, frontendUrl })
+          .catch(err => console.error(`❌ Échec envoi "programme approuvé" à ${u.email} :`, err?.message || err));
       }
     });
   } catch (err) { res.status(500).json({ error: err }); }
@@ -89,7 +90,8 @@ export const reject = async (req: Request, res: Response): Promise<void> => {
       const programTitle = p?.title?.fr    || p?.title?.en    || p?.title?.ar || '';
       const frontendUrl  = process.env.FRONTEND_URL || 'http://localhost:4200';
       if (u?.email && programTitle) {
-        sendProgramRejected({ userEmail: u.email, userName, programTitle, frontendUrl }).catch(() => {});
+        sendProgramRejected({ userEmail: u.email, userName, programTitle, frontendUrl })
+          .catch(err => console.error(`❌ Échec envoi "programme rejeté" à ${u.email} :`, err?.message || err));
       }
     });
   } catch (err) { res.status(500).json({ error: err }); }

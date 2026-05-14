@@ -211,7 +211,8 @@ export const validateUserAccount = async (req: AuthRequest, res: Response): Prom
     const name = (user as any).firstNameDisplay || user.login || user.email;
     const frontendUrl = process.env.FRONTEND_URL || '';
     setImmediate(() =>
-      sendAccountValidationEmail({ userEmail: user.email, userName: name, frontendUrl }).catch(() => {})
+      sendAccountValidationEmail({ userEmail: user.email, userName: name, frontendUrl })
+        .catch(err => console.error(`❌ Échec envoi validation compte à ${user.email} :`, err?.message || err))
     );
 
     res.json(user);
