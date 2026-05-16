@@ -23,7 +23,18 @@ router.get('/count', authMiddleware, async (_req: Request, res: Response) => {
 router.get('/byattribute/User/:userId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const inscriptions = await Inscription.find({ user: req.params['userId'], deleted: false })
-      .populate('user', '-password');
+      .populate('user', '-password')
+      .populate('programs');
+    res.json(inscriptions);
+  } catch (err) { res.status(500).json({ error: err }); }
+});
+
+// GET /byattribute/Mentor/:mentorId → inscriptions sous ce mentor
+router.get('/byattribute/Mentor/:mentorId', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const inscriptions = await Inscription.find({ mentor: req.params['mentorId'], deleted: false })
+      .populate('user', '-password')
+      .populate('programs');
     res.json(inscriptions);
   } catch (err) { res.status(500).json({ error: err }); }
 });

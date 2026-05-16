@@ -1,6 +1,17 @@
 import { Request, Response } from 'express';
 import Program from '../models/Program';
+import TextBloc from '../models/TextBloc';
+import VideoYoutube from '../models/VideoYoutube';
+import Quiz from '../models/Quiz';
+import Video from '../models/Video';
 import { AuthRequest } from '../middleware/auth.middleware';
+
+const contentModelMap: Record<string, any> = {
+  TextBloc,
+  VideoYoutube,
+  Quiz,
+  Video,
+};
 
 export const getPrograms = async (req: Request, res: Response) => {
   try {
@@ -27,7 +38,22 @@ export const getProgramById = async (req: Request, res: Response) => {
   try {
     const program = await Program.findById(req.params['id']);
     if (!program) return res.status(404).json({ message: 'Program introuvable' });
-    res.json(program);
+
+    const programObj = program.toObject() as any;
+    for (const course of (programObj.courses || [])) {
+      for (const item of (course.contents || [])) {
+        const model = contentModelMap[item.contentType];
+        if (model) {
+          item.contentData = await model
+            .findById(item.content)
+            .select('title description url html duration')
+            .lean()
+            .catch(() => null);
+        }
+      }
+    }
+
+    res.json(programObj);
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }

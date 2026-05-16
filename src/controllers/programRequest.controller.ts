@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import ProgramRequest        from '../models/ProgramRequest';
 import Inscription           from '../models/Inscription';
-import User                  from '../models/User';
 import { AuthRequest }       from '../middleware/auth.middleware';
 import { sendProgramApproved, sendProgramRejected } from '../services/email.service';
 
@@ -70,6 +69,24 @@ export const approve = async (req: Request, res: Response): Promise<void> => {
           .catch(err => console.error(`❌ Échec envoi "programme approuvé" à ${u.email} :`, err?.message || err));
       }
     });
+  } catch (err) { res.status(500).json({ error: err }); }
+};
+
+export const revoke = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const request = await ProgramRequest.findByIdAndUpdate(
+      req.params.id,
+      { status: 'pending' },
+      { new: true }
+    ).populate('user', 'email firstName lastName login').populate('program', 'title');
+    if (!request) { res.status(404).json({ message: 'Demande non trouvée.' }); return; }
+
+    await Inscription.findByIdAndUpdate(
+      request.inscription,
+      { $pull: { programs: request.program } }
+    );
+
+    res.json(request);
   } catch (err) { res.status(500).json({ error: err }); }
 };
 
