@@ -14,10 +14,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     const hashed = await bcrypt.hash(password, 10);
-    const user   = await User.create({ login, email, password: hashed, roles: roles || ['COMPANY'] });
+    const user   = await User.create({ login, email, password: hashed, roles: roles || ['COMPANY'], verifiedAccount: false });
 
-    if (roles?.includes('COMPANY') && companyName) {
-      await Company.create({ userId: user._id, name: companyName });
+    if (roles?.includes('COMPANY')) {
+      await Company.create({ owner: user._id, name: { fr: companyName || login, en: companyName || login } });
     }
 
     const token = signToken(user._id.toString(), user.roles);

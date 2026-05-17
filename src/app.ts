@@ -7,6 +7,10 @@ import mongoose        from 'mongoose';
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
 import jwt             from 'jsonwebtoken';
+import helmet          from 'helmet';
+import mongoSanitize   from 'express-mongo-sanitize';
+import rateLimit       from 'express-rate-limit';
+import compression     from 'compression';
 
 import userRoutes                  from './routes/user.routes';
 import companyRoutes               from './routes/company.routes';
@@ -50,6 +54,16 @@ const corsOrigin = (origin: string | undefined, callback: (err: Error | null, al
 };
 
 app.use(cors({ origin: corsOrigin, credentials: true }));
+app.use(compression());
+app.use(helmet());
+app.use(mongoSanitize());
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Trop de requêtes, veuillez réessayer dans 15 minutes.' },
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

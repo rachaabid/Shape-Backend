@@ -171,9 +171,10 @@ export const sendMentorCredentials = async (data: MentorCredentialsData): Promis
 };
 
 interface AccountValidationData {
-  userEmail: string;
-  userName:  string;
+  userEmail:   string;
+  userName:    string;
   frontendUrl: string;
+  role?:       'CANDIDATE' | 'COMPANY';
 }
 
 export const sendProgramApproved = async (data: { userEmail: string; userName: string; programTitle: string; frontendUrl: string }): Promise<void> => {
@@ -217,15 +218,22 @@ export const sendProgramRejected = async (data: { userEmail: string; userName: s
 };
 
 export const sendAccountValidationEmail = async (data: AccountValidationData): Promise<void> => {
+  const isCompany   = data.role === 'COMPANY';
+  const loginPath   = isCompany ? '/login?role=company' : '/login';
+  const welcomeMsg  = isCompany
+    ? `Votre espace entreprise est désormais actif. Vous pouvez publier des offres d'emploi et accéder au tableau de bord entreprise.`
+    : `Votre espace candidat est désormais actif. Vous pouvez compléter votre profil et postuler à des offres d'emploi.`;
+
   await transporter.sendMail({
     from:    process.env.MAIL_FROM,
     to:      data.userEmail,
     subject: 'Votre compte Shape a été validé',
     html: `
       <h2>Bienvenue sur Shape, ${data.userName} !</h2>
-      <p>Votre compte a été <strong>validé par notre équipe</strong>. Vous pouvez maintenant vous connecter à la plateforme.</p>
+      <p>Votre compte a été <strong style="color:#27a8ba;">validé par notre équipe</strong>.</p>
+      <p>${welcomeMsg}</p>
       <p>
-        <a href="${data.frontendUrl}/login"
+        <a href="${data.frontendUrl}${loginPath}"
            style="background:#27a8ba;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
           Se connecter
         </a>

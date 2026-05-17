@@ -32,6 +32,8 @@ export const authenticate = async (req: Request, res: Response): Promise<void> =
     }
 
     const token = signToken(user._id.toString(), user.roles);
+    await user.populate('hardSkills.skill', '_id name');
+    await user.populate('softwares.skill', '_id name');
     res.json({ ...user.toObject(), password: undefined, token });
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
@@ -88,13 +90,22 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 // GET /api/User/:id
 export const getUserById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id)
+      .select('-password')
+      .populate('hardSkills.skill', '_id name')
+      .populate('softwares.skill', '_id name');
     if (!user) { res.status(404).json({ message: 'Utilisateur non trouvé' }); return; }
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
   }
 };
+
+const normalizeSkillArray = (arr: any[]): { skill: string; level: number }[] =>
+  (arr || []).map(item => ({
+    skill: item.skill?._id ?? item.skill,
+    level: item.level,
+  }));
 
 // PUT /api/User  (full update)
 export const updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -111,8 +122,13 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
       updates.email = email;
     }
     if (password) updates.password = await bcrypt.hash(password, 10);
+    if (updates.hardSkills) updates.hardSkills = normalizeSkillArray(updates.hardSkills as any[]);
+    if (updates.softwares)  updates.softwares  = normalizeSkillArray(updates.softwares  as any[]);
 
-    const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select('-password');
+    const user = await User.findByIdAndUpdate(req.userId, updates, { new: true })
+      .select('-password')
+      .populate('hardSkills.skill', '_id name')
+      .populate('softwares.skill', '_id name');
     res.json(user);
   } catch (err: any) {
     if (err.code === 11000) {
@@ -139,8 +155,13 @@ export const patchUser = async (req: AuthRequest, res: Response): Promise<void> 
       updates.email = email;
     }
     if (password) updates.password = await bcrypt.hash(password, 10);
+    if (updates.hardSkills) updates.hardSkills = normalizeSkillArray(updates.hardSkills as any[]);
+    if (updates.softwares)  updates.softwares  = normalizeSkillArray(updates.softwares  as any[]);
 
-    const user = await User.findByIdAndUpdate(targetId, updates, { new: true }).select('-password');
+    const user = await User.findByIdAndUpdate(targetId, updates, { new: true })
+      .select('-password')
+      .populate('hardSkills.skill', '_id name')
+      .populate('softwares.skill', '_id name');
     res.json(user);
   } catch (err: any) {
     if (err.code === 11000) {
@@ -180,7 +201,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
 // GET /api/User  → tous les utilisateurs (admin)
 export const getAllUsers = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const users = await User.find({ deleted: false }).select('-password');
+    const users = await User.find({ deleted: { $ne: true } }).select('-password');
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err });
@@ -210,8 +231,9 @@ export const validateUserAccount = async (req: AuthRequest, res: Response): Prom
 
     const name = (user as any).firstNameDisplay || user.login || user.email;
     const frontendUrl = process.env.FRONTEND_URL || '';
+    const role = user.roles?.includes('COMPANY') ? 'COMPANY' : 'CANDIDATE';
     setImmediate(() =>
-      sendAccountValidationEmail({ userEmail: user.email, userName: name, frontendUrl })
+      sendAccountValidationEmail({ userEmail: user.email, userName: name, frontendUrl, role })
         .catch(err => console.error(`❌ Échec envoi validation compte à ${user.email} :`, err?.message || err))
     );
 
