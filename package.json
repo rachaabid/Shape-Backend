@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "seed": "ts-node src/seed.ts",
+    "seed:stress": "ts-node src/seed-stress.ts",
     "python": "cd src/python && python main.py"
   },
   "dependencies": {
