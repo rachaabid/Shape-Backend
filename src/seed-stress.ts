@@ -37,6 +37,8 @@ import Notification      from './models/Notification';
 import NotificationSetting from './models/NotificationSetting';
 import MentorEvaluation  from './models/MentorEvaluation';
 import ProgramRequest    from './models/ProgramRequest';
+import CompanyProgramProposal from './models/CompanyProgramProposal';
+import Documentation     from './models/Documentation';
 
 // ── Helpers ────────────────────────────────────────────────────────
 const rnd  = (n: number) => Math.floor(Math.random() * n);
@@ -96,6 +98,7 @@ async function seed() {
     TaskResponse.deleteMany({}), Inscription.deleteMany({}), Conversation.deleteMany({}),
     Message.deleteMany({}), Notification.deleteMany({}), NotificationSetting.deleteMany({}),
     MentorEvaluation.deleteMany({}), ProgramRequest.deleteMany({}),
+    CompanyProgramProposal.deleteMany({}), Documentation.deleteMany({}),
   ]);
   console.log('🗑️  Toutes les collections vidées');
 
@@ -163,7 +166,85 @@ async function seed() {
     })),
   );
 
-  // ── 4. Programmes (30 — variés) ───────────────────────────────────
+  // ── 3a. Tâches pour les programmes (créées ici pour être disponibles à l'étape 5) ──
+  const programTasks = await Task.insertMany(
+    Array.from({ length: 20 }, (_, i) => ({
+      title: { fr: `Tâche programme ${i + 1}`, en: `Program Task ${i + 1}` },
+      description: { fr: `Exercice pratique ${i + 1} à rendre dans les délais.` },
+      keyWords: pickN(HARD_SKILLS, 2),
+      online: true, deadLineInHours: 24 + rnd(96),
+    })),
+  );
+  console.log(`✅ ${programTasks.length} tâches-programme créées`);
+
+  // ── 3b. Documentation (ressources PDF pour les cours) ────────────────
+  const DOC_SAMPLES = [
+    {
+      title: { fr: 'Introduction au Marketing Digital', en: 'Introduction to Digital Marketing' },
+      description: { fr: 'Guide complet pour démarrer en marketing digital.' },
+      keyWords: ['marketing', 'digital', 'SEO'],
+      online: true,
+      documents: [
+        { title: { fr: 'Guide PDF' }, url: 'https://www.w3.org/WAI/WCAG21/wcag21.pdf' },
+        { title: { fr: 'Fiche résumé' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
+      ],
+    },
+    {
+      title: { fr: 'Stratégie de Contenu', en: 'Content Strategy' },
+      description: { fr: 'Apprenez à créer une stratégie de contenu efficace.' },
+      keyWords: ['contenu', 'stratégie', 'copywriting'],
+      online: true,
+      documents: [
+        { title: { fr: 'Template stratégie' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
+      ],
+    },
+    {
+      title: { fr: 'SEO & Référencement', en: 'SEO & Search Engine Optimization' },
+      description: { fr: 'Les bases du référencement naturel et les bonnes pratiques.' },
+      keyWords: ['SEO', 'référencement', 'Google'],
+      online: true,
+      documents: [
+        { title: { fr: 'Checklist SEO' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
+        { title: { fr: 'Guide Google Analytics' }, url: 'https://www.w3.org/WAI/WCAG21/wcag21.pdf' },
+      ],
+    },
+    {
+      title: { fr: 'Community Management', en: 'Community Management' },
+      description: { fr: 'Gérer et animer une communauté en ligne.' },
+      keyWords: ['community', 'réseaux sociaux', 'engagement'],
+      online: true,
+      documents: [
+        { title: { fr: 'Calendrier éditorial' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
+      ],
+    },
+    {
+      title: { fr: 'Email Marketing', en: 'Email Marketing' },
+      description: { fr: 'Créer des campagnes email performantes.' },
+      keyWords: ['email', 'newsletter', 'conversion'],
+      online: true,
+      documents: [
+        { title: { fr: 'Templates email' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
+        { title: { fr: 'Guide Mailchimp' }, url: 'https://www.w3.org/WAI/WCAG21/wcag21.pdf' },
+      ],
+    },
+  ];
+  const documentations = await Documentation.insertMany(DOC_SAMPLES);
+  console.log(`✅ ${documentations.length} documentations créées`);
+
+  // ── 4. Mentors (créés avant les programmes pour l'assignation owner) ─
+  const mentors: any[] = [];
+  for (let i = 0; i < 20; i++) {
+    const m = await User.create({
+      login: `mentor${i}`, email: `mentor${i}@shape-test.com`, password: pw,
+      roles: ['MENTOR'], firstName: { fr: pick(FIRST_NAMES), en: pick(FIRST_NAMES) },
+      lastName: { fr: pick(LAST_NAMES) }, jobTitle: pick(CAREERS),
+      verifiedAccount: true, createdAt: daysAgo(rnd(400)),
+    });
+    mentors.push(m);
+  }
+  console.log(`✅ ${mentors.length} mentors créés`);
+
+  // ── 5. Programmes (30 — variés, chaque mentor est owner d'1-2 prog) ─
   const programsPayload = Array.from({ length: 30 }, (_, i) => {
     const title = `${pick(PROGRAM_TITLES)} ${i + 1}`;
     // 1 programme sur 6 est hors-ligne ; 1 sur 8 sans contenu (cas limites).
@@ -172,22 +253,68 @@ async function seed() {
     return {
       title: { fr: title, en: title, ...(i % 3 ? { ar: title } : {}) },
       description: { fr: `Programme de formation ${title}.` },
-      online, price: rnd(5) * 100, duration: 4 + rnd(20),
-      courses: hasCourses ? [
-        { title: { fr: 'Semaine 1' }, contents: [
-          { contentType: 'TextBloc',     content: pick(textBlocs)._id },
-          { contentType: 'VideoYoutube', content: pick(videos)._id },
-        ]},
-        { title: { fr: 'Semaine 2' }, contents: [
-          { contentType: 'Quiz', content: pick(quizzes)._id },
-        ]},
-      ] : [],
+      owner: mentors[i % mentors.length]._id,
+      online, price: rnd(5) * 100, priceEur: rnd(5) * 30, duration: 4 + rnd(20),
+      weeks: hasCourses ? (() => {
+        const tb   = pick(textBlocs);
+        const vid  = pick(videos);
+        const doc  = pick(documentations);
+        const task = pick(programTasks);
+        const quiz = pick(quizzes);
+        const deadline = new Date(Date.now() + 72 * 3600_000);
+        return [
+          {
+            title: { fr: 'Semaine 1', en: 'Week 1', ar: 'الأسبوع 1' },
+            lessons: [
+              {
+                title:       tb.title,
+                htmlContent: tb.html,
+                keyWords:    tb.keyWords ?? [],
+              },
+              {
+                title:    vid.title,
+                videoUrl: vid.url,
+                keyWords: vid.keyWords ?? [],
+              },
+              {
+                title: doc.title,
+                folders: (doc.documents ?? []).map((d: any) => ({
+                  fileName: typeof d.title === 'string' ? d.title : (d.title?.fr || d.title?.en || 'Document'),
+                  fileSize: 0,
+                  url: d.url,
+                })),
+              },
+              {
+                title:           task.title,
+                learningOutcome: typeof task.description === 'string' ? task.description : (task.description?.fr || ''),
+                taskRef:         task._id.toString(),
+                keyWords:        task.keyWords ?? [],
+              },
+            ],
+          },
+          {
+            title: { fr: 'Semaine 2', en: 'Week 2', ar: 'الأسبوع 2' },
+            lessons: [
+              {
+                title:   quiz.title,
+                quizzes: [{
+                  id:              quiz._id.toString(),
+                  title:           quiz.title,
+                  hoursToComplete: quiz.duration ?? 10,
+                  deadline:        deadline.toISOString(),
+                }],
+                keyWords: quiz.keyWords ?? [],
+              },
+            ],
+          },
+        ];
+      })() : [],
     };
   });
   const programs = await Program.insertMany(programsPayload);
-  console.log(`✅ ${programs.length} programmes créés`);
+  console.log(`✅ ${programs.length} programmes créés (avec owner assigné)`);
 
-  // ── 5. Entreprises + comptes COMPANY (25, dont 1 sans offre) ──────
+  // ── 6. Entreprises + comptes COMPANY (25, dont 1 sans offre) ──────
   const companyUsers: any[] = [];
   const companies: any[] = [];
   for (let i = 0; i < 25; i++) {
@@ -206,19 +333,6 @@ async function seed() {
     companyUsers.push(u); companies.push(c);
   }
   console.log(`✅ ${companies.length} entreprises créées`);
-
-  // ── 6. Mentors (20, dont 1 sans stagiaire) ────────────────────────
-  const mentors: any[] = [];
-  for (let i = 0; i < 20; i++) {
-    const m = await User.create({
-      login: `mentor${i}`, email: `mentor${i}@shape-test.com`, password: pw,
-      roles: ['MENTOR'], firstName: { fr: pick(FIRST_NAMES), en: pick(FIRST_NAMES) },
-      lastName: { fr: pick(LAST_NAMES) }, jobTitle: pick(CAREERS),
-      verifiedAccount: true, createdAt: daysAgo(rnd(400)),
-    });
-    mentors.push(m);
-  }
-  console.log(`✅ ${mentors.length} mentors créés`);
 
   // ── 7. Candidats (150 — répartition de statuts variée) ────────────
   const candidates: any[] = [];
@@ -323,10 +437,26 @@ async function seed() {
     const cand = pick(candidates);
     // mentor 19 reste sans stagiaire (cas limite) → on tire parmi 0..18.
     const withMentor = chance(0.7);
+    let selectedMentor: any = undefined;
+    let selectedPrograms: any[];
+
+    if (withMentor) {
+      selectedMentor = mentors[rnd(19)];
+      // Use only programs owned by this mentor for coherence
+      const mentorOwned = programs.filter((p: any) =>
+        p.owner && (p.owner.equals ? p.owner.equals(selectedMentor._id) : String(p.owner) === String(selectedMentor._id))
+      );
+      selectedPrograms = mentorOwned.length > 0
+        ? pickN(mentorOwned, 1).map(p => p._id)
+        : pickN(programs, 1 + rnd(2)).map(p => p._id);
+    } else {
+      selectedPrograms = pickN(programs, 1 + rnd(3)).map(p => p._id);
+    }
+
     const ins = await Inscription.create({
       user: cand._id,
-      programs: pickN(programs, 1 + rnd(3)).map(p => p._id),
-      mentor: withMentor ? mentors[rnd(19)]._id : undefined,
+      programs: selectedPrograms,
+      mentor: selectedMentor?._id,
       status: pick(['active', 'completed']),
       createdAt: daysAgo(rnd(300)),
     });
@@ -349,9 +479,16 @@ async function seed() {
   }
   let trCount = 0;
   for (let i = 0; i < 700; i++) {
+    const cand = pick(candidates);
+    // ~60% des réponses liées à une inscription du candidat (pour projet-management)
+    const candIns = inscriptions.filter((ins: any) =>
+      String(ins.user) === String(cand._id)
+    );
+    const ins = chance(0.6) && candIns.length ? pick(candIns) : undefined;
     await TaskResponse.create({
-      task: pick(tasks)._id, owner: pick(candidates)._id,
-      status: rnd(4),                                  // 0..3
+      task: pick(tasks)._id, owner: cand._id,
+      inscription: ins?._id,
+      status: rnd(4),
       createdAt: daysAgo(rnd(200)),
     });
     trCount++;
@@ -434,7 +571,31 @@ async function seed() {
   }
   console.log(`✅ ${reqCount} demandes de programme créées`);
 
-  // ── 18. Cohorte « formation terminée » ───────────────────────────
+  // ── 18. Propositions de formation des entreprises (60) ───────────
+  const PROPOSAL_TITLES = ['Formation Marketing Digital','Atelier Growth Hacking','Formation SEO avancé','Bootcamp Community Manager','Formation Email Marketing','Atelier Créa Vidéo','Formation Data & Analytics','Bootcamp Social Media','Formation Brand Strategy','Atelier Copywriting'];
+  const CAREERS_LIST    = ['Community Manager','Spécialiste SEO','Chargé de publicité','Growth Marketer','Brand Manager'];
+  const AUDIENCES       = ['Candidats juniors','Candidats seniors','Alternants','Stagiaires'];
+  let proposalCount = 0;
+  for (let i = 0; i < 60; i++) {
+    const cu = pick(companyUsers);
+    const co = companies.find((c: any) => c.owner?.equals ? c.owner.equals(cu._id) : String(c.owner) === String(cu._id));
+    if (!co) continue;
+    await CompanyProgramProposal.create({
+      company:        co._id,
+      proposedBy:     cu._id,
+      title:          pick(PROPOSAL_TITLES),
+      description:    `Description de la proposition de formation ${i + 1}.`,
+      career:         pick(CAREERS_LIST),
+      targetAudience: pick(AUDIENCES),
+      justification:  chance(0.7) ? `Justification de la proposition ${i + 1}.` : undefined,
+      status:         pick(['pending', 'accepted', 'rejected']),
+      createdAt:      daysAgo(rnd(200)),
+    });
+    proposalCount++;
+  }
+  console.log(`✅ ${proposalCount} propositions de formation créées`);
+
+  // ── 19. Cohorte « formation terminée » ───────────────────────────
   // 15 candidats connus (candidate0..14) qui ONT TERMINÉ leur formation
   // et demandent un NOUVEAU programme → permet de tester :
   //   • le choix d'un autre programme par le candidat,
@@ -487,14 +648,15 @@ async function seed() {
   console.log('─────────────────────────────────────────');
   console.log(`   Candidats     : ${candidates.length}`);
   console.log(`   Entreprises   : ${companies.length}  | Mentors : ${mentors.length}`);
-  console.log(`   Programmes    : ${programs.length}`);
+  console.log(`   Programmes    : ${programs.length}  | Documentations : ${documentations.length}`);
   console.log(`   Offres        : ${jobOffers.length}  | Candidatures : ${applications.length}`);
   console.log(`   Entretiens    : ${itvCount}`);
   console.log(`   Inscriptions  : ${inscriptions.length}`);
-  console.log(`   Tâches        : ${tasks.length}  | Réponses : ${trCount}`);
+  console.log(`   Tâches        : ${programTasks.length} (prog) + ${tasks.length} (standalone)  | Réponses : ${trCount}`);
   console.log(`   Conversations : ${convCount}  | Messages : ${msgCount}`);
   console.log(`   Notifications : ${notifCount}  | Évaluations : ${evalCount}`);
   console.log(`   ProgramRequest: ${reqCount + finishedCount} (dont ${finishedCount} EN ATTENTE)`);
+  console.log(`   Propositions   : ${proposalCount}`);
   console.log(`   Formation terminée : ${finishedCount} candidats (candidate0..14)`);
   console.log('─────────────────────────────────────────');
   console.log('🔑 admin@shape.fr / Admin2025!');

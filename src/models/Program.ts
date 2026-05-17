@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+// ── Inline quiz structures (backoffice / mentor editor) ────────────────────────
 export interface IQuizMcOption {
   text:      string;
   isCorrect: boolean;
@@ -15,7 +16,7 @@ export interface IQuizQuestion {
 
 export interface IQuiz {
   id?:              string;
-  title:            string;
+  title:            any;   // string or { fr, en, ar }
   description?:     string;
   hoursToComplete?: number;
   deadline?:        string;
@@ -23,52 +24,68 @@ export interface IQuiz {
   folders?:         { id?: string; name: string; fileName: string; createdAt?: string }[];
 }
 
+// ── Lesson ────────────────────────────────────────────────────────────────────
+export interface ILessonFolder {
+  fileName: string;
+  fileSize?: number;
+  url?: string;   // external URL — used as download target and file id
+  id?: string;    // storage id (uploaded files)
+}
+
 export interface ILesson {
   id?:              string;
-  title:            string;
+  title:            any;    // string or { fr, en, ar }
   durationHours?:   number;
   videoUrl?:        string;
   videoName?:       string;
   learningOutcome?: string;
   challengeText?:   string;
+  htmlContent?:     string; // rich HTML content (replaces TextBloc reference)
   keyWords?:        string[];
   references?:      string;
   challenges?:      number;
-  folders?:         { fileName: string; fileSize: number }[];
+  folders?:         ILessonFolder[];
+  taskRef?:         string; // ID of a Task document → project management
   quizzes?:         IQuiz[];
 }
 
+// ── Week ──────────────────────────────────────────────────────────────────────
 export interface IWeek {
   id?:      string;
-  title:    string;
+  title:    any;   // string or { fr, en, ar }
   lessons?: ILesson[];
 }
 
+// ── Courses/contents (legacy seed structure — kept for backward compat) ────────
 export interface ICourseContentItem {
-  contentType: 'Quiz' | 'TextBloc' | 'VideoYoutube' | 'Video';
+  contentType: 'Quiz' | 'TextBloc' | 'VideoYoutube' | 'Video' | 'Documentation' | 'Task';
   content:     mongoose.Types.ObjectId;
 }
 
 export interface ICourse {
   title:    { fr?: string; en?: string; ar?: string };
   contents: ICourseContentItem[];
+  weeks?:   IWeek[];
 }
 
+// ── Program ───────────────────────────────────────────────────────────────────
 export interface IProgram extends Document {
   title:        { fr?: string; en?: string; ar?: string };
   description?: { fr?: string; en?: string; ar?: string };
   career?:      string;
   skill?:       string;
-  courses?:     ICourse[];
+  weeks?:       IWeek[];   // PRIMARY — backoffice + seed both write here
+  courses?:     ICourse[]; // LEGACY — old seed format, kept for backward compat
   price?:       number;
+  priceEur?:    number;
   duration?:    number;
   order?:       number;
   online?:      boolean;
   deleted?:     boolean;
-  weeks?:       IWeek[];
-  owner?:       mongoose.Types.ObjectId; // mentor who created the program
+  owner?:       mongoose.Types.ObjectId;
 }
 
+// ── Mongoose schemas ──────────────────────────────────────────────────────────
 const QuizMcOptionSchema = new Schema<IQuizMcOption>({
   text:      String,
   isCorrect: Boolean,
@@ -83,44 +100,55 @@ const QuizQuestionSchema = new Schema<IQuizQuestion>({
 }, { _id: false });
 
 const QuizSchema = new Schema<IQuiz>({
-  id:               { type: String },
-  title:            String,
-  description:      String,
-  hoursToComplete:  Number,
-  deadline:         String,
-  questions:        [QuizQuestionSchema],
-  folders:          [{ name: String, fileName: String, createdAt: String }],
+  id:              { type: String },
+  title:           { type: Schema.Types.Mixed }, // string or { fr, en, ar }
+  description:     String,
+  hoursToComplete: Number,
+  deadline:        String,
+  questions:       [QuizQuestionSchema],
+  folders:         [{ name: String, fileName: String, createdAt: String }],
 });
 
+const LessonFolderSchema = new Schema<ILessonFolder>({
+  fileName: String,
+  fileSize: Number,
+  url:      String, // external URL for documentation files
+  id:       String, // storage id for uploaded files
+}, { _id: false });
+
 const LessonSchema = new Schema<ILesson>({
-  id:               { type: String },
-  title:            String,
-  durationHours:    Number,
-  videoUrl:         String,
-  videoName:        String,
-  learningOutcome:  String,
-  challengeText:    String,
-  keyWords:         [String],
-  references:       String,
-  challenges:       Number,
-  folders:          [{ fileName: String, fileSize: Number }],
-  quizzes:          [QuizSchema],
+  id:              { type: String },
+  title:           { type: Schema.Types.Mixed }, // string or { fr, en, ar }
+  durationHours:   Number,
+  videoUrl:        String,
+  videoName:       String,
+  learningOutcome: String,
+  challengeText:   String,
+  htmlContent:     String,
+  keyWords:        [String],
+  references:      String,
+  challenges:      Number,
+  folders:         [LessonFolderSchema],
+  taskRef:         String,
+  quizzes:         [QuizSchema],
 });
 
 const WeekSchema = new Schema<IWeek>({
   id:      { type: String },
-  title:   String,
+  title:   { type: Schema.Types.Mixed }, // string or { fr, en, ar }
   lessons: [LessonSchema],
 });
 
+// Legacy content-type refs
 const CourseContentItemSchema = new Schema<ICourseContentItem>({
-  contentType: { type: String, enum: ['Quiz', 'TextBloc', 'VideoYoutube', 'Video'] },
+  contentType: { type: String, enum: ['Quiz', 'TextBloc', 'VideoYoutube', 'Video', 'Documentation', 'Task'] },
   content:     { type: Schema.Types.ObjectId },
 }, { _id: false });
 
 const CourseSchema = new Schema<ICourse>({
   title:    { fr: String, en: String, ar: String },
   contents: [CourseContentItemSchema],
+  weeks:    [WeekSchema],
 }, { _id: false });
 
 const ProgramSchema = new Schema<IProgram>({
@@ -128,13 +156,14 @@ const ProgramSchema = new Schema<IProgram>({
   description: { fr: String, en: String, ar: String },
   career:      String,
   skill:       String,
+  weeks:       [WeekSchema],
   courses:     [CourseSchema],
   price:       Number,
+  priceEur:    Number,
   duration:    Number,
   order:       Number,
   online:      { type: Boolean, default: false },
   deleted:     { type: Boolean, default: false },
-  weeks:       [WeekSchema],
   owner:       { type: Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 

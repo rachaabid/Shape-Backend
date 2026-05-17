@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { getByCandidate, getByCompany, getById, create, patch, confirm } from '../controllers/interview.controller';
+import { getByCandidate, getByCompany, getById, create, patch, confirm, getInterviews } from '../controllers/interview.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 
+router.get   ('/',                     authMiddleware, getInterviews);   // admin — tous les entretiens
 router.get   ('/confirm',              confirm);                         // public — email link
 router.get   ('/bycandidate/:candidateId', authMiddleware, getByCandidate);
 router.get   ('/bycompany/:companyId',    authMiddleware, getByCompany);

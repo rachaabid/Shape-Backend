@@ -113,8 +113,20 @@ router.get('/QuizResponse', authMiddleware, async (_req: Request, res: Response)
 
 router.post('/QuizResponse', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const item = await QuizResponse.create({ ...req.body, owner: req.body.owner || req.userId });
-    res.status(201).json(item);
+    const owner       = req.body.owner || req.userId;
+    const quizId      = req.body.quiz;
+    const inscription = req.body.inscription;
+
+    // Upsert: one response per (owner, quiz) pair — update if already submitted
+    const filter: any = { owner, quiz: quizId, deleted: { $ne: true } };
+    if (inscription) filter.inscription = inscription;
+
+    const item = await QuizResponse.findOneAndUpdate(
+      filter,
+      { $set: { reponses: req.body.reponses, inscription, updatedAt: new Date() } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    res.status(200).json(item);
   } catch (err) { res.status(500).json({ error: err }); }
 });
 

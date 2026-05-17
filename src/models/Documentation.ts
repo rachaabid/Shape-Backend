@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IDocFile {
   title?:       { fr?: string; en?: string; ar?: string };
   description?: { fr?: string; en?: string; ar?: string };
+  url?:         string;  // external URL or storage path
 }
 
 export interface IDocumentation extends Document {
@@ -17,6 +18,7 @@ export interface IDocumentation extends Document {
 const DocFileSchema = new Schema<IDocFile>({
   title:       { fr: String, en: String, ar: String },
   description: { fr: String, en: String, ar: String },
+  url:         String,
 });
 
 const DocumentationSchema = new Schema<IDocumentation>({
