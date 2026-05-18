@@ -7,6 +7,8 @@ import Task         from '../models/Task';
 import TaskResponse from '../models/TaskResponse';
 import MentorEvaluation from '../models/MentorEvaluation';
 import NotificationSetting from '../models/NotificationSetting';
+import QuizResponse from '../models/QuizResponse';
+import Message      from '../models/Message';
 import { AuthRequest }  from '../middleware/auth.middleware';
 import { sendMentorCredentials } from '../services/email.service';
 import { notifyAdmins }         from './notification.controller';
@@ -39,6 +41,73 @@ export const getMentorStats = async (req: AuthRequest, res: Response): Promise<v
     ]);
     res.json({ internCount, taskCount: myTasks, evalCount: myEvals, pendingReviews });
   } catch (err) { res.status(500).json({ error: err }); }
+};
+
+// ── Évaluation assistée : suggestion de scores calculée sur données réelles ───
+// GET /api/Mentor/evaluation-suggestion/:internId
+// Agrège : tâches terminées, quiz réalisés, maîtrise des compétences,
+// activité de messagerie → propose 4 scores /10 pour aider le mentor.
+export const getEvaluationSuggestion = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const internId = req.params['internId'];
+    const clamp = (v: number) => Math.max(0, Math.min(10, Math.round(v)));
+
+    const [taskResponses, quizResponses, intern, inscriptions, messagesSent] = await Promise.all([
+      TaskResponse.find({ owner: internId, deleted: { $ne: true } }),
+      QuizResponse.find({ owner: internId, deleted: { $ne: true } }),
+      User.findById(internId),
+      Inscription.find({ user: internId, deleted: { $ne: true } }),
+      Message.countDocuments({ sender: internId }),
+    ]);
+
+    // 1. Tâches terminées (status 3 = Closed)
+    const tasksTotal = taskResponses.length;
+    const tasksDone  = taskResponses.filter(t => t.status === 3).length;
+    const tasksInProgress = taskResponses.filter(t => t.status === 1 || t.status === 2).length;
+    const taskCompletion = tasksTotal ? Math.round((tasksDone / tasksTotal) * 100) : 0;
+
+    // 2. Participation aux quiz
+    const quizCount = quizResponses.length;
+    const quizScore = Math.min(100, quizCount * 20); // 5 quiz = 100%
+
+    // 3. Maîtrise des compétences (niveaux hardSkills + softwares, /5)
+    const skillLevels: number[] = [
+      ...((intern?.hardSkills as any[]) || []).map(s => s.level || 0),
+      ...((intern?.softwares  as any[]) || []).map(s => s.level || 0),
+    ];
+    const skillMastery = skillLevels.length
+      ? Math.round((skillLevels.reduce((a, b) => a + b, 0) / skillLevels.length / 5) * 100)
+      : 0;
+
+    // 4. Avancement formation : inscriptions terminées + progression des tâches
+    const inscriptionsCompleted = inscriptions.filter(i => i.status === 'completed').length;
+    const formationProgress = inscriptions.length
+      ? Math.round(
+          (inscriptionsCompleted / inscriptions.length) * 50 + (taskCompletion / 2),
+        )
+      : taskCompletion;
+
+    // 5. Activité de communication (messages envoyés, plafonnée à 30)
+    const communicationActivity = Math.min(100, Math.round((messagesSent / 30) * 100));
+
+    // ── Scores suggérés /10 (formule pondérée transparente) ──────────────────
+    const technical     = clamp((skillMastery * 0.5 + quizScore * 0.3 + taskCompletion * 0.2) / 10);
+    const behavior      = clamp((taskCompletion * 0.7 + formationProgress * 0.3) / 10);
+    const communication = clamp((communicationActivity * 0.7 + taskCompletion * 0.3) / 10);
+    const initiative    = clamp(((taskCompletion + quizScore) / 2 * 0.6 + skillMastery * 0.4) / 10);
+    const globalScore   = Math.round(((technical + behavior + communication + initiative) / 4) * 10) / 10;
+
+    res.json({
+      metrics: {
+        taskCompletion, formationProgress, quizScore, skillMastery,
+        communicationActivity, tasksDone, tasksTotal, tasksInProgress,
+        quizCount, messagesSent,
+      },
+      suggested: { technical, behavior, communication, initiative, globalScore },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err });
+  }
 };
 
 // ── Intern task responses ──────────────────────────────────────────────────────

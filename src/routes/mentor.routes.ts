@@ -3,6 +3,7 @@ import { authMiddleware } from '../middleware/auth.middleware';
 import {
   getMyInterns,
   getMentorStats,
+  getEvaluationSuggestion,
   getInternTaskResponses,
   getMentorTasks,
   createMentorTask,
@@ -22,6 +23,7 @@ const router = Router();
 // ── Mentor: my data ──────────────────────────────────────────────
 router.get('/interns',                     authMiddleware, getMyInterns);
 router.get('/stats',                       authMiddleware, getMentorStats);
+router.get('/evaluation-suggestion/:internId', authMiddleware, getEvaluationSuggestion);
 router.get('/tasks',                       authMiddleware, getMentorTasks);
 router.post('/tasks',                      authMiddleware, createMentorTask);
 router.delete('/tasks/:id',               authMiddleware, deleteMentorTask);
