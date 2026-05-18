@@ -549,10 +549,10 @@ async function seed() {
     const technical = rnd(11), behavior = rnd(11), communication = rnd(11), initiative = rnd(11);
     await MentorEvaluation.create({
       mentor: ins.mentor, intern: ins.user, inscription: ins._id,
-      period: pick(['Mois 1', 'Mois 2', 'Mois 3', 'Trimestre 1']),
+      period: pick(['P1', 'P2', 'P3', 'P4']),
       technical, behavior, communication, initiative,
       globalScore: Math.round((technical + behavior + communication + initiative) / 4),
-      comment: 'Évaluation de test générée automatiquement.',
+      comment: '',
     });
     evalCount++;
   }
