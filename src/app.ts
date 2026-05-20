@@ -58,8 +58,8 @@ app.use(compression());
 app.use(helmet());
 app.use(mongoSanitize());
 app.use(rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,
+  windowMs: 15 * 60 * 1000,
+  max: process.env['NODE_ENV'] === 'development' ? 2000 : 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Trop de requêtes, veuillez réessayer dans 15 minutes.' },

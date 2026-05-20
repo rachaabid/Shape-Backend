@@ -464,6 +464,37 @@ async function seed() {
   }
   console.log(`✅ ${inscriptions.length} inscriptions créées`);
 
+  // ── 12b. Réponses aux tâches-programme (via inscriptions) ────────
+  // Pour chaque inscription, retrouver les tâches dans les semaines du programme
+  // et créer une TaskResponse owner=candidat.
+  let progTrCount = 0;
+  for (const ins of pickN(inscriptions, 180)) {
+    for (const progId of (ins.programs || [])) {
+      const prog = programs.find((p: any) =>
+        p._id.toString() === progId.toString()
+      );
+      if (!prog?.weeks) continue;
+      for (const week of prog.weeks) {
+        for (const lesson of (week.lessons || []) as any[]) {
+          if (!lesson.taskRef) continue;
+          const task = programTasks.find(
+            (t: any) => t._id.toString() === lesson.taskRef
+          );
+          if (!task) continue;
+          await TaskResponse.create({
+            task:        task._id,
+            owner:       ins.user,
+            inscription: ins._id,
+            status:      rnd(4),
+            createdAt:   daysAgo(rnd(200)),
+          });
+          progTrCount++;
+        }
+      }
+    }
+  }
+  console.log(`✅ ${progTrCount} réponses aux tâches-programme créées`);
+
   // ── 13. Tâches (200) + réponses (700, statuts 0..3) ───────────────
   const tasks: any[] = [];
   for (let i = 0; i < 200; i++) {
@@ -618,7 +649,7 @@ async function seed() {
     });
 
     // Toutes ses réponses de tâches passées en « Closed » (statut 3).
-    const cohortTasks = pickN(tasks, 4);
+    const cohortTasks = pickN(programTasks, 4);
     for (const t of cohortTasks) {
       await TaskResponse.create({
         task: t._id, owner: cand._id, inscription: finishedIns._id,
@@ -652,7 +683,7 @@ async function seed() {
   console.log(`   Offres        : ${jobOffers.length}  | Candidatures : ${applications.length}`);
   console.log(`   Entretiens    : ${itvCount}`);
   console.log(`   Inscriptions  : ${inscriptions.length}`);
-  console.log(`   Tâches        : ${programTasks.length} (prog) + ${tasks.length} (standalone)  | Réponses : ${trCount}`);
+  console.log(`   Tâches        : ${programTasks.length} (prog) + ${tasks.length} (standalone)  | Réponses : ${progTrCount} (prog) + ${trCount} (standalone)`);
   console.log(`   Conversations : ${convCount}  | Messages : ${msgCount}`);
   console.log(`   Notifications : ${notifCount}  | Évaluations : ${evalCount}`);
   console.log(`   ProgramRequest: ${reqCount + finishedCount} (dont ${finishedCount} EN ATTENTE)`);
