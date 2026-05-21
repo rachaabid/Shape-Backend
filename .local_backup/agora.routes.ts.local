@@ -1,9 +1,0 @@
-import { Router } from 'express';
-import { generateRtcToken } from '../controllers/agora.controller';
-
-const router = Router();
-
-router.get('/rtc-token', generateRtcToken);
-router.post('/rtc-token', generateRtcToken);
-
-export default router;

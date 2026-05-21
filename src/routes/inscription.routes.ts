@@ -1,52 +1,21 @@
-import { Router, Request, Response } from 'express';
-import Inscription from '../models/Inscription';
-import { authMiddleware, AuthRequest } from '../middleware/auth.middleware';
+import { Router } from 'express';
+import { authMiddleware } from '../middleware/auth.middleware';
+import {
+  getMyMentor,
+  countInscriptions,
+  getInscriptionsByUser,
+  getInscriptionsByMentor,
+  getAllInscriptions,
+  createInscription,
+} from '../controllers/inscription.controller';
 
 const router = Router();
 
-// GET /my-mentor → inscription du shaper connecté avec mentor peuplé
-router.get('/my-mentor', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const inscription = await Inscription.findOne({ user: req.userId, deleted: false })
-      .populate('mentor', '-password')
-      .populate('user', '-password');
-    res.json(inscription ?? null);
-  } catch (err) { res.status(500).json({ error: err }); }
-});
-
-router.get('/count', authMiddleware, async (_req: Request, res: Response) => {
-  try { res.json(await Inscription.countDocuments({ deleted: false })); }
-  catch (err) { res.status(500).json({ error: err }); }
-});
-
-// GET /byattribute/User/:userId → inscriptions de l'utilisateur (tableau)
-router.get('/byattribute/User/:userId', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const inscriptions = await Inscription.find({ user: req.params['userId'], deleted: false })
-      .populate('user', '-password')
-      .populate('programs');
-    res.json(inscriptions);
-  } catch (err) { res.status(500).json({ error: err }); }
-});
-
-// GET /byattribute/Mentor/:mentorId → inscriptions sous ce mentor
-router.get('/byattribute/Mentor/:mentorId', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const inscriptions = await Inscription.find({ mentor: req.params['mentorId'], deleted: false })
-      .populate('user', '-password')
-      .populate('programs');
-    res.json(inscriptions);
-  } catch (err) { res.status(500).json({ error: err }); }
-});
-
-router.get('/', authMiddleware, async (_req: Request, res: Response) => {
-  try { res.json(await Inscription.find({ deleted: false }).populate('user', '-password').populate('programs')); }
-  catch (err) { res.status(500).json({ error: err }); }
-});
-
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
-  try { res.status(201).json(await Inscription.create(req.body)); }
-  catch (err) { res.status(500).json({ error: err }); }
-});
+router.get('/my-mentor',                  authMiddleware, getMyMentor as any);
+router.get('/count',                      authMiddleware, countInscriptions);
+router.get('/byattribute/User/:userId',   authMiddleware, getInscriptionsByUser);
+router.get('/byattribute/Mentor/:mentorId', authMiddleware, getInscriptionsByMentor);
+router.get('/',                           authMiddleware, getAllInscriptions);
+router.post('/',                          authMiddleware, createInscription);
 
 export default router;
