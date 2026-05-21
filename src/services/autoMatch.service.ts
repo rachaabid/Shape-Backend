@@ -5,11 +5,43 @@ import Application      from '../models/JobOfferApplication';
 import Interview        from '../models/Interview';
 import Notification     from '../models/Notification';
 import QuizResponse     from '../models/QuizResponse';
-import Quiz             from '../models/Quiz';
 import TaskResponse     from '../models/TaskResponse';
 import MentorEvaluation from '../models/MentorEvaluation';
-import { rankWithPython }      from './matching.service';
 import { sendCompanyProposal } from './email.service';
+import axios from 'axios';
+
+// ── Matching interfaces ───────────────────────────────────────
+export interface SkillVector  { skill: string; level: number; }
+export interface MatchResult  {
+  candidateId:        string;
+  score:              number;
+  skillScore?:        number;
+  semanticScore?:     number;
+  matchedSkills:      string[];
+  missingSkills:      string[];
+  extractedCvSkills?: string[];
+}
+export interface JobOfferSkills {
+  hardSkills:   SkillVector[];
+  softwares:    SkillVector[];
+  softSkills:   string[];
+  description?: string;
+}
+export interface CandidateSkills {
+  id:         string;
+  hardSkills: SkillVector[];
+  softwares:  SkillVector[];
+  softSkills: string[];
+  cvUrl?:     string;
+}
+
+const rankWithPython = async (
+  offer: JobOfferSkills,
+  candidates: CandidateSkills[]
+): Promise<MatchResult[]> => {
+  const { data } = await axios.post(`${process.env.PYTHON_SERVICE_URL}/match`, { offer, candidates });
+  return data.results;
+};
 
 // Extract a plain string from a potentially multilingual skill name object
 const getSkillName = (s: any): string => {
@@ -212,12 +244,7 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
       if (!offer || offer.status !== 'open') return;
     }
 
-    if (!offer || applications.length === 0) {
-      console.log('[autoMatch] no offer or no applications, aborting');
-      return;
-    }
-
-    console.log(`[autoMatch] offer="${offer.title}" | ${applications.length} candidate(s) to score`);
+    if (!offer || applications.length === 0) return;
 
     const company      = await Company.findById(offer.company);
     if (!company) return;
@@ -258,9 +285,6 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
       description: offerDescription || undefined,
     };
 
-    console.log(`[autoMatch] offerSkills: ${offerInput.hardSkills.slice(0,3).map((s:any)=>s.skill).join(', ')}`);
-    console.log(`[autoMatch] sample candidate skills: ${candidateInputs[0]?.hardSkills?.slice(0,2).map((s:any)=>s.skill).join(', ') || 'none'}`);
-
     const results = await rankWithPython(offerInput, candidateInputs);
 
     // ── Enhanced multi-factor scoring ─────────────────────────────────────────
@@ -288,8 +312,6 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
 
     // Re-sort after enhanced scoring
     results.sort((a, b) => b.score - a.score);
-
-    console.log(`[autoMatch] top 5 scores (enhanced): ${results.slice(0,5).map(r => `${r.candidateId.slice(-4)}→${r.score}`).join(' | ')}`);
 
     for (const result of results) {
       const app = applications.find((a: any) => a.user?._id.toString() === result.candidateId);

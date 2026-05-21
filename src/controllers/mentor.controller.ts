@@ -293,9 +293,7 @@ export const createMentor = async (req: Request, res: Response): Promise<void> =
       login,
       tempPassword,
       frontendUrl: process.env.MENTOR_FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:4201',
-    })
-      .then(() => console.log(`📨 Identifiants mentor envoyés à ${email}`))
-      .catch(err => console.error(`❌ Échec envoi identifiants mentor à ${email} :`, err?.message || err)));
+    }).catch(err => console.error(`❌ Échec envoi identifiants mentor à ${email} :`, err?.message || err)));
 
     res.status(201).json({ ...mentor.toObject(), password: undefined });
   } catch (err: any) {
