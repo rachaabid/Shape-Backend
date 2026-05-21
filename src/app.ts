@@ -55,14 +55,21 @@ const corsOrigin = (origin: string | undefined, callback: (err: Error | null, al
 
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(compression());
-app.use(helmet());
+// helmet : on garde les protections par défaut MAIS on autorise l'embedding
+// cross-origin des ressources servies par l'API (images/PDF du chat, avatars,
+// vidéos de cours…) — sinon le navigateur bloque les <img> du front-end (4201)
+// quand ils pointent vers l'API (3000) avec NotSameOrigin.
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(mongoSanitize());
 app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: process.env['NODE_ENV'] === 'development' ? 2000 : 200,
+  windowMs: 60 * 1000,                 // fenêtre courte → reset rapide en dev
+  max: process.env['NODE_ENV'] === 'production' ? 200 : 1000,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'Trop de requêtes, veuillez réessayer dans 15 minutes.' },
+  message: { message: 'Trop de requêtes, veuillez réessayer dans 1 minute.' },
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
