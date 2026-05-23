@@ -87,3 +87,27 @@ export const patchTaskResponse = asyncHandler<AuthRequest>(async (req, res) => {
   const { id, status } = req.body;
   res.json(await TaskResponse.findByIdAndUpdate(id, { status }, { new: true }));
 });
+
+export const addFileToTaskResponse = asyncHandler<AuthRequest>(async (req, res) => {
+  const { id } = req.params;
+  const { name, url } = req.body;
+  const updated = await TaskResponse.findByIdAndUpdate(
+    id,
+    { $push: { files: { name, url } } },
+    { new: true },
+  ).populate('task').populate('owner', '-password');
+  if (!updated) throw HttpError.notFound('Réponse non trouvée');
+  res.json(updated);
+});
+
+export const removeFileFromTaskResponse = asyncHandler<AuthRequest>(async (req, res) => {
+  const { id } = req.params;
+  const fileIndex = parseInt(req.params['fileIndex'], 10);
+  const response = await TaskResponse.findById(id);
+  if (!response) throw HttpError.notFound('Réponse non trouvée');
+  if (response.files && fileIndex >= 0 && fileIndex < response.files.length) {
+    response.files.splice(fileIndex, 1);
+    await response.save();
+  }
+  res.json(response);
+});

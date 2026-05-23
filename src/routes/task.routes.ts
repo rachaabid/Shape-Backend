@@ -4,6 +4,7 @@ import {
   createTask, updateTask, patchTask,
   getTaskResponses, getTaskResponseById, getTaskResponseByAttribute,
   getTaskResponseCountByAttribute, createTaskResponse, updateTaskResponse, patchTaskResponse,
+  addFileToTaskResponse, removeFileFromTaskResponse,
 } from '../controllers/task.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 
@@ -26,5 +27,7 @@ router.get   ('/TaskResponse',                                        authMiddle
 router.post  ('/TaskResponse',                                        authMiddleware, createTaskResponse);
 router.put   ('/TaskResponse',                                        authMiddleware, updateTaskResponse);
 router.patch ('/TaskResponse',                                        authMiddleware, patchTaskResponse);
+router.post  ('/TaskResponse/:id/file',                               authMiddleware, addFileToTaskResponse);
+router.delete('/TaskResponse/:id/file/:fileIndex',                    authMiddleware, removeFileFromTaskResponse);
 
 export default router;
