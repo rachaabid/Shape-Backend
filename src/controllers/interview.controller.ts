@@ -1,129 +1,95 @@
-import { Request, Response } from 'express';
 import crypto from 'crypto';
 import Interview from '../models/Interview';
 import Application from '../models/JobOfferApplication';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { HttpError }    from '../utils/HttpError';
 import { notifyAdmins } from './notification.controller';
 
 // GET /api/Interview/bycandidate/:candidateId
-export const getByCandidate = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const interviews = await Interview.find({ candidateId: req.params.candidateId })
+export const getByCandidate = asyncHandler(async (req, res) => {
+  res.json(
+    await Interview.find({ candidateId: req.params['candidateId'] })
       .populate('jobOfferId')
-      .sort({ scheduledAt: 1 });
-    res.json(interviews);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+      .sort({ scheduledAt: 1 }),
+  );
+});
 
 // GET /api/Interview/bycompany/:companyId
-export const getByCompany = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const interviews = await Interview.find({ companyId: req.params.companyId })
+export const getByCompany = asyncHandler(async (req, res) => {
+  res.json(
+    await Interview.find({ companyId: req.params['companyId'] })
       .populate('candidateId', '-password')
       .populate('jobOfferId')
-      .sort({ scheduledAt: 1 });
-    res.json(interviews);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+      .sort({ scheduledAt: 1 }),
+  );
+});
 
 // GET /api/Interview/:id
-export const getById = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const interview = await Interview.findById(req.params.id)
-      .populate('candidateId', '-password')
-      .populate('jobOfferId');
-    if (!interview) { res.status(404).json({ message: 'Entretien non trouvé' }); return; }
-    res.json(interview);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const getById = asyncHandler(async (req, res) => {
+  const interview = await Interview.findById(req.params['id'])
+    .populate('candidateId', '-password')
+    .populate('jobOfferId');
+  if (!interview) throw HttpError.notFound('Entretien non trouvé');
+  res.json(interview);
+});
 
 // POST /api/Interview
-export const create = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const confirmToken = crypto.randomBytes(32).toString('hex');
-    const interview = await Interview.create({ ...req.body, confirmToken });
-    res.status(201).json(interview);
-    setImmediate(() => notifyAdmins(
-      'NEW_INTERVIEW',
-      `Entretien planifié le ${new Date(interview.scheduledAt).toLocaleDateString('fr-FR')}`,
-      { interviewId: interview._id.toString() }
-    ).catch(() => {}));
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const create = asyncHandler<AuthRequest>(async (req, res) => {
+  const confirmToken = crypto.randomBytes(32).toString('hex');
+  const interview = await Interview.create({ ...req.body, confirmToken });
+  res.status(201).json(interview);
+  setImmediate(() => notifyAdmins(
+    'NEW_INTERVIEW',
+    `Entretien planifié le ${new Date(interview.scheduledAt).toLocaleDateString('fr-FR')}`,
+    { interviewId: interview._id.toString() },
+  ).catch(() => undefined));
+});
 
 // PATCH /api/Interview
-export const patch = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id, ...rest } = req.body;
-    const interview = await Interview.findByIdAndUpdate(id, rest, { new: true });
-    res.json(interview);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
+export const patch = asyncHandler<AuthRequest>(async (req, res) => {
+  const { id, ...rest } = req.body;
+  res.json(await Interview.findByIdAndUpdate(id, rest, { new: true }));
+});
+
+// GET /api/Interview/confirm — appel public depuis l'email de confirmation
+export const confirm = asyncHandler(async (req, res) => {
+  const { token, party } = req.query as { token: string; party: string };
+  if (!token || !['candidate', 'company'].includes(party)) {
+    throw HttpError.badRequest('Paramètres invalides');
   }
-};
 
-// GET /api/Interview/confirm?token=xxx&party=candidate|company
-// Called from confirmation email link — no auth required
-export const confirm = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { token, party } = req.query as { token: string; party: string };
-    if (!token || !['candidate', 'company'].includes(party)) {
-      res.status(400).json({ message: 'Paramètres invalides' });
-      return;
-    }
+  const interview = await Interview.findOne({ confirmToken: token });
+  if (!interview) throw HttpError.notFound('Entretien non trouvé');
 
-    const interview = await Interview.findOne({ confirmToken: token });
-    if (!interview) { res.status(404).json({ message: 'Entretien non trouvé' }); return; }
-
-    if (party === 'candidate') interview.confirmedByCandidate = true;
-    if (party === 'company')   interview.confirmedByCompany   = true;
-
-    // When company confirms → set status to Interview (3)
-    if (party === 'company') {
-      interview.status = 'confirmed';
-      await Application.findByIdAndUpdate(interview.applicationId, { status: 3 });
-    }
-
-    await interview.save();
-    res.json({ message: 'Confirmation enregistrée', interview });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
+  if (party === 'candidate') interview.confirmedByCandidate = true;
+  if (party === 'company') {
+    interview.confirmedByCompany = true;
+    interview.status = 'confirmed';
+    await Application.findByIdAndUpdate(interview.applicationId, { status: 3 });
   }
-};
+  await interview.save();
+  res.json({ message: 'Confirmation enregistrée', interview });
+});
 
-// GET /api/Interview - tous les entretiens
-export const getInterviews = async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const interviews = await Interview.find({})
+// GET /api/Interview
+export const getInterviews = asyncHandler(async (_req, res) => {
+  res.json(
+    await Interview.find({})
       .populate('candidateId', '-password')
       .populate('companyId', 'name logo')
       .populate('jobOfferId')
-      .sort({ scheduledAt: 1 });
-    res.json(interviews);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+      .sort({ scheduledAt: 1 }),
+  );
+});
 
-// PUT /api/Interview - update complet
-export const updateInterview = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id, ...rest } = req.body;
-    const interview = await Interview.findByIdAndUpdate(id, rest, { new: true })
+// PUT /api/Interview
+export const updateInterview = asyncHandler<AuthRequest>(async (req, res) => {
+  const { id, ...rest } = req.body;
+  res.json(
+    await Interview.findByIdAndUpdate(id, rest, { new: true })
       .populate('candidateId', '-password')
       .populate('companyId', 'name logo')
-      .populate('jobOfferId');
-    res.json(interview);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
-
+      .populate('jobOfferId'),
+  );
+});

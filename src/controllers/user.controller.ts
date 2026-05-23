@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import User from '../models/User';
@@ -6,100 +6,19 @@ import Company from '../models/Company';
 import NotificationSetting from '../models/NotificationSetting';
 import { signToken } from '../config/jwt';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { HttpError }    from '../utils/HttpError';
 import { triggerMatchForNewCandidate } from '../services/autoMatch.service';
 import { sendAccountValidationEmail } from '../services/email.service';
 import { notifyAdmins } from './notification.controller';
 
-// POST /api/User/Authenticate
-export const authenticate = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { email, password, login } = req.body;
-    const identifier = login || email;
-    const user = await User.findOne({
-      $or: [{ login: identifier }, { email: identifier }],
-      deleted: false,
-    });
+const USER_SKILLS_POPULATE = [
+  { path: 'hardSkills.skill', select: '_id name' },
+  { path: 'softwares.skill',  select: '_id name' },
+];
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      res.status(401).json({ message: 'Identifiants invalides' });
-      return;
-    }
-
-    const needsAdminValidation = user.roles.some(r => r === 'CANDIDATE' || r === 'COMPANY');
-    if (needsAdminValidation && !user.verifiedAccount) {
-      res.status(403).json({ message: 'Compte en attente de validation par un administrateur' });
-      return;
-    }
-
-    const token = signToken(user._id.toString(), user.roles);
-    await user.populate('hardSkills.skill', '_id name');
-    await user.populate('softwares.skill', '_id name');
-    res.json({ ...user.toObject(), password: undefined, token });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
-
-// POST /api/User
-export const createUser = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { email: rawEmail, login, password, roles, companyName } = req.body;
-    const email = rawEmail?.toLowerCase().trim();
-
-    if (await User.findOne({ $or: [{ email }, { login }] })) {
-      res.status(400).json({ message: 'Email ou login déjà utilisé' });
-      return;
-    }
-
-    const hashed = await bcrypt.hash(password, 10);
-    const user   = await User.create({ ...req.body, email, password: hashed, verifiedAccount: false });
-
-    // auto-create company profile for COMPANY role
-    if (roles?.includes('COMPANY')) {
-      await Company.create({ name: { fr: companyName || login }, owner: user._id });
-    }
-    // auto-create notification settings
-    await NotificationSetting.create({ userId: user._id });
-
-    const token = signToken(user._id.toString(), user.roles);
-    res.status(201).json({ ...user.toObject(), password: undefined, token });
-
-    const roleLabel = (user.roles || []).includes('COMPANY') ? 'entreprise' : 'candidat';
-    if ((user.roles || []).includes('COMPANY') || (user.roles || []).includes('CANDIDATE')) {
-      setImmediate(() => notifyAdmins(
-        'NEW_REGISTRATION',
-        `Nouvelle inscription ${roleLabel} : ${user.email}`,
-        { userId: user._id.toString(), role: roleLabel }
-      ).catch(() => {}));
-    }
-
-    // trigger AI matching against all open offers for new candidates
-    if ((user.roles || []).includes('CANDIDATE')) {
-      setImmediate(() => triggerMatchForNewCandidate(user._id.toString()));
-    }
-
-  } catch (err: any) {
-    if (err.code === 11000) {
-      res.status(400).json({ message: 'Email ou login déjà utilisé' });
-      return;
-    }
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
-
-// GET /api/User/:id
-export const getUserById = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const user = await User.findById(req.params.id)
-      .select('-password')
-      .populate('hardSkills.skill', '_id name')
-      .populate('softwares.skill', '_id name');
-    if (!user) { res.status(404).json({ message: 'Utilisateur non trouvé' }); return; }
-    res.json(user);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+const BCRYPT_ROUNDS = 10;
+const NEEDS_ADMIN_VALIDATION = new Set(['CANDIDATE', 'COMPANY']);
 
 const normalizeSkillArray = (arr: any[]): { skill: string; level: number }[] =>
   (arr || []).map(item => ({
@@ -107,153 +26,164 @@ const normalizeSkillArray = (arr: any[]): { skill: string; level: number }[] =>
     level: item.level,
   }));
 
-// PUT /api/User  (full update)
-export const updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { password, email: rawEmail, ...rest } = req.body;
-    const updates: Record<string, unknown> = { ...rest };
+/** Construit un patch utilisateur en hashant le mot de passe et en
+ *  normalisant les compétences ; lève HttpError si l'email est déjà pris. */
+async function buildUserUpdate(
+  body: Record<string, any>,
+  targetUserId: string | undefined,
+): Promise<Record<string, unknown>> {
+  const { password, email: rawEmail, ...rest } = body;
+  const updates: Record<string, unknown> = { ...rest };
 
-    if (rawEmail) {
-      const email = rawEmail.toLowerCase().trim();
-      if (await User.findOne({ email, _id: { $ne: req.userId } })) {
-        res.status(400).json({ message: 'Email déjà utilisé' });
-        return;
-      }
-      updates.email = email;
+  if (rawEmail) {
+    const email = rawEmail.toLowerCase().trim();
+    if (await User.findOne({ email, _id: { $ne: targetUserId } })) {
+      throw HttpError.badRequest('Email déjà utilisé');
     }
-    if (password) updates.password = await bcrypt.hash(password, 10);
-    if (updates.hardSkills) updates.hardSkills = normalizeSkillArray(updates.hardSkills as any[]);
-    if (updates.softwares)  updates.softwares  = normalizeSkillArray(updates.softwares  as any[]);
-
-    const user = await User.findByIdAndUpdate(req.userId, updates, { new: true })
-      .select('-password')
-      .populate('hardSkills.skill', '_id name')
-      .populate('softwares.skill', '_id name');
-    res.json(user);
-  } catch (err: any) {
-    if (err.code === 11000) {
-      res.status(400).json({ message: 'Email ou login déjà utilisé' });
-      return;
-    }
-    res.status(500).json({ message: 'Erreur serveur', error: err });
+    updates['email'] = email;
   }
-};
+  if (password) updates['password'] = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  if (updates['hardSkills']) updates['hardSkills'] = normalizeSkillArray(updates['hardSkills'] as any[]);
+  if (updates['softwares'])  updates['softwares']  = normalizeSkillArray(updates['softwares']  as any[]);
+  return updates;
+}
 
-// PATCH /api/User  (partial update with id in body)
-export const patchUser = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id, password, email: rawEmail, ...rest } = req.body;
-    const targetId = id || req.userId;
-    const updates: Record<string, unknown> = { ...rest };
+// POST /api/User/Authenticate
+export const authenticate = asyncHandler(async (req: Request, res) => {
+  const { email, password, login } = req.body;
+  const identifier = login || email;
+  const user = await User.findOne({
+    $or: [{ login: identifier }, { email: identifier }],
+    deleted: false,
+  });
 
-    if (rawEmail) {
-      const email = rawEmail.toLowerCase().trim();
-      if (await User.findOne({ email, _id: { $ne: targetId } })) {
-        res.status(400).json({ message: 'Email déjà utilisé' });
-        return;
-      }
-      updates.email = email;
-    }
-    if (password) updates.password = await bcrypt.hash(password, 10);
-    if (updates.hardSkills) updates.hardSkills = normalizeSkillArray(updates.hardSkills as any[]);
-    if (updates.softwares)  updates.softwares  = normalizeSkillArray(updates.softwares  as any[]);
-
-    const user = await User.findByIdAndUpdate(targetId, updates, { new: true })
-      .select('-password')
-      .populate('hardSkills.skill', '_id name')
-      .populate('softwares.skill', '_id name');
-    res.json(user);
-  } catch (err: any) {
-    if (err.code === 11000) {
-      res.status(400).json({ message: 'Email ou login déjà utilisé' });
-      return;
-    }
-    res.status(500).json({ message: 'Erreur serveur', error: err });
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    throw HttpError.unauthorized('Identifiants invalides');
   }
-};
+
+  const needsAdminValidation = user.roles.some((r: string) => NEEDS_ADMIN_VALIDATION.has(r));
+  if (needsAdminValidation && !user.verifiedAccount) {
+    throw HttpError.forbidden('Compte en attente de validation par un administrateur');
+  }
+
+  const token = signToken(user._id.toString(), user.roles);
+  await user.populate(USER_SKILLS_POPULATE);
+  res.json({ ...user.toObject(), password: undefined, token });
+});
+
+// POST /api/User
+export const createUser = asyncHandler(async (req: Request, res) => {
+  const { email: rawEmail, login, password, roles, companyName } = req.body;
+  const email = rawEmail?.toLowerCase().trim();
+
+  if (await User.findOne({ $or: [{ email }, { login }] })) {
+    throw HttpError.badRequest('Email ou login déjà utilisé');
+  }
+
+  const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const user   = await User.create({ ...req.body, email, password: hashed, verifiedAccount: false });
+
+  if (roles?.includes('COMPANY')) {
+    await Company.create({ name: { fr: companyName || login }, owner: user._id });
+  }
+  await NotificationSetting.create({ userId: user._id });
+
+  const token = signToken(user._id.toString(), user.roles);
+  res.status(201).json({ ...user.toObject(), password: undefined, token });
+
+  const userRoles = user.roles || [];
+  if (userRoles.includes('COMPANY') || userRoles.includes('CANDIDATE')) {
+    const roleLabel = userRoles.includes('COMPANY') ? 'entreprise' : 'candidat';
+    setImmediate(() => notifyAdmins(
+      'NEW_REGISTRATION',
+      `Nouvelle inscription ${roleLabel} : ${user.email}`,
+      { userId: user._id.toString(), role: roleLabel },
+    ).catch(() => undefined));
+  }
+  if (userRoles.includes('CANDIDATE')) {
+    setImmediate(() => triggerMatchForNewCandidate(user._id.toString()));
+  }
+});
+
+// GET /api/User/:id
+export const getUserById = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params['id']).select('-password').populate(USER_SKILLS_POPULATE);
+  if (!user) throw HttpError.notFound('Utilisateur non trouvé');
+  res.json(user);
+});
+
+// PUT /api/User
+export const updateUser = asyncHandler<AuthRequest>(async (req, res) => {
+  const updates = await buildUserUpdate(req.body, req.userId);
+  res.json(
+    await User.findByIdAndUpdate(req.userId, updates, { new: true })
+      .select('-password')
+      .populate(USER_SKILLS_POPULATE),
+  );
+});
+
+// PATCH /api/User
+export const patchUser = asyncHandler<AuthRequest>(async (req, res) => {
+  const { id, ...rest } = req.body;
+  const targetId = id || req.userId;
+  const updates = await buildUserUpdate(rest, targetId);
+  res.json(
+    await User.findByIdAndUpdate(targetId, updates, { new: true })
+      .select('-password')
+      .populate(USER_SKILLS_POPULATE),
+  );
+});
 
 // DELETE /api/User/:id
-export const deleteUser = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    await User.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Utilisateur supprimé' });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const deleteUser = asyncHandler<AuthRequest>(async (req, res) => {
+  await User.findByIdAndDelete(req.params['id']);
+  res.json({ message: 'Utilisateur supprimé' });
+});
 
 // GET /api/User/ResetPassword/:email
-export const resetPassword = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const user = await User.findOne({ email: req.params.email });
-    if (!user) { res.status(404).json({ message: 'Email non trouvé' }); return; }
+export const resetPassword = asyncHandler(async (req, res) => {
+  const user = await User.findOne({ email: req.params['email'] });
+  if (!user) throw HttpError.notFound('Email non trouvé');
 
-    const tempPass = crypto.randomBytes(4).toString('hex');
-    const hashed   = await bcrypt.hash(tempPass, 10);
-    await User.findByIdAndUpdate(user._id, { password: hashed });
+  const tempPass = crypto.randomBytes(4).toString('hex');
+  const hashed   = await bcrypt.hash(tempPass, BCRYPT_ROUNDS);
+  await User.findByIdAndUpdate(user._id, { password: hashed });
 
-    res.json({ message: 'Mot de passe temporaire généré', tempPassword: tempPass });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+  res.json({ message: 'Mot de passe temporaire généré', tempPassword: tempPass });
+});
 
-// GET /api/User  → tous les utilisateurs (admin)
-export const getAllUsers = async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const users = await User.find({ deleted: { $ne: true } }).select('-password');
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+// GET /api/User
+export const getAllUsers = asyncHandler(async (_req, res) =>
+  res.json(await User.find({ deleted: { $ne: true } }).select('-password')));
 
 // GET /api/User/candidates
-export const getCandidateUsers = async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const users = await User.find({ roles: 'CANDIDATE', deleted: false }).select('-password');
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const getCandidateUsers = asyncHandler(async (_req, res) =>
+  res.json(await User.find({ roles: 'CANDIDATE', deleted: false }).select('-password')));
 
-// PATCH /api/User/:id/validate  (admin validates a COMPANY or CANDIDATE account)
-export const validateUserAccount = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { verifiedAccount: true },
-      { new: true }
-    ).select('-password');
+// PATCH /api/User/:id/validate
+export const validateUserAccount = asyncHandler<AuthRequest>(async (req, res) => {
+  const user = await User.findByIdAndUpdate(
+    req.params['id'], { verifiedAccount: true }, { new: true },
+  ).select('-password');
+  if (!user) throw HttpError.notFound('Utilisateur non trouvé');
 
-    if (!user) { res.status(404).json({ message: 'Utilisateur non trouvé' }); return; }
-
-    const name = (user as any).firstNameDisplay || user.login || user.email;
-    const frontendUrl = process.env.FRONTEND_URL || '';
-    const role = user.roles?.includes('COMPANY') ? 'COMPANY' : 'CANDIDATE';
-    setImmediate(() =>
-      sendAccountValidationEmail({ userEmail: user.email, userName: name, frontendUrl, role })
-        .catch(err => console.error(`❌ Échec envoi validation compte à ${user.email} :`, err?.message || err))
-    );
-
-    res.json(user);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+  const name = (user as any).firstNameDisplay || user.login || user.email;
+  const frontendUrl = process.env['FRONTEND_URL'] || '';
+  const role = user.roles?.includes('COMPANY') ? 'COMPANY' : 'CANDIDATE';
+  setImmediate(() =>
+    sendAccountValidationEmail({ userEmail: user.email, userName: name, frontendUrl, role })
+      .catch(err => console.error(`❌ Échec envoi validation à ${user.email}:`, err?.message || err)),
+  );
+  res.json(user);
+});
 
 // GET /api/User/authenticaterecovery/:email/:code
-export const authenticateRecovery = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { email, code } = req.params;
-    const user = await User.findOne({ email, verificationCode: code });
-    if (!user) { res.status(400).json({ message: 'Code invalide ou expiré' }); return; }
+export const authenticateRecovery = asyncHandler(async (req, res) => {
+  const { email, code } = req.params;
+  const user = await User.findOne({ email, verificationCode: code });
+  if (!user) throw HttpError.badRequest('Code invalide ou expiré');
 
-    await User.findByIdAndUpdate(user._id, { verifiedAccount: true, verificationCode: undefined });
-    const token = signToken(user._id.toString(), user.roles);
-    res.json({ ...user.toObject(), password: undefined, token });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+  await User.findByIdAndUpdate(user._id, { verifiedAccount: true, verificationCode: undefined });
+  const token = signToken(user._id.toString(), user.roles);
+  res.json({ ...user.toObject(), password: undefined, token });
+});

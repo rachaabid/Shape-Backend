@@ -35,11 +35,13 @@ import programRoutes               from './routes/program.routes';
 import programRequestRoutes            from './routes/programRequest.routes';
 import companyProgramProposalRoutes    from './routes/companyProgramProposal.routes';
 import powerbiRoutes                   from './routes/powerbi.routes';
+import biExportRoutes                  from './routes/biExport.routes';
 
 import Conversation from './models/Conversation';
 import Message      from './models/Message';
 
 import { startScheduler } from './services/scheduler.service';
+import { errorHandler }   from './middleware/errorHandler';
 
 const app        = express();
 const httpServer = createServer(app);
@@ -215,6 +217,11 @@ app.use('/api/Program',         programRoutes);
 app.use('/api/ProgramRequest',          programRequestRoutes);
 app.use('/api/CompanyProgramProposal',  companyProgramProposalRoutes);
 app.use('/api/powerbi',                 powerbiRoutes);
+app.use('/api/bi-export',               biExportRoutes);
+
+// ── Error handler : DOIT être le DERNIER middleware ───────────
+// Tout `throw` ou promesse rejetée dans un asyncHandler atterrit ici.
+app.use(errorHandler);
 
 // ── MongoDB + démarrage ───────────────────────────────────────
 mongoose

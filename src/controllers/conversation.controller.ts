@@ -1,111 +1,82 @@
-import { Response } from 'express';
 import Conversation from '../models/Conversation';
 import Message      from '../models/Message';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/asyncHandler';
+
+const PARTICIPANT_FIELDS = 'firstName lastName login avatar role';
 
 // GET /api/Conversation — mes conversations
-export const getMyConversations = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const conversations = await Conversation.find({ participants: req.userId })
-      .populate('participants', 'firstName lastName login avatar role')
-      .sort({ lastMessageAt: -1 });
-    res.json(conversations);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const getMyConversations = asyncHandler<AuthRequest>(async (req, res) => {
+  res.json(
+    await Conversation.find({ participants: req.userId })
+      .populate('participants', PARTICIPANT_FIELDS)
+      .sort({ lastMessageAt: -1 }),
+  );
+});
 
 // POST /api/Conversation — créer ou récupérer une conversation avec un autre user
-export const getOrCreateConversation = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { participantId } = req.body;
-    const myId = req.userId!;
+export const getOrCreateConversation = asyncHandler<AuthRequest>(async (req, res) => {
+  const { participantId } = req.body;
+  const myId = req.userId!;
 
-    // Chercher conversation existante
-    let convo = await Conversation.findOne({
-      participants: { $all: [myId, participantId], $size: 2 },
-    }).populate('participants', 'firstName lastName login avatar role');
+  let convo = await Conversation.findOne({
+    participants: { $all: [myId, participantId], $size: 2 },
+  }).populate('participants', PARTICIPANT_FIELDS);
 
-    if (!convo) {
-      convo = await Conversation.create({ participants: [myId, participantId] });
-      convo = await convo.populate('participants', 'firstName lastName login avatar role');
-    }
-
-    res.json(convo);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
+  if (!convo) {
+    convo = await Conversation.create({ participants: [myId, participantId] });
+    convo = await convo.populate('participants', PARTICIPANT_FIELDS);
   }
-};
+  res.json(convo);
+});
 
-// GET /api/Conversation/:id/messages — messages d'une conversation
-export const getMessages = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const page  = parseInt(req.query['page']  as string) || 1;
-    const limit = parseInt(req.query['limit'] as string) || 50;
+// GET /api/Conversation/:id/messages
+export const getMessages = asyncHandler<AuthRequest>(async (req, res) => {
+  const { id } = req.params;
+  const page  = parseInt(req.query['page']  as string) || 1;
+  const limit = parseInt(req.query['limit'] as string) || 50;
 
-    const messages = await Message.find({ conversationId: id })
-      .populate('sender', 'firstName lastName login avatar')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+  const messages = await Message.find({ conversationId: id })
+    .populate('sender', 'firstName lastName login avatar')
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
 
-    // Marquer les messages non lus comme lus
-    await Message.updateMany(
-      { conversationId: id, sender: { $ne: req.userId }, read: false },
-      { read: true },
-    );
+  // Marquer les messages reçus comme lus + reset du compteur
+  await Message.updateMany(
+    { conversationId: id, sender: { $ne: req.userId }, read: false },
+    { read: true },
+  );
+  await Conversation.findByIdAndUpdate(id, {
+    $set: { [`unreadCounts.${req.userId}`]: 0 },
+  });
 
-    // Reset unreadCount pour cet user dans la conversation
-    await Conversation.findByIdAndUpdate(id, {
-      $set: { [`unreadCounts.${req.userId}`]: 0 },
-    });
+  res.json(messages.reverse());
+});
 
-    res.json(messages.reverse()); // ordre chronologique
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+// GET /api/Conversation/unread-count
+export const getUnreadMessageCount = asyncHandler<AuthRequest>(async (req, res) => {
+  const convos = await Conversation.find({ participants: req.userId });
+  const total = convos.reduce((sum, c) =>
+    sum + ((c.unreadCounts as Map<string, number>).get(req.userId!) || 0), 0);
+  res.json({ total });
+});
 
-// GET /api/Conversation/unread-count — total messages non lus
-export const getUnreadMessageCount = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const convos = await Conversation.find({ participants: req.userId });
-    let total = 0;
-    for (const c of convos) {
-      total += (c.unreadCounts as Map<string, number>).get(req.userId!) || 0;
-    }
-    res.json({ total });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
-
-// PATCH /api/Conversation/:id/read - Marquer conversation comme lue
-export const markConversationRead = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    await Message.updateMany(
-      { conversationId: id, sender: { $ne: req.userId }, read: false },
-      { read: true }
-    );
-    await Conversation.findByIdAndUpdate(id, {
-      $set: { [`unreadCounts.${req.userId}`]: 0 }
-    });
-    res.json({ message: 'Conversation marquée comme lue' });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+// PATCH /api/Conversation/:id/read
+export const markConversationRead = asyncHandler<AuthRequest>(async (req, res) => {
+  const { id } = req.params;
+  await Message.updateMany(
+    { conversationId: id, sender: { $ne: req.userId }, read: false },
+    { read: true },
+  );
+  await Conversation.findByIdAndUpdate(id, {
+    $set: { [`unreadCounts.${req.userId}`]: 0 },
+  });
+  res.json({ message: 'Conversation marquée comme lue' });
+});
 
 // DELETE /api/Conversation/:id
-export const deleteConversation = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    await Conversation.findByIdAndUpdate(id, { deleted: true });
-    res.json({ message: 'Conversation supprimée' });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
-
+export const deleteConversation = asyncHandler<AuthRequest>(async (req, res) => {
+  await Conversation.findByIdAndUpdate(req.params['id'], { deleted: true });
+  res.json({ message: 'Conversation supprimée' });
+});

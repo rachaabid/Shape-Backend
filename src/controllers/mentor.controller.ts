@@ -1,4 +1,3 @@
-import { Request, Response } from 'express';
 import bcrypt   from 'bcryptjs';
 import crypto   from 'crypto';
 import User         from '../models/User';
@@ -10,297 +9,234 @@ import NotificationSetting from '../models/NotificationSetting';
 import QuizResponse from '../models/QuizResponse';
 import Message      from '../models/Message';
 import { AuthRequest }  from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { HttpError }    from '../utils/HttpError';
 import { sendMentorCredentials } from '../services/email.service';
 import { notifyAdmins }         from './notification.controller';
 
-// ── Mentor: interns assigned to me ───────────────────────────────────────────
+const BCRYPT_ROUNDS = 10;
+const clamp = (v: number) => Math.max(0, Math.min(10, Math.round(v)));
 
-export const getMyInterns = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const inscriptions = await Inscription.find({
-      mentor:  req.userId,
-      deleted: { $ne: true },
-    }).populate('user', '-password').populate('programs', 'title');
-    res.json(inscriptions);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+// ── Mentor : stagiaires assignés ─────────────────────────────────────────────
+export const getMyInterns = asyncHandler<AuthRequest>(async (req, res) => {
+  res.json(
+    await Inscription.find({ mentor: req.userId, deleted: { $ne: true } })
+      .populate('user', '-password')
+      .populate('programs', 'title'),
+  );
+});
 
 // ── Mentor stats ──────────────────────────────────────────────────────────────
+export const getMentorStats = asyncHandler<AuthRequest>(async (req, res) => {
+  const [internCount, myTasks, myEvals, pendingReviews] = await Promise.all([
+    Inscription.countDocuments({ mentor: req.userId, deleted: { $ne: true } }),
+    Task.countDocuments({ createdBy: req.userId, deleted: { $ne: true } }),
+    MentorEvaluation.countDocuments({ mentor: req.userId, deleted: { $ne: true } }),
+    Task.find({ createdBy: req.userId, deleted: { $ne: true } }).select('_id')
+      .then(tasks => TaskResponse.countDocuments({
+        task: { $in: tasks.map(t => t._id) }, status: 2, deleted: { $ne: true },
+      })),
+  ]);
+  res.json({ internCount, taskCount: myTasks, evalCount: myEvals, pendingReviews });
+});
 
-export const getMentorStats = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const [internCount, myTasks, myEvals, pendingReviews] = await Promise.all([
-      Inscription.countDocuments({ mentor: req.userId, deleted: { $ne: true } }),
-      Task.countDocuments({ createdBy: req.userId, deleted: { $ne: true } }),
-      MentorEvaluation.countDocuments({ mentor: req.userId, deleted: { $ne: true } }),
-      // Task responses with status=Review(2) for tasks created by this mentor
-      Task.find({ createdBy: req.userId, deleted: { $ne: true } }).select('_id').then(tasks => {
-        const ids = tasks.map(t => t._id);
-        return TaskResponse.countDocuments({ task: { $in: ids }, status: 2, deleted: { $ne: true } });
-      }),
-    ]);
-    res.json({ internCount, taskCount: myTasks, evalCount: myEvals, pendingReviews });
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+// ── Évaluation assistée : suggestion de scores ───────────────────────────────
+export const getEvaluationSuggestion = asyncHandler<AuthRequest>(async (req, res) => {
+  const internId = req.params['internId'];
 
-// ── Évaluation assistée : suggestion de scores calculée sur données réelles ───
-// GET /api/Mentor/evaluation-suggestion/:internId
-// Agrège : tâches terminées, quiz réalisés, maîtrise des compétences,
-// activité de messagerie → propose 4 scores /10 pour aider le mentor.
-export const getEvaluationSuggestion = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const internId = req.params['internId'];
-    const clamp = (v: number) => Math.max(0, Math.min(10, Math.round(v)));
+  const [taskResponses, quizResponses, intern, inscriptions, messagesSent] = await Promise.all([
+    TaskResponse.find({ owner: internId, deleted: { $ne: true } }),
+    QuizResponse.find({ owner: internId, deleted: { $ne: true } }),
+    User.findById(internId),
+    Inscription.find({ user: internId, deleted: { $ne: true } }),
+    Message.countDocuments({ sender: internId }),
+  ]);
 
-    const [taskResponses, quizResponses, intern, inscriptions, messagesSent] = await Promise.all([
-      TaskResponse.find({ owner: internId, deleted: { $ne: true } }),
-      QuizResponse.find({ owner: internId, deleted: { $ne: true } }),
-      User.findById(internId),
-      Inscription.find({ user: internId, deleted: { $ne: true } }),
-      Message.countDocuments({ sender: internId }),
-    ]);
+  // 1. Tâches terminées (status 3 = Closed)
+  const tasksTotal = taskResponses.length;
+  const tasksDone  = taskResponses.filter(t => t.status === 3).length;
+  const tasksInProgress = taskResponses.filter(t => t.status === 1 || t.status === 2).length;
+  const taskCompletion = tasksTotal ? Math.round((tasksDone / tasksTotal) * 100) : 0;
 
-    // 1. Tâches terminées (status 3 = Closed)
-    const tasksTotal = taskResponses.length;
-    const tasksDone  = taskResponses.filter(t => t.status === 3).length;
-    const tasksInProgress = taskResponses.filter(t => t.status === 1 || t.status === 2).length;
-    const taskCompletion = tasksTotal ? Math.round((tasksDone / tasksTotal) * 100) : 0;
+  // 2. Quiz : 5 quiz → 100 %
+  const quizCount = quizResponses.length;
+  const quizScore = Math.min(100, quizCount * 20);
 
-    // 2. Participation aux quiz
-    const quizCount = quizResponses.length;
-    const quizScore = Math.min(100, quizCount * 20); // 5 quiz = 100%
+  // 3. Maîtrise des compétences (moyenne des levels /5, en %)
+  const skillLevels: number[] = [
+    ...((intern?.hardSkills as any[]) || []).map(s => s.level || 0),
+    ...((intern?.softwares  as any[]) || []).map(s => s.level || 0),
+  ];
+  const skillMastery = skillLevels.length
+    ? Math.round((skillLevels.reduce((a, b) => a + b, 0) / skillLevels.length / 5) * 100)
+    : 0;
 
-    // 3. Maîtrise des compétences (niveaux hardSkills + softwares, /5)
-    const skillLevels: number[] = [
-      ...((intern?.hardSkills as any[]) || []).map(s => s.level || 0),
-      ...((intern?.softwares  as any[]) || []).map(s => s.level || 0),
-    ];
-    const skillMastery = skillLevels.length
-      ? Math.round((skillLevels.reduce((a, b) => a + b, 0) / skillLevels.length / 5) * 100)
-      : 0;
+  // 4. Avancement formation
+  const inscriptionsCompleted = inscriptions.filter(i => i.status === 'completed').length;
+  const formationProgress = inscriptions.length
+    ? Math.round((inscriptionsCompleted / inscriptions.length) * 50 + (taskCompletion / 2))
+    : taskCompletion;
 
-    // 4. Avancement formation : inscriptions terminées + progression des tâches
-    const inscriptionsCompleted = inscriptions.filter(i => i.status === 'completed').length;
-    const formationProgress = inscriptions.length
-      ? Math.round(
-          (inscriptionsCompleted / inscriptions.length) * 50 + (taskCompletion / 2),
-        )
-      : taskCompletion;
+  // 5. Communication : 30 messages → 100 %
+  const communicationActivity = Math.min(100, Math.round((messagesSent / 30) * 100));
 
-    // 5. Activité de communication (messages envoyés, plafonnée à 30)
-    const communicationActivity = Math.min(100, Math.round((messagesSent / 30) * 100));
+  // Scores suggérés /10 (formule pondérée transparente)
+  const technical     = clamp((skillMastery * 0.5 + quizScore * 0.3 + taskCompletion * 0.2) / 10);
+  const behavior      = clamp((taskCompletion * 0.7 + formationProgress * 0.3) / 10);
+  const communication = clamp((communicationActivity * 0.7 + taskCompletion * 0.3) / 10);
+  const initiative    = clamp(((taskCompletion + quizScore) / 2 * 0.6 + skillMastery * 0.4) / 10);
+  const globalScore   = Math.round(((technical + behavior + communication + initiative) / 4) * 10) / 10;
 
-    // ── Scores suggérés /10 (formule pondérée transparente) ──────────────────
-    const technical     = clamp((skillMastery * 0.5 + quizScore * 0.3 + taskCompletion * 0.2) / 10);
-    const behavior      = clamp((taskCompletion * 0.7 + formationProgress * 0.3) / 10);
-    const communication = clamp((communicationActivity * 0.7 + taskCompletion * 0.3) / 10);
-    const initiative    = clamp(((taskCompletion + quizScore) / 2 * 0.6 + skillMastery * 0.4) / 10);
-    const globalScore   = Math.round(((technical + behavior + communication + initiative) / 4) * 10) / 10;
+  res.json({
+    metrics: {
+      taskCompletion, formationProgress, quizScore, skillMastery,
+      communicationActivity, tasksDone, tasksTotal, tasksInProgress,
+      quizCount, messagesSent,
+    },
+    suggested: { technical, behavior, communication, initiative, globalScore },
+  });
+});
 
-    res.json({
-      metrics: {
-        taskCompletion, formationProgress, quizScore, skillMastery,
-        communicationActivity, tasksDone, tasksTotal, tasksInProgress,
-        quizCount, messagesSent,
-      },
-      suggested: { technical, behavior, communication, initiative, globalScore },
-    });
-  } catch (err) {
-    res.status(500).json({ error: err });
+// ── Réponses aux tâches d'un stagiaire ───────────────────────────────────────
+export const getInternTaskResponses = asyncHandler(async (req, res) => {
+  res.json(
+    await TaskResponse.find({ owner: req.params['internId'], deleted: { $ne: true } })
+      .populate('task')
+      .populate('owner', '-password'),
+  );
+});
+
+// ── Tâches créées par ce mentor ──────────────────────────────────────────────
+export const getMentorTasks = asyncHandler<AuthRequest>(async (req, res) =>
+  res.json(await Task.find({ createdBy: req.userId, deleted: { $ne: true } })));
+
+export const createMentorTask = asyncHandler<AuthRequest>(async (req, res) => {
+  const task = await Task.create({ ...req.body, createdBy: req.userId });
+
+  if (req.body.internIds?.length) {
+    const responses = (req.body.internIds as string[]).map((uid: string) => ({
+      task: task._id, owner: uid, status: 0,
+    }));
+    await TaskResponse.insertMany(responses);
   }
-};
+  res.status(201).json(task);
+  setImmediate(() => notifyAdmins(
+    'MENTOR_TASK',
+    `Un mentor a créé une nouvelle tâche : "${task.title || 'Sans titre'}"`,
+    { taskId: task._id.toString(), mentorId: req.userId },
+  ).catch(() => undefined));
+});
 
-// ── Intern task responses ──────────────────────────────────────────────────────
+export const deleteMentorTask = asyncHandler<AuthRequest>(async (req, res) => {
+  await Task.findByIdAndUpdate(req.params['id'], { deleted: true });
+  res.json({ message: 'Tâche supprimée' });
+});
 
-export const getInternTaskResponses = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { internId } = req.params;
-    const responses = await TaskResponse.find({
-      owner:   internId,
-      deleted: { $ne: true },
-    }).populate('task').populate('owner', '-password');
-    res.json(responses);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+// ── Évaluations ──────────────────────────────────────────────────────────────
+const computeGlobalScore = (t: number, b: number, c: number, i: number) =>
+  Math.round(((t + b + c + i) / 4) * 10) / 10;
 
-// ── Tasks created by this mentor ───────────────────────────────────────────────
+export const getEvaluations = asyncHandler(async (req, res) => {
+  res.json(
+    await MentorEvaluation.find({ intern: req.params['internId'], deleted: { $ne: true } })
+      .populate('mentor', '-password')
+      .sort({ createdAt: -1 }),
+  );
+});
 
-export const getMentorTasks = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const tasks = await Task.find({ createdBy: req.userId, deleted: { $ne: true } });
-    res.json(tasks);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const getMyEvaluations = asyncHandler<AuthRequest>(async (req, res) => {
+  res.json(
+    await MentorEvaluation.find({ mentor: req.userId, deleted: { $ne: true } })
+      .populate('intern', '-password')
+      .sort({ createdAt: -1 }),
+  );
+});
 
-export const createMentorTask = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const task = await Task.create({ ...req.body, createdBy: req.userId });
+export const createEvaluation = asyncHandler<AuthRequest>(async (req, res) => {
+  const { intern, inscription, period, technical, behavior, communication, initiative, comment } = req.body;
+  const globalScore = computeGlobalScore(technical, behavior, communication, initiative);
+  const ev = await MentorEvaluation.create({
+    mentor: req.userId, intern, inscription, period,
+    technical, behavior, communication, initiative, globalScore, comment,
+  });
+  res.status(201).json(ev);
+  setImmediate(() => notifyAdmins(
+    'MENTOR_EVALUATION',
+    `Un mentor a soumis une évaluation (score global : ${ev.globalScore}/10)`,
+    { evalId: ev._id.toString(), mentorId: req.userId },
+  ).catch(() => undefined));
+});
 
-    // Auto-create TaskResponse for each assigned intern (if inscriptionId provided)
-    if (req.body.internIds?.length) {
-      const responses = (req.body.internIds as string[]).map((uid: string) => ({
-        task:   task._id,
-        owner:  uid,
-        status: 0,
-      }));
-      await TaskResponse.insertMany(responses);
-    }
-    res.status(201).json(task);
-    setImmediate(() => notifyAdmins(
-      'MENTOR_TASK',
-      `Un mentor a créé une nouvelle tâche : "${task.title || 'Sans titre'}"`,
-      { taskId: task._id.toString(), mentorId: req.userId }
-    ).catch(() => {}));
-  } catch (err) { res.status(500).json({ error: err }); }
-};
-
-export const deleteMentorTask = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    await Task.findByIdAndUpdate(req.params.id, { deleted: true });
-    res.json({ message: 'Tâche supprimée' });
-  } catch (err) { res.status(500).json({ error: err }); }
-};
-
-// ── Evaluations ────────────────────────────────────────────────────────────────
-
-export const getEvaluations = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { internId } = req.params;
-    const evals = await MentorEvaluation.find({
-      intern:  internId,
-      deleted: { $ne: true },
-    }).populate('mentor', '-password').sort({ createdAt: -1 });
-    res.json(evals);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
-
-export const getMyEvaluations = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const evals = await MentorEvaluation.find({
-      mentor:  req.userId,
-      deleted: { $ne: true },
-    }).populate('intern', '-password').sort({ createdAt: -1 });
-    res.json(evals);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
-
-export const createEvaluation = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { intern, inscription, period, technical, behavior, communication, initiative, comment } = req.body;
-    const globalScore = Math.round(((technical + behavior + communication + initiative) / 4) * 10) / 10;
-    const ev = await MentorEvaluation.create({
-      mentor: req.userId, intern, inscription, period,
-      technical, behavior, communication, initiative, globalScore, comment,
-    });
-    res.status(201).json(ev);
-    setImmediate(() => notifyAdmins(
-      'MENTOR_EVALUATION',
-      `Un mentor a soumis une évaluation (score global : ${ev.globalScore}/10)`,
-      { evalId: ev._id.toString(), mentorId: req.userId }
-    ).catch(() => {}));
-  } catch (err) { res.status(500).json({ error: err }); }
-};
-
-export const updateEvaluation = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id, technical, behavior, communication, initiative, ...rest } = req.body;
-    const globalScore = Math.round(((technical + behavior + communication + initiative) / 4) * 10) / 10;
-    const ev = await MentorEvaluation.findByIdAndUpdate(
-      id,
-      { technical, behavior, communication, initiative, globalScore, ...rest },
+export const updateEvaluation = asyncHandler<AuthRequest>(async (req, res) => {
+  const { id, technical, behavior, communication, initiative, ...rest } = req.body;
+  const globalScore = computeGlobalScore(technical, behavior, communication, initiative);
+  res.json(
+    await MentorEvaluation.findByIdAndUpdate(
+      id, { technical, behavior, communication, initiative, globalScore, ...rest },
       { new: true },
-    );
-    res.json(ev);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+    ),
+  );
+});
 
-export const deleteEvaluation = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    await MentorEvaluation.findByIdAndUpdate(req.params.id, { deleted: true });
-    res.json({ message: 'Évaluation supprimée' });
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const deleteEvaluation = asyncHandler<AuthRequest>(async (req, res) => {
+  await MentorEvaluation.findByIdAndUpdate(req.params['id'], { deleted: true });
+  res.json({ message: 'Évaluation supprimée' });
+});
 
-// ── Admin: assign mentor to inscription ───────────────────────────────────────
+// ── Admin : assigner un mentor à une inscription ─────────────────────────────
+export const assignMentor = asyncHandler<AuthRequest>(async (req, res) => {
+  const { inscriptionId, mentorId } = req.body;
+  res.json(
+    await Inscription.findByIdAndUpdate(inscriptionId, { mentor: mentorId }, { new: true })
+      .populate('user', '-password')
+      .populate('mentor', '-password'),
+  );
+});
 
-export const assignMentor = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { inscriptionId, mentorId } = req.body;
-    const inscription = await Inscription.findByIdAndUpdate(
-      inscriptionId,
-      { mentor: mentorId },
-      { new: true },
-    ).populate('user', '-password').populate('mentor', '-password');
-    res.json(inscription);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+// ── Admin : liste de tous les mentors ────────────────────────────────────────
+export const getMentors = asyncHandler(async (_req, res) =>
+  res.json(await User.find({ roles: 'MENTOR', deleted: false }).select('-password')));
 
-// ── Admin: list all mentors ────────────────────────────────────────────────────
+// ── Admin : création d'un compte mentor + envoi des identifiants ─────────────
+export const createMentor = asyncHandler(async (req, res) => {
+  const { email: rawEmail, firstName, lastName, expertise } = req.body;
+  const email = rawEmail?.toLowerCase().trim();
 
-export const getMentors = async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const mentors = await User.find({ roles: 'MENTOR', deleted: false }).select('-password');
-    res.json(mentors);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
-
-// ── Admin: create mentor account + send credentials email ─────────────────────
-
-export const createMentor = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { email: rawEmail, firstName, lastName, expertise } = req.body;
-    const email = rawEmail?.toLowerCase().trim();
-
-    const existingByEmail = await User.findOne({ email });
-    if (existingByEmail) {
-      if (!existingByEmail.deleted) {
-        res.status(400).json({ message: 'Email déjà utilisé par un compte actif.' });
-        return;
-      }
-      await User.findByIdAndDelete(existingByEmail._id);
-    }
-
-    const tempPassword = crypto.randomBytes(4).toString('hex');
-    const hashed       = await bcrypt.hash(tempPassword, 10);
-    const login        = email.split('@')[0] + '_mentor';
-
-    const existingByLogin = await User.findOne({ login });
-    if (existingByLogin) {
-      if (!existingByLogin.deleted) {
-        res.status(400).json({ message: `Le login "${login}" est déjà utilisé par un compte actif.` });
-        return;
-      }
-      await User.findByIdAndDelete(existingByLogin._id);
-    }
-
-    const mentor = await User.create({
-      email,
-      login,
-      password:        hashed,
-      roles:           ['MENTOR'],
-      firstName:       { fr: firstName, en: firstName },
-      lastName:        { fr: lastName,  en: lastName  },
-      verifiedAccount: true,
-      expertise:       expertise || '',
-      mustChangePassword: true,
-    });
-
-    await NotificationSetting.create({ userId: mentor._id });
-
-    setImmediate(() => sendMentorCredentials({
-      mentorName:  `${firstName} ${lastName}`,
-      mentorEmail: email,
-      login,
-      tempPassword,
-      frontendUrl: process.env.MENTOR_FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:4201',
-    }).catch(err => console.error(`❌ Échec envoi identifiants mentor à ${email} :`, err?.message || err)));
-
-    res.status(201).json({ ...mentor.toObject(), password: undefined });
-  } catch (err: any) {
-    if (err.code === 11000) {
-      res.status(400).json({ message: 'Email ou login déjà utilisé' });
-      return;
-    }
-    res.status(500).json({ message: 'Erreur serveur', error: err });
+  // Si un compte avec ce mail existe (actif ou supprimé), on nettoie ou refuse
+  const existingByEmail = await User.findOne({ email });
+  if (existingByEmail) {
+    if (!existingByEmail.deleted) throw HttpError.badRequest('Email déjà utilisé par un compte actif.');
+    await User.findByIdAndDelete(existingByEmail._id);
   }
-};
+
+  const tempPassword = crypto.randomBytes(4).toString('hex');
+  const hashed       = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
+  const login        = email.split('@')[0] + '_mentor';
+
+  const existingByLogin = await User.findOne({ login });
+  if (existingByLogin) {
+    if (!existingByLogin.deleted) throw HttpError.badRequest(`Le login "${login}" est déjà utilisé par un compte actif.`);
+    await User.findByIdAndDelete(existingByLogin._id);
+  }
+
+  const mentor = await User.create({
+    email, login, password: hashed,
+    roles: ['MENTOR'],
+    firstName: { fr: firstName, en: firstName },
+    lastName:  { fr: lastName,  en: lastName  },
+    verifiedAccount: true,
+    expertise: expertise || '',
+    mustChangePassword: true,
+  });
+  await NotificationSetting.create({ userId: mentor._id });
+
+  setImmediate(() => sendMentorCredentials({
+    mentorName:  `${firstName} ${lastName}`,
+    mentorEmail: email,
+    login,
+    tempPassword,
+    frontendUrl: process.env['MENTOR_FRONTEND_URL'] || process.env['FRONTEND_URL'] || 'http://localhost:4201',
+  }).catch(err => console.error(`❌ Échec envoi identifiants mentor à ${email}:`, err?.message || err)));
+
+  res.status(201).json({ ...mentor.toObject(), password: undefined });
+});

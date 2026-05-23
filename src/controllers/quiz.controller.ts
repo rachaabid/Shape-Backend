@@ -1,150 +1,121 @@
-import { Request, Response } from 'express';
 import Quiz from '../models/Quiz';
 import QuizResponse from '../models/QuizResponse';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { HttpError }    from '../utils/HttpError';
+
+const paginate = (req: { query: any }) => ({
+  start: parseInt(req.query['start'] as string) || 0,
+  count: parseInt(req.query['count'] as string) || 100,
+});
 
 // ── Quiz ──────────────────────────────────────────────────────
 
-export const countQuizzes = async (_req: Request, res: Response) => {
-  try { res.json(await Quiz.countDocuments({ deleted: { $ne: true } })); }
-  catch (err) { res.status(500).json({ error: err }); }
-};
+export const countQuizzes = asyncHandler(async (_req, res) =>
+  res.json(await Quiz.countDocuments({ deleted: { $ne: true } })));
 
-export const getQuizzesByAttribute = async (req: Request, res: Response) => {
-  try {
-    const { attributeName, value } = req.params;
-    const start = parseInt(req.query['start'] as string) || 0;
-    const count = parseInt(req.query['count'] as string) || 100;
-    res.json(await Quiz.find({ [attributeName]: value, deleted: { $ne: true } }).skip(start).limit(count));
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const getQuizzesByAttribute = asyncHandler(async (req, res) => {
+  const { attributeName, value } = req.params;
+  const { start, count } = paginate(req);
+  res.json(
+    await Quiz.find({ [attributeName]: value, deleted: { $ne: true } })
+      .skip(start).limit(count),
+  );
+});
 
-export const countQuizzesByAttribute = async (req: Request, res: Response) => {
-  try {
-    const { attributeName, value } = req.params;
-    res.json(await Quiz.countDocuments({ [attributeName]: value, deleted: { $ne: true } }));
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const countQuizzesByAttribute = asyncHandler(async (req, res) => {
+  const { attributeName, value } = req.params;
+  res.json(await Quiz.countDocuments({ [attributeName]: value, deleted: { $ne: true } }));
+});
 
-export const getQuizById = async (req: Request, res: Response) => {
-  try {
-    const quiz = await Quiz.findById(req.params.id);
-    if (!quiz) { res.status(404).json({ message: 'Quiz non trouvé' }); return; }
-    res.json(quiz);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const getQuizById = asyncHandler(async (req, res) => {
+  const quiz = await Quiz.findById(req.params['id']);
+  if (!quiz) throw HttpError.notFound('Quiz non trouvé');
+  res.json(quiz);
+});
 
-export const getAllQuizzes = async (req: Request, res: Response) => {
-  try {
-    const start = parseInt(req.query['start'] as string) || 0;
-    const count = parseInt(req.query['count'] as string) || 100;
-    res.json(await Quiz.find({ deleted: { $ne: true } }).skip(start).limit(count));
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const getAllQuizzes = asyncHandler(async (req, res) => {
+  const { start, count } = paginate(req);
+  res.json(await Quiz.find({ deleted: { $ne: true } }).skip(start).limit(count));
+});
 
-export const createQuiz = async (req: Request, res: Response) => {
-  try { res.status(201).json(await Quiz.create(req.body)); }
-  catch (err) { res.status(500).json({ error: err }); }
-};
+export const createQuiz = asyncHandler(async (req, res) =>
+  res.status(201).json(await Quiz.create(req.body)));
 
-export const updateQuiz = async (req: Request, res: Response) => {
-  try {
-    const { id, ...rest } = req.body;
-    res.json(await Quiz.findByIdAndUpdate(id, rest, { new: true }));
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const updateQuiz = asyncHandler(async (req, res) => {
+  const { id, ...rest } = req.body;
+  res.json(await Quiz.findByIdAndUpdate(id, rest, { new: true }));
+});
 
-export const patchQuiz = async (req: Request, res: Response) => {
-  try {
-    const { id, ...rest } = req.body;
-    res.json(await Quiz.findByIdAndUpdate(id, { $set: rest }, { new: true }));
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const patchQuiz = asyncHandler(async (req, res) => {
+  const { id, ...rest } = req.body;
+  res.json(await Quiz.findByIdAndUpdate(id, { $set: rest }, { new: true }));
+});
 
-export const deleteQuiz = async (req: Request, res: Response) => {
-  try {
-    await Quiz.findByIdAndUpdate(req.params.id, { deleted: true });
-    res.json({ message: 'Supprimé' });
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const deleteQuiz = asyncHandler(async (req, res) => {
+  await Quiz.findByIdAndUpdate(req.params['id'], { deleted: true });
+  res.json({ message: 'Supprimé' });
+});
 
 // ── QuizResponse ──────────────────────────────────────────────
 
-export const countQuizResponses = async (_req: Request, res: Response) => {
-  try { res.json(await QuizResponse.countDocuments({ deleted: { $ne: true } })); }
-  catch (err) { res.status(500).json({ error: err }); }
-};
+export const countQuizResponses = asyncHandler(async (_req, res) =>
+  res.json(await QuizResponse.countDocuments({ deleted: { $ne: true } })));
 
-export const getQuizResponsesByAttribute = async (req: Request, res: Response) => {
-  try {
-    const { attributeName, value } = req.params;
-    const start = parseInt(req.query['start'] as string) || 0;
-    const count = parseInt(req.query['count'] as string) || 100;
-    const filter: Record<string, unknown> = { deleted: { $ne: true } };
-    if (attributeName === 'quiz')        filter['quiz']        = value;
-    if (attributeName === 'inscription') filter['inscription'] = value;
-    if (attributeName === 'owner')       filter['owner']       = value;
-    const items = await QuizResponse.find(filter).populate('quiz').skip(start).limit(count);
-    res.json(items);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const getQuizResponsesByAttribute = asyncHandler(async (req, res) => {
+  const { attributeName, value } = req.params;
+  const { start, count } = paginate(req);
+  const filter: Record<string, unknown> = { deleted: { $ne: true } };
+  if (attributeName === 'quiz')        filter['quiz']        = value;
+  if (attributeName === 'inscription') filter['inscription'] = value;
+  if (attributeName === 'owner')       filter['owner']       = value;
+  res.json(
+    await QuizResponse.find(filter).populate('quiz').skip(start).limit(count),
+  );
+});
 
-export const countQuizResponsesByAttribute = async (req: Request, res: Response) => {
-  try {
-    const { attributeName, value } = req.params;
-    res.json(await QuizResponse.countDocuments({ [attributeName]: value, deleted: { $ne: true } }));
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const countQuizResponsesByAttribute = asyncHandler(async (req, res) => {
+  const { attributeName, value } = req.params;
+  res.json(await QuizResponse.countDocuments({ [attributeName]: value, deleted: { $ne: true } }));
+});
 
-export const getQuizResponseById = async (req: Request, res: Response) => {
-  try {
-    const item = await QuizResponse.findById(req.params.id).populate('quiz');
-    if (!item) { res.status(404).json({ message: 'Non trouvé' }); return; }
-    res.json(item);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const getQuizResponseById = asyncHandler(async (req, res) => {
+  const item = await QuizResponse.findById(req.params['id']).populate('quiz');
+  if (!item) throw HttpError.notFound();
+  res.json(item);
+});
 
-export const getAllQuizResponses = async (_req: Request, res: Response) => {
-  try { res.json(await QuizResponse.find({ deleted: { $ne: true } }).populate('quiz')); }
-  catch (err) { res.status(500).json({ error: err }); }
-};
+export const getAllQuizResponses = asyncHandler(async (_req, res) =>
+  res.json(await QuizResponse.find({ deleted: { $ne: true } }).populate('quiz')));
 
-export const createQuizResponse = async (req: AuthRequest, res: Response) => {
-  try {
-    const owner       = req.body.owner || req.userId;
-    const quizId      = req.body.quiz;
-    const inscription = req.body.inscription;
+export const createQuizResponse = asyncHandler<AuthRequest>(async (req, res) => {
+  const owner       = req.body.owner || req.userId;
+  const quizId      = req.body.quiz;
+  const inscription = req.body.inscription;
 
-    // Upsert: one response per (owner, quiz) pair — update if already submitted
-    const filter: any = { owner, quiz: quizId, deleted: { $ne: true } };
-    if (inscription) filter.inscription = inscription;
+  // Upsert : une seule réponse par (owner, quiz) — update si déjà soumise.
+  const filter: any = { owner, quiz: quizId, deleted: { $ne: true } };
+  if (inscription) filter.inscription = inscription;
 
-    const item = await QuizResponse.findOneAndUpdate(
-      filter,
-      { $set: { reponses: req.body.reponses, inscription, updatedAt: new Date() } },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
-    res.status(200).json(item);
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+  const item = await QuizResponse.findOneAndUpdate(
+    filter,
+    { $set: { reponses: req.body.reponses, inscription, updatedAt: new Date() } },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  );
+  res.status(200).json(item);
+});
 
-export const updateQuizResponse = async (req: Request, res: Response) => {
-  try {
-    const { id, ...rest } = req.body;
-    res.json(await QuizResponse.findByIdAndUpdate(id, rest, { new: true }));
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const updateQuizResponse = asyncHandler(async (req, res) => {
+  const { id, ...rest } = req.body;
+  res.json(await QuizResponse.findByIdAndUpdate(id, rest, { new: true }));
+});
 
-export const patchQuizResponse = async (req: Request, res: Response) => {
-  try {
-    const { id, ...rest } = req.body;
-    res.json(await QuizResponse.findByIdAndUpdate(id, { $set: rest }, { new: true }));
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const patchQuizResponse = asyncHandler(async (req, res) => {
+  const { id, ...rest } = req.body;
+  res.json(await QuizResponse.findByIdAndUpdate(id, { $set: rest }, { new: true }));
+});
 
-export const deleteQuizResponse = async (req: Request, res: Response) => {
-  try {
-    await QuizResponse.findByIdAndUpdate(req.params.id, { deleted: true });
-    res.json({ message: 'Supprimé' });
-  } catch (err) { res.status(500).json({ error: err }); }
-};
+export const deleteQuizResponse = asyncHandler(async (req, res) => {
+  await QuizResponse.findByIdAndUpdate(req.params['id'], { deleted: true });
+  res.json({ message: 'Supprimé' });
+});

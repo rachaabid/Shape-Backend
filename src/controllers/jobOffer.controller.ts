@@ -1,9 +1,26 @@
-import { Request, Response } from 'express';
 import JobOffer from '../models/JobOffer';
 import Application from '../models/JobOfferApplication';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { HttpError }    from '../utils/HttpError';
 import { runAutoMatchPipeline } from '../services/autoMatch.service';
 import { notifyAdmins } from './notification.controller';
+
+const OFFER_POPULATE = [
+  { path: 'company',              select: 'name logo' },
+  { path: 'workingMode',          select: 'name' },
+  { path: 'jobOfferModel',        select: 'name' },
+  { path: 'hardSkills.skill',     select: 'name' },
+  { path: 'softwareSkills.skill', select: 'name' },
+];
+
+const OFFER_POPULATE_DETAILED = [
+  { path: 'company',              select: 'name logo address' },
+  { path: 'workingMode',          select: 'name description' },
+  { path: 'jobOfferModel',        select: 'name' },
+  { path: 'hardSkills.skill',     select: 'name' },
+  { path: 'softwareSkills.skill', select: 'name' },
+];
 
 const buildFilter = (attributeName: string, value: string) => {
   const map: Record<string, Record<string, unknown>> = {
@@ -15,180 +32,103 @@ const buildFilter = (attributeName: string, value: string) => {
 };
 
 // GET /api/JobOffer
-export const getAll = async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const offers = await JobOffer.find({ deleted: { $ne: true } })
-      .populate('company', 'name logo')
-      .populate('workingMode', 'name')
-      .populate('jobOfferModel', 'name')
-      .populate('hardSkills.skill', 'name')
-      .populate('softwareSkills.skill', 'name');
-    res.json(offers);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const getAll = asyncHandler(async (_req, res) => {
+  res.json(
+    await JobOffer.find({ deleted: { $ne: true } }).populate(OFFER_POPULATE),
+  );
+});
 
 // GET /api/JobOffer/count
-export const getCount = async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const count = await JobOffer.countDocuments({ deleted: { $ne: true } });
-    res.json(count);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const getCount = asyncHandler(async (_req, res) =>
+  res.json(await JobOffer.countDocuments({ deleted: { $ne: true } })));
 
-// GET /api/JobOffer/byattribute/company/:companyId
 // GET /api/JobOffer/byattribute/:attr/:value
-export const getByAttribute = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { attributeName, value } = req.params;
-    const filter = { ...buildFilter(attributeName, value), deleted: { $ne: true } };
-    const offers = await JobOffer.find(filter)
-      .populate('company', 'name logo')
-      .populate('workingMode', 'name')
-      .populate('jobOfferModel', 'name')
-      .populate('hardSkills.skill', 'name')
-      .populate('softwareSkills.skill', 'name');
-    res.json(offers);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const getByAttribute = asyncHandler(async (req, res) => {
+  const { attributeName, value } = req.params;
+  const filter = { ...buildFilter(attributeName, value), deleted: { $ne: true } };
+  res.json(await JobOffer.find(filter).populate(OFFER_POPULATE));
+});
 
 // GET /api/JobOffer/ByAttributeCount/:attr/:value
-export const getCountByAttribute = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { attributeName, value } = req.params;
-    const filter = { ...buildFilter(attributeName, value), deleted: { $ne: true } };
-    const count  = await JobOffer.countDocuments(filter);
-    res.json(count);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const getCountByAttribute = asyncHandler(async (req, res) => {
+  const { attributeName, value } = req.params;
+  const filter = { ...buildFilter(attributeName, value), deleted: { $ne: true } };
+  res.json(await JobOffer.countDocuments(filter));
+});
 
 // GET /api/JobOffer/EvaluateByUser/:userId
-export const getEvaluatedByUser = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { default: Application } = await import('../models/JobOfferApplication');
-    const apps = await Application.find({ user: req.params.userId }).select('jobOffer');
-    const ids  = apps.map(a => a.jobOffer);
-    const offers = await JobOffer.find({ _id: { $in: ids }, deleted: false });
-    res.json(offers);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const getEvaluatedByUser = asyncHandler(async (req, res) => {
+  const apps = await Application.find({ user: req.params['userId'] }).select('jobOffer');
+  const ids  = apps.map(a => a.jobOffer);
+  res.json(await JobOffer.find({ _id: { $in: ids }, deleted: false }));
+});
 
 // GET /api/JobOffer/:id
-export const getById = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const offer = await JobOffer.findById(req.params.id)
-      .populate('company', 'name logo address')
-      .populate('workingMode', 'name description')
-      .populate('jobOfferModel', 'name')
-      .populate('hardSkills.skill', 'name')
-      .populate('softwareSkills.skill', 'name');
-    if (!offer) { res.status(404).json({ message: 'Offre non trouvée' }); return; }
-    res.json(offer);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const getById = asyncHandler(async (req, res) => {
+  const offer = await JobOffer.findById(req.params['id']).populate(OFFER_POPULATE_DETAILED);
+  if (!offer) throw HttpError.notFound('Offre non trouvée');
+  res.json(offer);
+});
 
 // POST /api/JobOffer
-export const create = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const offer = await JobOffer.create(req.body);
-    res.status(201).json(offer);
-    setImmediate(() => runAutoMatchPipeline({ jobOfferId: offer._id.toString() }));
-    setImmediate(() => notifyAdmins(
-      'NEW_JOB_OFFER',
-      `Nouvelle offre d'emploi publiée : "${offer.title || 'Sans titre'}"`,
-      { offerId: offer._id.toString() }
-    ).catch(() => {}));
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const create = asyncHandler<AuthRequest>(async (req, res) => {
+  const offer = await JobOffer.create(req.body);
+  res.status(201).json(offer);
+  setImmediate(() => runAutoMatchPipeline({ jobOfferId: offer._id.toString() }));
+  setImmediate(() => notifyAdmins(
+    'NEW_JOB_OFFER',
+    `Nouvelle offre d'emploi publiée : "${offer.title || 'Sans titre'}"`,
+    { offerId: offer._id.toString() },
+  ).catch(() => undefined));
+});
 
 // PUT /api/JobOffer
-export const update = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id, ...rest } = req.body;
-    const offer = await JobOffer.findByIdAndUpdate(id, rest, { new: true });
-    res.json(offer);
-    if (offer) setImmediate(() => runAutoMatchPipeline({ jobOfferId: offer._id.toString() }));
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const update = asyncHandler<AuthRequest>(async (req, res) => {
+  const { id, ...rest } = req.body;
+  const offer = await JobOffer.findByIdAndUpdate(id, rest, { new: true });
+  res.json(offer);
+  if (offer) setImmediate(() => runAutoMatchPipeline({ jobOfferId: offer._id.toString() }));
+});
 
 // PATCH /api/JobOffer
-export const patch = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { id, ...rest } = req.body;
-    const offer = await JobOffer.findByIdAndUpdate(id, rest, { new: true });
-    res.json(offer);
-    if (offer) setImmediate(() => runAutoMatchPipeline({ jobOfferId: offer._id.toString() }));
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const patch = asyncHandler<AuthRequest>(async (req, res) => {
+  const { id, ...rest } = req.body;
+  const offer = await JobOffer.findByIdAndUpdate(id, rest, { new: true });
+  res.json(offer);
+  if (offer) setImmediate(() => runAutoMatchPipeline({ jobOfferId: offer._id.toString() }));
+});
 
 // DELETE /api/JobOffer/:id
-export const remove = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    await JobOffer.findByIdAndUpdate(req.params.id, { deleted: true });
-    res.json({ message: 'Offre supprimée' });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
+export const remove = asyncHandler<AuthRequest>(async (req, res) => {
+  await JobOffer.findByIdAndUpdate(req.params['id'], { deleted: true });
+  res.json({ message: 'Offre supprimée' });
+});
 
 // POST /api/JobOffer/triggerMatchForCompany/:companyId
-// Triggers the AI matching pipeline for all open offers that have no scored applications yet.
-export const triggerMatchForCompany = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { companyId } = req.params;
-    const openOffers = await JobOffer.find({ company: companyId, status: 'open', deleted: { $ne: true } }).select('_id');
+export const triggerMatchForCompany = asyncHandler(async (req, res) => {
+  const { companyId } = req.params;
+  const openOffers = await JobOffer.find({
+    company: companyId, status: 'open', deleted: { $ne: true },
+  }).select('_id');
 
-    const offersToRun: string[] = [];
-    for (const offer of openOffers) {
-      const hasScored = await Application.exists({
-        jobOffer:   offer._id,
-        deleted:    false,
-        matchScore: { $gt: 0 },
-      });
-      if (!hasScored) offersToRun.push(offer._id.toString());
-    }
-
-    for (const offerId of offersToRun) {
-      setImmediate(() => runAutoMatchPipeline({ jobOfferId: offerId }));
-    }
-
-    res.json({ triggered: offersToRun.length });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur', error: err });
+  const offersToRun: string[] = [];
+  for (const offer of openOffers) {
+    const hasScored = await Application.exists({
+      jobOffer:   offer._id, deleted: false, matchScore: { $gt: 0 },
+    });
+    if (!hasScored) offersToRun.push(offer._id.toString());
   }
-};
+  for (const offerId of offersToRun) {
+    setImmediate(() => runAutoMatchPipeline({ jobOfferId: offerId }));
+  }
+  res.json({ triggered: offersToRun.length });
+});
 
 // GET /api/JobOffer/company/:companyId
-export const getJobOffersByCompany = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { companyId } = req.params;
-    const offers = await JobOffer.find({ company: companyId, deleted: { $ne: true } })
-      .populate('company', 'name logo')
-      .populate('workingMode', 'name')
-      .populate('jobOfferModel', 'name')
-      .populate('hardSkills.skill', 'name')
-      .populate('softwareSkills.skill', 'name')
-      .sort({ createdAt: -1 });
-    res.json(offers);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err });
-  }
-};
-
+export const getJobOffersByCompany = asyncHandler(async (req, res) => {
+  res.json(
+    await JobOffer.find({ company: req.params['companyId'], deleted: { $ne: true } })
+      .populate(OFFER_POPULATE)
+      .sort({ createdAt: -1 }),
+  );
+});

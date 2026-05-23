@@ -1,11 +1,9 @@
 import cron from 'node-cron';
-import axios from 'axios';
 import Interview from '../models/Interview';
 import User from '../models/User';
 import Company from '../models/Company';
 import JobOffer from '../models/JobOffer';
 import { sendInterviewReminder } from './email.service';
-import { isPowerBiConfigured, pushKpiSnapshot } from './powerbi.service';
 
 export const startScheduler = (): void => {
   // Every minute: check for interviews starting in ~30 minutes and send reminders
@@ -63,19 +61,11 @@ export const startScheduler = (): void => {
     }
   });
 
-  // ── Power BI : push des KPI toutes les 30 minutes ───────────────
-  // Ignoré silencieusement si AZURE_* / POWERBI_* ne sont pas configurés.
-  cron.schedule('*/30 * * * *', async () => {
-    if (!isPowerBiConfigured()) return;
-    try {
-      const port = process.env.PORT || 3000;
-      const { data: stats } = await axios.get(`http://localhost:${port}/api/stats`);
-      await pushKpiSnapshot(stats);
-      console.log('📊 KPI poussés vers Power BI');
-    } catch (err: any) {
-      console.error('PowerBI scheduled push error:', err.response?.data || err.message);
-    }
-  });
+  // Note : l'ancien push de KPI vers Power BI cloud (Azure AD) est désactivé.
+  // L'intégration Power BI passe désormais par Power BI Desktop qui consomme
+  // les endpoints /api/bi-export/* en direct — pas de scheduler nécessaire.
+  // Le code Azure reste disponible dans powerbi.service.ts si on revient
+  // un jour à un workflow cloud.
 
   console.log('⏰ Scheduler démarré');
 };

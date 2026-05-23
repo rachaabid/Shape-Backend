@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import mongoose from 'mongoose';
 import Language      from '../models/Language';
 import Country       from '../models/Country';
@@ -11,87 +11,77 @@ import FocusedSkill  from '../models/FocusedSkill';
 import JobOfferModel from '../models/JobOfferModel';
 import Program       from '../models/Program';
 import Quiz          from '../models/Quiz';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { HttpError }    from '../utils/HttpError';
 
 const paginate = (req: Request) => ({
   skip:  parseInt(req.query['start'] as string) || 0,
   limit: parseInt(req.query['count'] as string) || 100,
 });
 
+/** Factorise les 9 handlers CRUD identiques de chaque référentiel. */
 function makeCrud(Model: mongoose.Model<any>) {
+  const stripId = (body: any) => {
+    const fields: any = { ...body };
+    delete fields._id; delete fields.id;
+    return fields;
+  };
+  const requireId = (req: Request): string => {
+    const id = req.params['id'] || req.body._id || req.body.id;
+    if (!id) throw HttpError.badRequest('id manquant');
+    return id;
+  };
+
   return {
-    getAll: async (req: Request, res: Response): Promise<void> => {
-      try {
-        const { skip, limit } = paginate(req);
-        res.json(await Model.find().skip(skip).limit(limit));
-      } catch (e) { res.status(500).json({ error: e }); }
-    },
+    getAll: asyncHandler(async (req, res) => {
+      const { skip, limit } = paginate(req);
+      res.json(await Model.find().skip(skip).limit(limit));
+    }),
 
-    getById: async (req: Request, res: Response): Promise<void> => {
-      try {
-        const item = await Model.findById(req.params['id']);
-        if (!item) { res.status(404).json({ message: 'Non trouvé' }); return; }
-        res.json(item);
-      } catch (e) { res.status(500).json({ error: e }); }
-    },
+    getById: asyncHandler(async (req, res) => {
+      const item = await Model.findById(req.params['id']);
+      if (!item) throw HttpError.notFound();
+      res.json(item);
+    }),
 
-    create: async (req: Request, res: Response): Promise<void> => {
-      try {
-        const item = await Model.create(req.body);
-        res.status(201).json(item);
-      } catch (e) { res.status(500).json({ error: e }); }
-    },
+    create: asyncHandler(async (req, res) => {
+      res.status(201).json(await Model.create(req.body));
+    }),
 
-    update: async (req: Request, res: Response): Promise<void> => {
-      try {
-        const id = req.body._id || req.body.id;
-        if (!id) { res.status(400).json({ message: 'id manquant dans le body' }); return; }
-        const fields: any = { ...req.body };
-        delete fields._id;
-        delete fields.id;
-        const item = await Model.findByIdAndUpdate(id, fields, { new: true });
-        if (!item) { res.status(404).json({ message: 'Non trouvé' }); return; }
-        res.json(item);
-      } catch (e) { res.status(500).json({ error: e }); }
-    },
+    update: asyncHandler(async (req, res) => {
+      const id = req.body._id || req.body.id;
+      if (!id) throw HttpError.badRequest('id manquant dans le body');
+      const item = await Model.findByIdAndUpdate(id, stripId(req.body), { new: true });
+      if (!item) throw HttpError.notFound();
+      res.json(item);
+    }),
 
-    patch: async (req: Request, res: Response): Promise<void> => {
-      try {
-        const id = req.params['id'] || req.body._id || req.body.id;
-        if (!id) { res.status(400).json({ message: 'id manquant' }); return; }
-        const fields: any = { ...req.body };
-        delete fields._id;
-        delete fields.id;
-        const item = await Model.findByIdAndUpdate(id, { $set: fields }, { new: true });
-        if (!item) { res.status(404).json({ message: 'Non trouvé' }); return; }
-        res.json(item);
-      } catch (e) { res.status(500).json({ error: e }); }
-    },
+    patch: asyncHandler(async (req, res) => {
+      const id = requireId(req);
+      const item = await Model.findByIdAndUpdate(id, { $set: stripId(req.body) }, { new: true });
+      if (!item) throw HttpError.notFound();
+      res.json(item);
+    }),
 
-    remove: async (req: Request, res: Response): Promise<void> => {
-      try {
-        await Model.findByIdAndDelete(req.params['id']);
-        res.status(204).send();
-      } catch (e) { res.status(500).json({ error: e }); }
-    },
+    remove: asyncHandler(async (req, res) => {
+      await Model.findByIdAndDelete(req.params['id']);
+      res.status(204).send();
+    }),
 
-    count: async (_req: Request, res: Response): Promise<void> => {
-      try { res.json(await Model.countDocuments()); } catch (e) { res.status(500).json({ error: e }); }
-    },
+    count: asyncHandler(async (_req, res) => {
+      res.json(await Model.countDocuments());
+    }),
 
-    getByAttribute: async (req: Request, res: Response): Promise<void> => {
-      try {
-        const { skip, limit } = paginate(req);
-        const { attributeName, value } = req.params;
-        res.json(await Model.find({ [attributeName]: value }).skip(skip).limit(limit));
-      } catch (e) { res.status(500).json({ error: e }); }
-    },
+    getByAttribute: asyncHandler(async (req, res) => {
+      const { skip, limit } = paginate(req);
+      const { attributeName, value } = req.params;
+      res.json(await Model.find({ [attributeName]: value }).skip(skip).limit(limit));
+    }),
 
-    countByAttribute: async (req: Request, res: Response): Promise<void> => {
-      try {
-        const { attributeName, value } = req.params;
-        res.json(await Model.countDocuments({ [attributeName]: value }));
-      } catch (e) { res.status(500).json({ error: e }); }
-    },
+    countByAttribute: asyncHandler(async (req, res) => {
+      const { attributeName, value } = req.params;
+      res.json(await Model.countDocuments({ [attributeName]: value }));
+    }),
   };
 }
 
@@ -105,32 +95,27 @@ export const softwareSkill = makeCrud(SoftwareSkill);
 export const focusedSkill  = makeCrud(FocusedSkill);
 export const jobOfferModel = makeCrud(JobOfferModel);
 
-// Cross-count helpers (used by frontend services)
-export const countSoftwareSkillHandler = async (_req: Request, res: Response): Promise<void> => {
-  try { res.json(await SoftwareSkill.countDocuments()); } catch (e) { res.status(500).json({ error: e }); }
-};
-export const countFocusedSkillHandler = async (_req: Request, res: Response): Promise<void> => {
-  try { res.json(await FocusedSkill.countDocuments()); } catch (e) { res.status(500).json({ error: e }); }
-};
-export const countHardSkillHandler = async (_req: Request, res: Response): Promise<void> => {
-  try { res.json(await HardSkill.countDocuments()); } catch (e) { res.status(500).json({ error: e }); }
-};
+// Cross-count helpers
+export const countSoftwareSkillHandler = asyncHandler(async (_req, res) =>
+  res.json(await SoftwareSkill.countDocuments()));
+export const countFocusedSkillHandler  = asyncHandler(async (_req, res) =>
+  res.json(await FocusedSkill.countDocuments()));
+export const countHardSkillHandler     = asyncHandler(async (_req, res) =>
+  res.json(await HardSkill.countDocuments()));
 
 // Legacy named exports (kept for backward compat)
-export const getLanguages        = lang.getAll;
-export const getCountries        = country.getAll;
-export const getHardSkills       = hardSkill.getAll;
-export const getSoftwareSkills   = softwareSkill.getAll;
-export const getFocusedSkills    = focusedSkill.getAll;
-export const getWorkingModes     = workingMode.getAll;
-export const getWorkingModeById  = workingMode.getById;
-export const getCareers          = career.getAll;
+export const getLanguages         = lang.getAll;
+export const getCountries         = country.getAll;
+export const getHardSkills        = hardSkill.getAll;
+export const getSoftwareSkills    = softwareSkill.getAll;
+export const getFocusedSkills     = focusedSkill.getAll;
+export const getWorkingModes      = workingMode.getAll;
+export const getWorkingModeById   = workingMode.getById;
+export const getCareers           = career.getAll;
 export const getJobOfferModelById = jobOfferModel.getById;
 
-export const getPrograms = async (_req: Request, res: Response): Promise<void> => {
-  try { res.json(await Program.find()); } catch (e) { res.status(500).json({ error: e }); }
-};
+export const getPrograms = asyncHandler(async (_req, res) =>
+  res.json(await Program.find()));
 
-export const getQuizzes = async (_req: Request, res: Response): Promise<void> => {
-  try { res.json(await Quiz.find({ deleted: { $ne: true } })); } catch (e) { res.status(500).json({ error: e }); }
-};
+export const getQuizzes  = asyncHandler(async (_req, res) =>
+  res.json(await Quiz.find({ deleted: { $ne: true } })));
