@@ -34,6 +34,7 @@ import mentorRoutes                from './routes/mentor.routes';
 import programRoutes               from './routes/program.routes';
 import programRequestRoutes            from './routes/programRequest.routes';
 import companyProgramProposalRoutes    from './routes/companyProgramProposal.routes';
+import powerbiRoutes                   from './routes/powerbi.routes';
 
 import Conversation from './models/Conversation';
 import Message      from './models/Message';
@@ -213,6 +214,7 @@ app.use('/api/Mentor',          mentorRoutes);
 app.use('/api/Program',         programRoutes);
 app.use('/api/ProgramRequest',          programRequestRoutes);
 app.use('/api/CompanyProgramProposal',  companyProgramProposalRoutes);
+app.use('/api/powerbi',                 powerbiRoutes);
 
 // ── MongoDB + démarrage ───────────────────────────────────────
 mongoose
