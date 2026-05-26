@@ -1,37 +1,12 @@
 import { Router } from 'express';
 import { authMiddleware as auth } from '../middleware/auth.middleware';
 import {
-  lang, country, career, workingMode,
+  career,
   hardSkill, softSkill, softwareSkill, focusedSkill, jobOfferModel,
   countSoftwareSkillHandler, countFocusedSkillHandler, countHardSkillHandler,
 } from '../controllers/reference.controller';
 
 const router = Router();
-
-// ── Language ──────────────────────────────────────────────────────────────────
-router.get('/Language/count',                                    lang.count);
-router.get('/Language/byattribute/:attributeName/:value',        lang.getByAttribute);
-router.get('/Language/ByAttributeCount/:attributeName/:value',   lang.countByAttribute);
-router.get('/Language/:id',    lang.getById);
-router.get('/Language',        lang.getAll);
-router.post('/Language',       auth, lang.create);
-router.put('/Language',        auth, lang.update);
-router.patch('/Language/:id',  auth, lang.patch);
-router.patch('/Language',      auth, lang.patch);
-router.delete('/Language/:id', auth, lang.remove);
-
-// ── Country ───────────────────────────────────────────────────────────────────
-router.get('/Country/count',                                     country.count);
-router.get('/Country/ByAttribute/:attributeName/:value',         country.getByAttribute);
-router.get('/Country/ByAttributeCount/:attributeName/:value',    country.countByAttribute);
-router.get('/Country/byattribute/:attributeName/:value',         country.getByAttribute);
-router.get('/Country/:id',     country.getById);
-router.get('/Country',         country.getAll);
-router.post('/Country',        auth, country.create);
-router.put('/Country',         auth, country.update);
-router.patch('/Country/:id',   auth, country.patch);
-router.patch('/Country',       auth, country.patch);
-router.delete('/Country/:id',  auth, country.remove);
 
 // ── Career ────────────────────────────────────────────────────────────────────
 router.get('/Career/count',                                      career.count);
@@ -44,18 +19,6 @@ router.put('/Career',          auth, career.update);
 router.patch('/Career/:id',    auth, career.patch);
 router.patch('/Career',        auth, career.patch);
 router.delete('/Career/:id',   auth, career.remove);
-
-// ── WorkingMode ───────────────────────────────────────────────────────────────
-router.get('/WorkingMode/count',                                      workingMode.count);
-router.get('/WorkingMode/byattribute/:attributeName/:value',          workingMode.getByAttribute);
-router.get('/WorkingMode/ByAttributeCount/:attributeName/:value',     workingMode.countByAttribute);
-router.get('/WorkingMode/:id',    workingMode.getById);
-router.get('/WorkingMode',        workingMode.getAll);
-router.post('/WorkingMode',       auth, workingMode.create);
-router.put('/WorkingMode',        auth, workingMode.update);
-router.patch('/WorkingMode/:id',  auth, workingMode.patch);
-router.patch('/WorkingMode',      auth, workingMode.patch);
-router.delete('/WorkingMode/:id', auth, workingMode.remove);
 
 // ── HardSkill ─────────────────────────────────────────────────────────────────
 router.get('/HardSkill/count',                                      hardSkill.count);

@@ -11,34 +11,34 @@ import bcrypt   from 'bcryptjs';
 import dotenv   from 'dotenv';
 dotenv.config();
 
-import User              from './models/User';
-import Company           from './models/Company';
-import Language          from './models/Language';
-import Country           from './models/Country';
-import HardSkill         from './models/HardSkill';
-import SoftwareSkill     from './models/SoftwareSkill';
-import FocusedSkill      from './models/FocusedSkill';
-import Career            from './models/Career';
-import WorkingMode       from './models/WorkingMode';
-import JobOfferModel     from './models/JobOfferModel';
-import Program           from './models/Program';
-import Quiz              from './models/Quiz';
-import TextBloc          from './models/TextBloc';
-import VideoYoutube      from './models/VideoYoutube';
-import JobOffer          from './models/JobOffer';
-import Application       from './models/JobOfferApplication';
-import Interview         from './models/Interview';
-import Task              from './models/Task';
-import TaskResponse      from './models/TaskResponse';
-import Inscription       from './models/Inscription';
-import Conversation      from './models/Conversation';
-import Message           from './models/Message';
-import Notification      from './models/Notification';
-import NotificationSetting from './models/NotificationSetting';
-import MentorEvaluation  from './models/MentorEvaluation';
-import ProgramRequest    from './models/ProgramRequest';
-import CompanyProgramProposal from './models/CompanyProgramProposal';
-import Documentation     from './models/Documentation';
+import User              from '../src/models/User';
+import Company           from '../src/models/Company';
+import Language          from '../src/models/Language';
+import Country           from '../src/models/Country';
+import HardSkill         from '../src/models/HardSkill';
+import SoftwareSkill     from '../src/models/SoftwareSkill';
+import FocusedSkill      from '../src/models/FocusedSkill';
+import Career            from '../src/models/Career';
+import WorkingMode       from '../src/models/WorkingMode';
+import JobOfferModel     from '../src/models/JobOfferModel';
+import Program           from '../src/models/Program';
+import Quiz              from '../src/models/Quiz';
+import TextBloc          from '../src/models/TextBloc';
+import VideoYoutube      from '../src/models/VideoYoutube';
+import JobOffer          from '../src/models/JobOffer';
+import Application       from '../src/models/JobOfferApplication';
+import Interview         from '../src/models/Interview';
+import Task              from '../src/models/Task';
+import TaskResponse      from '../src/models/TaskResponse';
+import Inscription       from '../src/models/Inscription';
+import Conversation      from '../src/models/Conversation';
+import Message           from '../src/models/Message';
+import Notification      from '../src/models/Notification';
+import NotificationSetting from '../src/models/NotificationSetting';
+import MentorEvaluation  from '../src/models/MentorEvaluation';
+import ProgramRequest    from '../src/models/ProgramRequest';
+import CompanyProgramProposal from '../src/models/CompanyProgramProposal';
+import Documentation     from '../src/models/Documentation';
 
 // ── Helpers ────────────────────────────────────────────────────────
 const rnd  = (n: number) => Math.floor(Math.random() * n);
@@ -105,21 +105,21 @@ async function seed() {
   // ── 2. Référentiel ────────────────────────────────────────────────
   await Language.insertMany(LANGUAGES);
   await Country.insertMany(COUNTRIES);
-  const hardSkills = await HardSkill.insertMany(
+  const hardSkills: any[] = await HardSkill.insertMany(
     HARD_SKILLS.map((n, i) => ({ name: { fr: n, en: n, ...(i % 4 ? { ar: n } : {}) }, category: pick(DOMAINS) })),
   );
-  const softwares = await SoftwareSkill.insertMany(
+  const softwares: any[] = await SoftwareSkill.insertMany(
     SOFTWARES.map((n, i) => ({ name: { fr: n, en: n, ...(i % 3 ? { ar: n } : {}) }, category: 'Outil' })),
   );
-  const focused = await FocusedSkill.insertMany(
+  const focused: any[] = await FocusedSkill.insertMany(
     FOCUSED.map(n => ({ name: { fr: n, en: n }, category: 'Marketing' })),
   );
-  const workingModes = await WorkingMode.insertMany([
+  const workingModes: any[] = await WorkingMode.insertMany([
     { name: { fr: 'Présentiel',  en: 'On-site' }, description: { fr: 'Au bureau' } },
     { name: { fr: 'Télétravail', en: 'Remote'  }, description: { fr: 'À distance' } },
     { name: { fr: 'Hybride',     en: 'Hybrid'  }, description: { fr: 'Mixte' } },
   ]);
-  const jobModels = await JobOfferModel.insertMany([
+  const jobModels: any[] = await JobOfferModel.insertMany([
     { name: { fr: 'CDI',        en: 'Permanent'   } },
     { name: { fr: 'CDD',        en: 'Fixed-term'  } },
     { name: { fr: 'Stage',      en: 'Internship'  } },
@@ -133,7 +133,7 @@ async function seed() {
   const adminPw = await bcrypt.hash('Admin2025!', 10);
 
   // ── 3. Contenus (Quiz / TextBloc / Video) pour les programmes ─────
-  const quizzes = await Quiz.insertMany(
+  const quizzes: any[] = await Quiz.insertMany(
     Array.from({ length: 20 }, (_, i) => ({
       title: { fr: `Quiz ${i + 1}`, en: `Quiz ${i + 1}` },
       online: true, duration: 10 + rnd(20), deadLineInHours: 72,
@@ -151,14 +151,14 @@ async function seed() {
       }],
     })),
   );
-  const textBlocs = await TextBloc.insertMany(
+  const textBlocs: any[] = await TextBloc.insertMany(
     Array.from({ length: 20 }, (_, i) => ({
       title: { fr: `Leçon ${i + 1}`, en: `Lesson ${i + 1}` },
       online: true, keyWords: pickN(HARD_SKILLS, 2),
       html: `<h2>Leçon ${i + 1}</h2><p>Contenu pédagogique de test pour la leçon ${i + 1}.</p>`,
     })),
   );
-  const videos = await VideoYoutube.insertMany(
+  const videos: any[] = await VideoYoutube.insertMany(
     Array.from({ length: 20 }, (_, i) => ({
       title: { fr: `Vidéo ${i + 1}`, en: `Video ${i + 1}` },
       online: true, keyWords: pickN(HARD_SKILLS, 2),
@@ -167,7 +167,7 @@ async function seed() {
   );
 
   // ── 3a. Tâches pour les programmes (créées ici pour être disponibles à l'étape 5) ──
-  const programTasks = await Task.insertMany(
+  const programTasks: any[] = await Task.insertMany(
     Array.from({ length: 20 }, (_, i) => ({
       title: { fr: `Tâche programme ${i + 1}`, en: `Program Task ${i + 1}` },
       description: { fr: `Exercice pratique ${i + 1} à rendre dans les délais.` },
@@ -228,7 +228,7 @@ async function seed() {
       ],
     },
   ];
-  const documentations = await Documentation.insertMany(DOC_SAMPLES);
+  const documentations: any[] = await Documentation.insertMany(DOC_SAMPLES);
   console.log(`✅ ${documentations.length} documentations créées`);
 
   // ── 4. Mentors (créés avant les programmes pour l'assignation owner) ─
@@ -311,8 +311,21 @@ async function seed() {
       })() : [],
     };
   });
-  const programs = await Program.insertMany(programsPayload);
+  const programs: any[] = await Program.insertMany(programsPayload);
   console.log(`✅ ${programs.length} programmes créés (avec owner assigné)`);
+
+  // ── 5b. Lier chaque tâche-programme à son programme ─────────────────
+  // (fait après la création des programmes car les tâches sont créées avant)
+  for (const prog of programs) {
+    for (const week of (prog as any).weeks || []) {
+      for (const lesson of (week.lessons || []) as any[]) {
+        if (lesson.taskRef) {
+          await Task.findByIdAndUpdate(lesson.taskRef, { program: prog._id });
+        }
+      }
+    }
+  }
+  console.log('✅ Tâches-programme liées à leurs programmes');
 
   // ── 6. Entreprises + comptes COMPANY (25, dont 1 sans offre) ──────
   const companyUsers: any[] = [];
@@ -496,14 +509,23 @@ async function seed() {
   console.log(`✅ ${progTrCount} réponses aux tâches-programme créées`);
 
   // ── 13. Tâches (200) + réponses (700, statuts 0..3) ───────────────
+  // Chaque tâche est rattachée à un programme (champ program) pour que le
+  // frontend puisse les récupérer via GET /Task/ByAttribute/program/{id}.
   const tasks: any[] = [];
   for (let i = 0; i < 200; i++) {
+    // Choisir un mentor, puis un programme qu'il possède (cohérence mentor ↔ programme)
+    const mentor = pick(mentors);
+    const mentorProgs = programs.filter((p: any) =>
+      p.owner && (p.owner.equals ? p.owner.equals(mentor._id) : String(p.owner) === String(mentor._id))
+    );
+    const prog = mentorProgs.length > 0 ? pick(mentorProgs) : pick(programs);
     const t = await Task.create({
       title: { fr: `Tâche ${i}`, en: `Task ${i}` },
       description: { fr: `Description de la tâche ${i}.` },
       keyWords: pickN(HARD_SKILLS, 2),
       online: true, deadLineInHours: 12 + rnd(160),
-      createdBy: pick(mentors)._id,
+      createdBy: mentor._id,
+      program: prog._id,
       createdAt: daysAgo(rnd(250)),
     });
     tasks.push(t);
@@ -511,13 +533,21 @@ async function seed() {
   let trCount = 0;
   for (let i = 0; i < 700; i++) {
     const cand = pick(candidates);
-    // ~60% des réponses liées à une inscription du candidat (pour projet-management)
+    const t    = pick(tasks);
+    // Chercher une inscription du candidat qui inclut le programme de la tâche
     const candIns = inscriptions.filter((ins: any) =>
+      String(ins.user) === String(cand._id) &&
+      (ins.programs || []).some((p: any) => p.toString() === t.program?.toString())
+    );
+    // Fallback : n'importe quelle inscription du candidat (~40% sans inscription)
+    const fallbackIns = inscriptions.filter((ins: any) =>
       String(ins.user) === String(cand._id)
     );
-    const ins = chance(0.6) && candIns.length ? pick(candIns) : undefined;
+    const ins = candIns.length
+      ? pick(candIns)
+      : (chance(0.4) && fallbackIns.length ? pick(fallbackIns) : undefined);
     await TaskResponse.create({
-      task: pick(tasks)._id, owner: cand._id,
+      task: t._id, owner: cand._id,
       inscription: ins?._id,
       status: rnd(4),
       createdAt: daysAgo(rnd(200)),

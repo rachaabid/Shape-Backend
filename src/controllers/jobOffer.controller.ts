@@ -8,7 +8,6 @@ import { notifyAdmins } from './notification.controller';
 
 const OFFER_POPULATE = [
   { path: 'company',              select: 'name logo' },
-  { path: 'workingMode',          select: 'name' },
   { path: 'jobOfferModel',        select: 'name' },
   { path: 'hardSkills.skill',     select: 'name' },
   { path: 'softwareSkills.skill', select: 'name' },
@@ -16,7 +15,6 @@ const OFFER_POPULATE = [
 
 const OFFER_POPULATE_DETAILED = [
   { path: 'company',              select: 'name logo address' },
-  { path: 'workingMode',          select: 'name description' },
   { path: 'jobOfferModel',        select: 'name' },
   { path: 'hardSkills.skill',     select: 'name' },
   { path: 'softwareSkills.skill', select: 'name' },

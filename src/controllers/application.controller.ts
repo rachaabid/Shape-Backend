@@ -20,7 +20,6 @@ const JOBOFFER_POPULATE = {
     { path: 'hardSkills.skill',     model: 'HardSkill' },
     { path: 'softwareSkills.skill', model: 'SoftwareSkill' },
     { path: 'jobOfferModel',        model: 'JobOfferModel' },
-    { path: 'workingMode',          model: 'WorkingMode' },
   ],
 };
 

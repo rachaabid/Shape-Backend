@@ -89,6 +89,11 @@ export const reject = asyncHandler(async (req, res) => {
     req.params['id'], { status: 'rejected' }, { new: true },
   ).populate(PROGRAM_REQUEST_POPULATE);
   if (!request) throw HttpError.notFound('Demande non trouvée.');
+
+  // Remove program from inscription in case it was previously approved
+  await Inscription.findByIdAndUpdate(
+    request.inscription, { $pull: { programs: request.program } },
+  );
   res.json(request);
 
   setImmediate(() => {

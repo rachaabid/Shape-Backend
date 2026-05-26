@@ -111,11 +111,32 @@ export const getMentorTasks = asyncHandler<AuthRequest>(async (req, res) =>
   res.json(await Task.find({ createdBy: req.userId, deleted: { $ne: true } })));
 
 export const createMentorTask = asyncHandler<AuthRequest>(async (req, res) => {
-  const task = await Task.create({ ...req.body, createdBy: req.userId });
+  const { programId, internIds, ...taskData } = req.body;
+  const task = await Task.create({
+    ...taskData,
+    program:   programId || undefined,
+    createdBy: req.userId,
+  });
 
-  if (req.body.internIds?.length) {
-    const responses = (req.body.internIds as string[]).map((uid: string) => ({
-      task: task._id, owner: uid, status: 0,
+  if (internIds?.length) {
+    // Retrouver les inscriptions pour associer le TaskResponse à l'inscription du candidat
+    // (permet au frontend de retrouver les tâches via GET /TaskResponse/ByAttribute/Inscription/{id})
+    const inscriptions = programId
+      ? await Inscription.find({
+          user:     { $in: internIds },
+          programs: programId,
+          deleted:  { $ne: true },
+        }).select('_id user')
+      : [];
+    const inscriptionByUser = new Map(
+      inscriptions.map(ins => [ins.user!.toString(), ins._id]),
+    );
+
+    const responses = (internIds as string[]).map((uid: string) => ({
+      task:        task._id,
+      owner:       uid,
+      status:      0,
+      inscription: inscriptionByUser.get(uid),
     }));
     await TaskResponse.insertMany(responses);
   }

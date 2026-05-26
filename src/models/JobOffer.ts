@@ -1,9 +1,11 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export type WorkingModeEnum = 'remote' | 'onsite' | 'hybrid' | 'freelance';
+
 export interface IJobOffer extends Document {
   company?:           mongoose.Types.ObjectId;
   jobOfferModel?:     mongoose.Types.ObjectId;
-  workingMode?:       mongoose.Types.ObjectId;
+  workingMode?:       WorkingModeEnum;
   title?:             string;
   description?:       string;
   whoAreThey?:        string;
@@ -22,7 +24,7 @@ export interface IJobOffer extends Document {
 const JobOfferSchema = new Schema<IJobOffer>({
   company:            { type: Schema.Types.ObjectId, ref: 'Company' },
   jobOfferModel:      { type: Schema.Types.ObjectId, ref: 'JobOfferModel' },
-  workingMode:        { type: Schema.Types.ObjectId, ref: 'WorkingMode' },
+  workingMode:        { type: String, enum: ['remote', 'onsite', 'hybrid', 'freelance'] },
   title:              String,
   description:        String,
   whoAreThey:         String,

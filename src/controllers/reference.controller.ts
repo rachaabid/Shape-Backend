@@ -1,9 +1,6 @@
 import { Request } from 'express';
 import mongoose from 'mongoose';
-import Language      from '../models/Language';
-import Country       from '../models/Country';
 import Career        from '../models/Career';
-import WorkingMode   from '../models/WorkingMode';
 import HardSkill     from '../models/HardSkill';
 import SoftSkill     from '../models/SoftSkill';
 import SoftwareSkill from '../models/SoftwareSkill';
@@ -85,10 +82,7 @@ function makeCrud(Model: mongoose.Model<any>) {
   };
 }
 
-export const lang          = makeCrud(Language);
-export const country       = makeCrud(Country);
 export const career        = makeCrud(Career);
-export const workingMode   = makeCrud(WorkingMode);
 export const hardSkill     = makeCrud(HardSkill);
 export const softSkill     = makeCrud(SoftSkill);
 export const softwareSkill = makeCrud(SoftwareSkill);
@@ -104,13 +98,9 @@ export const countHardSkillHandler     = asyncHandler(async (_req, res) =>
   res.json(await HardSkill.countDocuments()));
 
 // Legacy named exports (kept for backward compat)
-export const getLanguages         = lang.getAll;
-export const getCountries         = country.getAll;
 export const getHardSkills        = hardSkill.getAll;
 export const getSoftwareSkills    = softwareSkill.getAll;
 export const getFocusedSkills     = focusedSkill.getAll;
-export const getWorkingModes      = workingMode.getAll;
-export const getWorkingModeById   = workingMode.getById;
 export const getCareers           = career.getAll;
 export const getJobOfferModelById = jobOfferModel.getById;
 
