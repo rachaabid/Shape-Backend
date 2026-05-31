@@ -28,7 +28,7 @@ export interface IQuiz extends Document {
   sections:       IQuizSection[];
   deadLineInHours?: number;
   duration?:      number;
-  program?:       mongoose.Types.ObjectId;
+  training?:       mongoose.Types.ObjectId;
   deleted?:       boolean;
 }
 
@@ -60,7 +60,7 @@ const QuizSchema = new Schema<IQuiz>({
   sections:       [QuizSectionSchema],
   deadLineInHours: Number,
   duration:       Number,
-  program:        { type: Schema.Types.ObjectId, ref: 'Program', default: null },
+  training:        { type: Schema.Types.ObjectId, ref: 'Training', default: null },
   deleted:        { type: Boolean, default: false },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 

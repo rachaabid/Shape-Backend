@@ -1,22 +1,22 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type ProgramRequestStatus = 'pending' | 'approved' | 'rejected';
+export type TrainingRequestStatus = 'pending' | 'approved' | 'rejected';
 
-export interface IProgramRequest extends Document {
+export interface ITrainingRequest extends Document {
   user:         mongoose.Types.ObjectId;
-  program:      mongoose.Types.ObjectId;
+  training:      mongoose.Types.ObjectId;
   inscription:  mongoose.Types.ObjectId;
-  status:       ProgramRequestStatus;
+  status:       TrainingRequestStatus;
   deleted?:     boolean;
   createdAt:    Date;
 }
 
-const ProgramRequestSchema = new Schema<IProgramRequest>({
+const TrainingRequestSchema = new Schema<ITrainingRequest>({
   user:        { type: Schema.Types.ObjectId, ref: 'User',        required: true },
-  program:     { type: Schema.Types.ObjectId, ref: 'Program',     required: true },
+  training:     { type: Schema.Types.ObjectId, ref: 'Training',     required: true },
   inscription: { type: Schema.Types.ObjectId, ref: 'Inscription', required: true },
   status:      { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   deleted:     { type: Boolean, default: false },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
-export default mongoose.model<IProgramRequest>('ProgramRequest', ProgramRequestSchema);
+export default mongoose.model<ITrainingRequest>('TrainingRequest', TrainingRequestSchema);

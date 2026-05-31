@@ -85,8 +85,8 @@ export const getAllJson = asyncHandler(async (_req, res) => {
       interviewsCompleted: stats.interviews.completed,
       interviewsCancelled: stats.interviews.cancelled,
       interviewsUpcoming:  stats.interviews.upcoming,
-      programsTotal:       stats.formation.programs,
-      programsOnline:      stats.formation.onlinePrograms,
+      trainingsTotal:       stats.formation.trainings,
+      trainingsOnline:      stats.formation.onlineTrainings,
       inscriptions:        stats.formation.inscriptions,
       completedInscriptions: stats.formation.completedInscriptions,
       completionRate:        stats.formation.completionRate,
@@ -100,7 +100,7 @@ export const getAllJson = asyncHandler(async (_req, res) => {
     registrations: stats.registrations,
     applicationsByMonth: stats.byMonth,
     countries:     stats.countries,
-    topPrograms:   stats.topPrograms,
+    topTrainings:   stats.topTrainings,
     missingSkills: stats.missingSkills,
     scoreDistribution: stats.scoreDist,
   });
@@ -150,10 +150,10 @@ export const getCountriesCsv = asyncHandler(async (_req, res) => {
   sendCsv(res, 'countries.csv', toCsv(countries, ['country', 'count']));
 });
 
-/** GET /api/bi-export/top-programs.csv */
-export const getTopProgramsCsv = asyncHandler(async (_req, res) => {
-  const { topPrograms } = await buildGlobalStats();
-  sendCsv(res, 'top-programs.csv', toCsv(topPrograms, ['title', 'count']));
+/** GET /api/bi-export/top-trainings.csv */
+export const getTopTrainingsCsv = asyncHandler(async (_req, res) => {
+  const { topTrainings } = await buildGlobalStats();
+  sendCsv(res, 'top-trainings.csv', toCsv(topTrainings, ['title', 'count']));
 });
 
 /** GET /api/bi-export/missing-skills.csv */

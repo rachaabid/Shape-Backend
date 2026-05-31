@@ -132,7 +132,7 @@ const DATASET_SCHEMA = {
       ],
     },
     {
-      name: 'TopPrograms',
+      name: 'TopTrainings',
       columns: [
         { name: 'timestamp', dataType: 'DateTime' },
         { name: 'title',     dataType: 'string'   },
@@ -185,7 +185,7 @@ interface AnyStats {
   formation:    any;
   registrations?: { month: string; count: number }[];
   countries?:     { country: string; count: number }[];
-  topPrograms?:   { title: string; count: number }[];
+  topTrainings?:   { title: string; count: number }[];
 }
 
 /** Pousse un snapshot KPI complet dans le dataset. */
@@ -237,9 +237,9 @@ export async function pushKpiSnapshot(stats: AnyStats): Promise<void> {
       stats.countries.map(c => ({ timestamp, country: c.country, count: c.count })),
     );
   }
-  if (stats.topPrograms?.length) {
-    await pushRows('TopPrograms',
-      stats.topPrograms.map(p => ({ timestamp, title: p.title, count: p.count })),
+  if (stats.topTrainings?.length) {
+    await pushRows('TopTrainings',
+      stats.topTrainings.map(p => ({ timestamp, title: p.title, count: p.count })),
     );
   }
 }
@@ -249,7 +249,7 @@ export async function clearKpiSnapshot(): Promise<void> {
   const { workspaceId } = readConfig();
   const token     = await getAccessToken();
   const datasetId = await getDatasetId();
-  for (const table of ['KpiSnapshot', 'Registrations', 'Countries', 'TopPrograms']) {
+  for (const table of ['KpiSnapshot', 'Registrations', 'Countries', 'TopTrainings']) {
     await axios.delete(
       `${API_BASE}/groups/${workspaceId}/datasets/${datasetId}/tables/${table}/rows`,
       { headers: authHeader(token) },

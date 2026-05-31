@@ -24,7 +24,7 @@ export interface IUser extends Document {
   focusedSkills?:          string[];
   languages?:              string[];
   workingMode?:            string;
-  programs?:               string[];
+  trainings?:               string[];
   portfolioLinks?:         string[];
   professionalExperiences?: {
     jobTitle: string; company: string; locale: string;
@@ -63,7 +63,7 @@ const UserSchema = new Schema<IUser>({
   focusedSkills:      [String],
   languages:          [String],
   workingMode:        String,
-  programs:           [String],
+  trainings:           [String],
   portfolioLinks:     [String],
   professionalExperiences: [{
     jobTitle: String, company: String, locale: String,

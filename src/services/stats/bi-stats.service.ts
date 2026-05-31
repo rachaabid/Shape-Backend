@@ -36,7 +36,7 @@ export interface BiStats {
   funnel: { applied: number; retained: number; hired: number; rejected: number };
   byStatus:      { status: number; count: number }[];
   countries:     { country: string; count: number }[];
-  topPrograms:   { title: string; count: number }[];
+  topTrainings:   { title: string; count: number }[];
   missingSkills: { skill: string; count: number }[];
   scoreDist:     { range: string; count: number }[];
   mentorLeaders: { mentor: string; firstName: string; lastName: string; count: number }[];
@@ -81,7 +81,7 @@ export async function buildBiStats(period: BiPeriod): Promise<BiStats> {
     // All-time funnel
     totalAppsAll, retainedAll, hiredAll, rejectedAll,
     // Rankings
-    countriesAgg, topProgramsAgg, missingSkillsAgg, scoreDistAgg,
+    countriesAgg, topTrainingsAgg, missingSkillsAgg, scoreDistAgg,
     mentorLeaders,
     // Score moyen
     scoreAgg,
@@ -122,10 +122,10 @@ export async function buildBiStats(period: BiPeriod): Promise<BiStats> {
 
     Inscription.aggregate<{ title: string; count: number }>([
       { $match: { deleted: { $ne: true } } },
-      { $unwind: '$programs' },
-      { $group: { _id: '$programs', count: { $sum: 1 } } },
+      { $unwind: '$trainings' },
+      { $group: { _id: '$trainings', count: { $sum: 1 } } },
       { $sort: { count: -1 } }, { $limit: 8 },
-      { $lookup: { from: 'programs', localField: '_id', foreignField: '_id', as: 'prog' } },
+      { $lookup: { from: 'trainings', localField: '_id', foreignField: '_id', as: 'prog' } },
       { $project: { _id: 0, count: 1, title: { $ifNull: [{ $arrayElemAt: ['$prog.title.fr', 0] }, 'Programme'] } } },
     ]),
 
@@ -200,7 +200,7 @@ export async function buildBiStats(period: BiPeriod): Promise<BiStats> {
     funnel: { applied: totalAppsAll, retained: retainedAll, hired: hiredAll, rejected: rejectedAll },
     byStatus:      Array.isArray(hiredByStatus)    ? hiredByStatus    : [],
     countries:     Array.isArray(countriesAgg)     ? countriesAgg     : [],
-    topPrograms:   Array.isArray(topProgramsAgg)   ? topProgramsAgg   : [],
+    topTrainings:   Array.isArray(topTrainingsAgg)   ? topTrainingsAgg   : [],
     missingSkills: Array.isArray(missingSkillsAgg) ? missingSkillsAgg : [],
     scoreDist:     Array.isArray(scoreDistAgg)     ? scoreDistAgg     : [],
     mentorLeaders: Array.isArray(mentorLeaders)    ? mentorLeaders    : [],

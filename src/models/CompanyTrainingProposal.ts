@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export type ProposalStatus = 'pending' | 'accepted' | 'rejected';
 
-export interface ICompanyProgramProposal extends Document {
+export interface ICompanyTrainingProposal extends Document {
   company:        mongoose.Types.ObjectId;
   proposedBy:     mongoose.Types.ObjectId;
   title:          string;
@@ -15,7 +15,7 @@ export interface ICompanyProgramProposal extends Document {
   createdAt:      Date;
 }
 
-const CompanyProgramProposalSchema = new Schema<ICompanyProgramProposal>({
+const CompanyTrainingProposalSchema = new Schema<ICompanyTrainingProposal>({
   company:        { type: Schema.Types.ObjectId, ref: 'Company', required: true },
   proposedBy:     { type: Schema.Types.ObjectId, ref: 'User',    required: true },
   title:          { type: String, required: true },
@@ -27,4 +27,4 @@ const CompanyProgramProposalSchema = new Schema<ICompanyProgramProposal>({
   deleted:        { type: Boolean, default: false },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
-export default mongoose.model<ICompanyProgramProposal>('CompanyProgramProposal', CompanyProgramProposalSchema);
+export default mongoose.model<ICompanyTrainingProposal>('CompanyTrainingProposal', CompanyTrainingProposalSchema);

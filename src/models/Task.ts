@@ -8,7 +8,7 @@ export interface ITask extends Document {
   deadLineInHours?: number;
   documents?:       { name: string; url: string }[];
   createdBy?:       mongoose.Types.ObjectId;
-  program?:         mongoose.Types.ObjectId; // programme auquel la tâche est rattachée
+  training?:         mongoose.Types.ObjectId; // programme auquel la tâche est rattachée
   deleted?:         boolean;
 }
 
@@ -20,7 +20,7 @@ const TaskSchema = new Schema<ITask>({
   deadLineInHours: Number,
   documents:       [{ name: String, url: String }],
   createdBy:       { type: Schema.Types.ObjectId, ref: 'User' },
-  program:         { type: Schema.Types.ObjectId, ref: 'Program' },
+  training:         { type: Schema.Types.ObjectId, ref: 'Training' },
   deleted:         { type: Boolean, default: false },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 

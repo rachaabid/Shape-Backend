@@ -6,7 +6,7 @@ import SoftSkill     from '../models/SoftSkill';
 import SoftwareSkill from '../models/SoftwareSkill';
 import FocusedSkill  from '../models/FocusedSkill';
 import JobOfferModel from '../models/JobOfferModel';
-import Program       from '../models/Program';
+import Training       from '../models/Training';
 import Quiz          from '../models/Quiz';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { HttpError }    from '../utils/HttpError';
@@ -104,8 +104,8 @@ export const getFocusedSkills     = focusedSkill.getAll;
 export const getCareers           = career.getAll;
 export const getJobOfferModelById = jobOfferModel.getById;
 
-export const getPrograms = asyncHandler(async (_req, res) =>
-  res.json(await Program.find()));
+export const getTrainings = asyncHandler(async (_req, res) =>
+  res.json(await Training.find()));
 
 export const getQuizzes  = asyncHandler(async (_req, res) =>
   res.json(await Quiz.find({ deleted: { $ne: true } })));

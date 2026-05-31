@@ -22,7 +22,7 @@ export const getMyInterns = asyncHandler<AuthRequest>(async (req, res) => {
   res.json(
     await Inscription.find({ mentor: req.userId, deleted: { $ne: true } })
       .populate('user', '-password')
-      .populate('programs', 'title'),
+      .populate('trainings', 'title'),
   );
 });
 
@@ -111,20 +111,20 @@ export const getMentorTasks = asyncHandler<AuthRequest>(async (req, res) =>
   res.json(await Task.find({ createdBy: req.userId, deleted: { $ne: true } })));
 
 export const createMentorTask = asyncHandler<AuthRequest>(async (req, res) => {
-  const { programId, internIds, ...taskData } = req.body;
+  const { trainingId, internIds, ...taskData } = req.body;
   const task = await Task.create({
     ...taskData,
-    program:   programId || undefined,
+    training:   trainingId || undefined,
     createdBy: req.userId,
   });
 
   if (internIds?.length) {
     // Retrouver les inscriptions pour associer le TaskResponse à l'inscription du candidat
     // (permet au frontend de retrouver les tâches via GET /TaskResponse/ByAttribute/Inscription/{id})
-    const inscriptions = programId
+    const inscriptions = trainingId
       ? await Inscription.find({
           user:     { $in: internIds },
-          programs: programId,
+          trainings: trainingId,
           deleted:  { $ne: true },
         }).select('_id user')
       : [];

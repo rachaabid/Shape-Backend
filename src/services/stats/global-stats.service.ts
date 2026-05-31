@@ -6,9 +6,9 @@ import User from '../../models/User';
 import JobOffer from '../../models/JobOffer';
 import Application from '../../models/JobOfferApplication';
 import Interview from '../../models/Interview';
-import Program from '../../models/Program';
+import Training from '../../models/Training';
 import Inscription from '../../models/Inscription';
-import ProgramRequest from '../../models/ProgramRequest';
+import TrainingRequest from '../../models/TrainingRequest';
 import Task from '../../models/Task';
 import TaskResponse from '../../models/TaskResponse';
 import MentorEvaluation from '../../models/MentorEvaluation';
@@ -28,19 +28,19 @@ export interface GlobalStats {
   };
   interviews: { total: number; scheduled: number; completed: number; cancelled: number; upcoming: number };
   formation: {
-    programs: number; onlinePrograms: number;
+    trainings: number; onlineTrainings: number;
     inscriptions: number; completedInscriptions: number; completionRate: number;
-    pendingProgramRequests: number;
+    pendingTrainingRequests: number;
     tasks: { total: number; open: number; inProgress: number; review: number; done: number };
     activeMentors: number; avgEvalScore: number;
   };
-  programs: number;
+  trainings: number;
   byMonth:       { month: string; count: number }[];
   registrations: { month: string; count: number }[];
   missingSkills: { skill: string; count: number }[];
   scoreDist:     { range: string; count: number }[];
   countries:     { country: string; count: number }[];
-  topPrograms:   { title: string; count: number }[];
+  topTrainings:   { title: string; count: number }[];
 }
 
 export async function buildGlobalStats(): Promise<GlobalStats> {
@@ -54,14 +54,14 @@ export async function buildGlobalStats(): Promise<GlobalStats> {
     totalOffers, openOffers,
     totalApplications, retainedApps, rejectedApps, hiredApps,
     totalInterviews, scheduledInterviews, cancelledInterviews, upcomingInterviews,
-    totalPrograms, onlinePrograms,
+    totalTrainings, onlineTrainings,
     totalInscriptions, completedInscriptions,
-    pendingProgramRequests,
+    pendingTrainingRequests,
     totalTasks, openTasks, inProgressTasks, reviewTasks, doneTasks,
     activeMentors,
     scoreAgg, evalScoreAgg,
     byMonthAgg, registrationsByMonthAgg,
-    missingSkillsAgg, scoreDistAgg, countryAgg, topProgramsAgg,
+    missingSkillsAgg, scoreDistAgg, countryAgg, topTrainingsAgg,
   ] = await Promise.all([
     User.countDocuments({ deleted: false }),
     User.countDocuments({ roles: 'CANDIDATE', deleted: false }),
@@ -86,13 +86,13 @@ export async function buildGlobalStats(): Promise<GlobalStats> {
     Interview.countDocuments({ status: 'cancelled' }),
     Interview.countDocuments({ status: 'scheduled', scheduledAt: { $gte: now, $lte: weekEnd } }),
 
-    Program.countDocuments({ deleted: false }),
-    Program.countDocuments({ online: true, deleted: false }),
+    Training.countDocuments({ deleted: false }),
+    Training.countDocuments({ online: true, deleted: false }),
 
     Inscription.countDocuments({ deleted: { $ne: true } }),
     Inscription.countDocuments({ status: 'completed', deleted: { $ne: true } }),
 
-    ProgramRequest.countDocuments({ status: 'pending', deleted: { $ne: true } }),
+    TrainingRequest.countDocuments({ status: 'pending', deleted: { $ne: true } }),
 
     Task.countDocuments({ deleted: { $ne: true } }),
     TaskResponse.countDocuments({ status: TASK_STATUS.OPEN,        deleted: { $ne: true } }),
@@ -164,10 +164,10 @@ export async function buildGlobalStats(): Promise<GlobalStats> {
 
     Inscription.aggregate<{ title: string; count: number }>([
       { $match: { deleted: { $ne: true } } },
-      { $unwind: '$programs' },
-      { $group: { _id: '$programs', count: { $sum: 1 } } },
+      { $unwind: '$trainings' },
+      { $group: { _id: '$trainings', count: { $sum: 1 } } },
       { $sort: { count: -1 } }, { $limit: 5 },
-      { $lookup: { from: 'programs', localField: '_id', foreignField: '_id', as: 'prog' } },
+      { $lookup: { from: 'trainings', localField: '_id', foreignField: '_id', as: 'prog' } },
       { $project: {
         _id: 0, count: 1,
         title: { $ifNull: [{ $arrayElemAt: ['$prog.title.fr', 0] }, 'Programme'] },
@@ -200,21 +200,21 @@ export async function buildGlobalStats(): Promise<GlobalStats> {
       cancelled: cancelledInterviews, upcoming: upcomingInterviews,
     },
     formation: {
-      programs: totalPrograms, onlinePrograms,
+      trainings: totalTrainings, onlineTrainings,
       inscriptions: totalInscriptions, completedInscriptions, completionRate,
-      pendingProgramRequests,
+      pendingTrainingRequests,
       tasks: {
         total: totalTasks, open: openTasks,
         inProgress: inProgressTasks, review: reviewTasks, done: doneTasks,
       },
       activeMentors, avgEvalScore,
     },
-    programs:      totalPrograms,
+    trainings:      totalTrainings,
     byMonth:       Array.isArray(byMonthAgg)              ? byMonthAgg              : [],
     registrations: Array.isArray(registrationsByMonthAgg) ? registrationsByMonthAgg : [],
     missingSkills: Array.isArray(missingSkillsAgg)        ? missingSkillsAgg        : [],
     scoreDist:     Array.isArray(scoreDistAgg)            ? scoreDistAgg            : [],
     countries:     Array.isArray(countryAgg)              ? countryAgg              : [],
-    topPrograms:   Array.isArray(topProgramsAgg)          ? topProgramsAgg          : [],
+    topTrainings:   Array.isArray(topTrainingsAgg)          ? topTrainingsAgg          : [],
   };
 }

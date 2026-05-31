@@ -68,8 +68,8 @@ export interface ICourse {
   weeks?:   IWeek[];
 }
 
-// ── Program ───────────────────────────────────────────────────────────────────
-export interface IProgram extends Document {
+// ── Training ───────────────────────────────────────────────────────────────────
+export interface ITraining extends Document {
   title:        { fr?: string; en?: string; ar?: string };
   description?: { fr?: string; en?: string; ar?: string };
   career?:      string;
@@ -151,7 +151,7 @@ const CourseSchema = new Schema<ICourse>({
   weeks:    [WeekSchema],
 }, { _id: false });
 
-const ProgramSchema = new Schema<IProgram>({
+const TrainingSchema = new Schema<ITraining>({
   title:       { fr: String, en: String, ar: String },
   description: { fr: String, en: String, ar: String },
   career:      String,
@@ -167,4 +167,4 @@ const ProgramSchema = new Schema<IProgram>({
   owner:       { type: Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
-export default mongoose.model<IProgram>('Program', ProgramSchema);
+export default mongoose.model<ITraining>('Training', TrainingSchema);

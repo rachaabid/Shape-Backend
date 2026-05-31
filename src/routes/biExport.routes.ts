@@ -6,7 +6,7 @@ import {
   getRegistrationsCsv,
   getApplicationsByMonthCsv,
   getCountriesCsv,
-  getTopProgramsCsv,
+  getTopTrainingsCsv,
   getMissingSkillsCsv,
   getScoreDistributionCsv,
 } from '../controllers/biExport.controller';
@@ -22,7 +22,7 @@ router.get('/snapshot.csv',              getSnapshotCsv);
 router.get('/registrations.csv',         getRegistrationsCsv);
 router.get('/applications-by-month.csv', getApplicationsByMonthCsv);
 router.get('/countries.csv',             getCountriesCsv);
-router.get('/top-programs.csv',          getTopProgramsCsv);
+router.get('/top-trainings.csv',          getTopTrainingsCsv);
 router.get('/missing-skills.csv',        getMissingSkillsCsv);
 router.get('/score-distribution.csv',    getScoreDistributionCsv);
 

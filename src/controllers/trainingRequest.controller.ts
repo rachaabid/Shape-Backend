@@ -1,71 +1,71 @@
-import ProgramRequest        from '../models/ProgramRequest';
+import TrainingRequest        from '../models/TrainingRequest';
 import Inscription           from '../models/Inscription';
 import { AuthRequest }       from '../middleware/auth.middleware';
 import { asyncHandler }      from '../middleware/asyncHandler';
 import { HttpError }         from '../utils/HttpError';
-import { sendProgramApproved, sendProgramRejected } from '../services/email.service';
+import { sendTrainingApproved, sendTrainingRejected } from '../services/email.service';
 
-const PROGRAM_REQUEST_POPULATE = [
+const TRAINING_REQUEST_POPULATE = [
   { path: 'user',    select: 'email firstName lastName login' },
-  { path: 'program', select: 'title' },
+  { path: 'training', select: 'title' },
 ];
 
-/** Extrait nom + titre programme à partir d'un user/program populés. */
-function decodeUserProgram(reqDoc: any) {
+/** Extrait nom + titre programme à partir d'un user/training populés. */
+function decodeUserTraining(reqDoc: any) {
   const u = reqDoc.user    as any;
-  const p = reqDoc.program as any;
+  const p = reqDoc.training as any;
   const userName     = u?.firstName?.fr || u?.firstName?.en || u?.login || u?.email || '';
-  const programTitle = p?.title?.fr    || p?.title?.en    || p?.title?.ar  || '';
-  return { user: u, programTitle, userName };
+  const trainingTitle = p?.title?.fr    || p?.title?.en    || p?.title?.ar  || '';
+  return { user: u, trainingTitle, userName };
 }
 
 const FRONTEND_URL = () => process.env['FRONTEND_URL'] || 'http://localhost:4200';
 
 export const getAll = asyncHandler(async (_req, res) => {
   res.json(
-    await ProgramRequest.find({ deleted: { $ne: true } })
+    await TrainingRequest.find({ deleted: { $ne: true } })
       .populate('user', '-password')
-      .populate('program')
+      .populate('training')
       .populate('inscription'),
   );
 });
 
 export const getMine = asyncHandler<AuthRequest>(async (req, res) => {
   res.json(
-    await ProgramRequest.find({ user: req.userId, deleted: { $ne: true } })
-      .populate('program'),
+    await TrainingRequest.find({ user: req.userId, deleted: { $ne: true } })
+      .populate('training'),
   );
 });
 
 export const create = asyncHandler<AuthRequest>(async (req, res) => {
-  const { program, inscription } = req.body;
+  const { training, inscription } = req.body;
 
-  const existing = await ProgramRequest.findOne({
-    user: req.userId, program, inscription,
+  const existing = await TrainingRequest.findOne({
+    user: req.userId, training, inscription,
     status: 'pending', deleted: { $ne: true },
   });
   if (existing) throw HttpError.conflict('Demande déjà en attente pour ce programme.');
 
-  const request = await ProgramRequest.create({ user: req.userId, program, inscription });
+  const request = await TrainingRequest.create({ user: req.userId, training, inscription });
   res.status(201).json(request);
 });
 
 export const approve = asyncHandler(async (req, res) => {
-  const request = await ProgramRequest.findByIdAndUpdate(
+  const request = await TrainingRequest.findByIdAndUpdate(
     req.params['id'], { status: 'approved' }, { new: true },
-  ).populate(PROGRAM_REQUEST_POPULATE);
+  ).populate(TRAINING_REQUEST_POPULATE);
   if (!request) throw HttpError.notFound('Demande non trouvée.');
 
   await Inscription.findByIdAndUpdate(
-    request.inscription, { $addToSet: { programs: request.program } },
+    request.inscription, { $addToSet: { trainings: request.training } },
   );
   res.json(request);
 
   setImmediate(() => {
-    const { user, userName, programTitle } = decodeUserProgram(request);
-    if (user?.email && programTitle) {
-      sendProgramApproved({
-        userEmail: user.email, userName, programTitle, frontendUrl: FRONTEND_URL(),
+    const { user, userName, trainingTitle } = decodeUserTraining(request);
+    if (user?.email && trainingTitle) {
+      sendTrainingApproved({
+        userEmail: user.email, userName, trainingTitle, frontendUrl: FRONTEND_URL(),
       }).catch(err =>
         console.error(`❌ Échec envoi "programme approuvé" à ${user.email}:`, err?.message || err));
     }
@@ -73,34 +73,34 @@ export const approve = asyncHandler(async (req, res) => {
 });
 
 export const revoke = asyncHandler(async (req, res) => {
-  const request = await ProgramRequest.findByIdAndUpdate(
+  const request = await TrainingRequest.findByIdAndUpdate(
     req.params['id'], { status: 'pending' }, { new: true },
-  ).populate(PROGRAM_REQUEST_POPULATE);
+  ).populate(TRAINING_REQUEST_POPULATE);
   if (!request) throw HttpError.notFound('Demande non trouvée.');
 
   await Inscription.findByIdAndUpdate(
-    request.inscription, { $pull: { programs: request.program } },
+    request.inscription, { $pull: { trainings: request.training } },
   );
   res.json(request);
 });
 
 export const reject = asyncHandler(async (req, res) => {
-  const request = await ProgramRequest.findByIdAndUpdate(
+  const request = await TrainingRequest.findByIdAndUpdate(
     req.params['id'], { status: 'rejected' }, { new: true },
-  ).populate(PROGRAM_REQUEST_POPULATE);
+  ).populate(TRAINING_REQUEST_POPULATE);
   if (!request) throw HttpError.notFound('Demande non trouvée.');
 
-  // Remove program from inscription in case it was previously approved
+  // Remove training from inscription in case it was previously approved
   await Inscription.findByIdAndUpdate(
-    request.inscription, { $pull: { programs: request.program } },
+    request.inscription, { $pull: { trainings: request.training } },
   );
   res.json(request);
 
   setImmediate(() => {
-    const { user, userName, programTitle } = decodeUserProgram(request);
-    if (user?.email && programTitle) {
-      sendProgramRejected({
-        userEmail: user.email, userName, programTitle, frontendUrl: FRONTEND_URL(),
+    const { user, userName, trainingTitle } = decodeUserTraining(request);
+    if (user?.email && trainingTitle) {
+      sendTrainingRejected({
+        userEmail: user.email, userName, trainingTitle, frontendUrl: FRONTEND_URL(),
       }).catch(err =>
         console.error(`❌ Échec envoi "programme rejeté" à ${user.email}:`, err?.message || err));
     }

@@ -31,9 +31,9 @@ import quizRoutes                  from './routes/quiz.routes';
 import contentRoutes               from './routes/content.routes';
 import taskResponseCommentRoutes   from './routes/taskResponseComment.routes';
 import mentorRoutes                from './routes/mentor.routes';
-import programRoutes               from './routes/program.routes';
-import programRequestRoutes            from './routes/programRequest.routes';
-import companyProgramProposalRoutes    from './routes/companyProgramProposal.routes';
+import trainingRoutes               from './routes/training.routes';
+import trainingRequestRoutes            from './routes/trainingRequest.routes';
+import companyTrainingProposalRoutes    from './routes/companyTrainingProposal.routes';
 import powerbiRoutes                   from './routes/powerbi.routes';
 import biExportRoutes                  from './routes/biExport.routes';
 
@@ -213,9 +213,9 @@ app.use('/api', quizRoutes);
 app.use('/api', contentRoutes);
 app.use('/api', taskResponseCommentRoutes);
 app.use('/api/Mentor',          mentorRoutes);
-app.use('/api/Program',         programRoutes);
-app.use('/api/ProgramRequest',          programRequestRoutes);
-app.use('/api/CompanyProgramProposal',  companyProgramProposalRoutes);
+app.use('/api/Training',         trainingRoutes);
+app.use('/api/TrainingRequest',          trainingRequestRoutes);
+app.use('/api/CompanyTrainingProposal',  companyTrainingProposalRoutes);
 app.use('/api/powerbi',                 powerbiRoutes);
 app.use('/api/bi-export',               biExportRoutes);
 

@@ -13,15 +13,12 @@ dotenv.config();
 
 import User              from '../src/models/User';
 import Company           from '../src/models/Company';
-import Language          from '../src/models/Language';
-import Country           from '../src/models/Country';
 import HardSkill         from '../src/models/HardSkill';
 import SoftwareSkill     from '../src/models/SoftwareSkill';
 import FocusedSkill      from '../src/models/FocusedSkill';
 import Career            from '../src/models/Career';
-import WorkingMode       from '../src/models/WorkingMode';
 import JobOfferModel     from '../src/models/JobOfferModel';
-import Program           from '../src/models/Program';
+import Training           from '../src/models/Training';
 import Quiz              from '../src/models/Quiz';
 import TextBloc          from '../src/models/TextBloc';
 import VideoYoutube      from '../src/models/VideoYoutube';
@@ -36,8 +33,8 @@ import Message           from '../src/models/Message';
 import Notification      from '../src/models/Notification';
 import NotificationSetting from '../src/models/NotificationSetting';
 import MentorEvaluation  from '../src/models/MentorEvaluation';
-import ProgramRequest    from '../src/models/ProgramRequest';
-import CompanyProgramProposal from '../src/models/CompanyProgramProposal';
+import TrainingRequest    from '../src/models/TrainingRequest';
+import CompanyTrainingProposal from '../src/models/CompanyTrainingProposal';
 import Documentation     from '../src/models/Documentation';
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -68,12 +65,6 @@ const COUNTRIES = [
   // cas limite : seulement l'arabe
   { name: { ar: 'الإمارات' },                             code: 'AE', flag: '🇦🇪' },
 ];
-const LANGUAGES = [
-  { name: { fr: 'Français', en: 'French',  ar: 'الفرنسية'   }, code: 'fr', flag: '🇫🇷' },
-  { name: { fr: 'Anglais',  en: 'English', ar: 'الإنجليزية' }, code: 'en', flag: '🇬🇧' },
-  { name: { fr: 'Arabe',    en: 'Arabic',  ar: 'العربية'    }, code: 'ar', flag: '🇹🇳' },
-  { name: { fr: 'Espagnol', en: 'Spanish', ar: 'الإسبانية'  }, code: 'es', flag: '🇪🇸' },
-];
 const HARD_SKILLS = ['SEO / Référencement','Social Media Marketing','Marketing de contenu','Email Marketing','Google Ads / SEA','Analyse web / Analytics','Community Management','Marketing d\'influence','Copywriting','Growth Hacking','E-commerce','Stratégie digitale','Création vidéo','A/B Testing','Gestion de campagnes'];
 const SOFT_SKILLS = ['Créativité','Communication','Organisation','Rigueur','Curiosité','Analyse','Leadership','Adaptabilité','Autonomie','Storytelling','Initiative','Résilience'];
 const SOFTWARES   = ['Hootsuite','Canva','Meta Business Suite','SEMrush','Ahrefs','Google Search Console','Mailchimp','Klaviyo','HubSpot','Google Analytics','Notion','Buffer','Adobe Premiere Pro','WordPress','Shopify','CapCut','Figma','Trello'];
@@ -89,22 +80,24 @@ async function seed() {
 
   // ── 1. Purge ──────────────────────────────────────────────────────
   await Promise.all([
-    User.deleteMany({}), Company.deleteMany({}), Language.deleteMany({}),
-    Country.deleteMany({}), HardSkill.deleteMany({}), SoftwareSkill.deleteMany({}),
-    FocusedSkill.deleteMany({}), Career.deleteMany({}), WorkingMode.deleteMany({}),
-    JobOfferModel.deleteMany({}), Program.deleteMany({}), Quiz.deleteMany({}),
+    User.deleteMany({}), Company.deleteMany({}),
+    HardSkill.deleteMany({}), SoftwareSkill.deleteMany({}),
+    FocusedSkill.deleteMany({}), Career.deleteMany({}),
+    JobOfferModel.deleteMany({}), Training.deleteMany({}), Quiz.deleteMany({}),
     TextBloc.deleteMany({}), VideoYoutube.deleteMany({}), JobOffer.deleteMany({}),
     Application.deleteMany({}), Interview.deleteMany({}), Task.deleteMany({}),
     TaskResponse.deleteMany({}), Inscription.deleteMany({}), Conversation.deleteMany({}),
     Message.deleteMany({}), Notification.deleteMany({}), NotificationSetting.deleteMany({}),
-    MentorEvaluation.deleteMany({}), ProgramRequest.deleteMany({}),
-    CompanyProgramProposal.deleteMany({}), Documentation.deleteMany({}),
+    MentorEvaluation.deleteMany({}), TrainingRequest.deleteMany({}),
+    CompanyTrainingProposal.deleteMany({}), Documentation.deleteMany({}),
   ]);
+  // Supprime les anciennes collections orphelines (renommage Program → Training)
+  for (const legacy of ['programs', 'programrequests', 'companyprogramproposals']) {
+    await mongoose.connection.db!.dropCollection(legacy).catch(() => {});
+  }
   console.log('🗑️  Toutes les collections vidées');
 
   // ── 2. Référentiel ────────────────────────────────────────────────
-  await Language.insertMany(LANGUAGES);
-  await Country.insertMany(COUNTRIES);
   const hardSkills: any[] = await HardSkill.insertMany(
     HARD_SKILLS.map((n, i) => ({ name: { fr: n, en: n, ...(i % 4 ? { ar: n } : {}) }, category: pick(DOMAINS) })),
   );
@@ -114,11 +107,6 @@ async function seed() {
   const focused: any[] = await FocusedSkill.insertMany(
     FOCUSED.map(n => ({ name: { fr: n, en: n }, category: 'Marketing' })),
   );
-  const workingModes: any[] = await WorkingMode.insertMany([
-    { name: { fr: 'Présentiel',  en: 'On-site' }, description: { fr: 'Au bureau' } },
-    { name: { fr: 'Télétravail', en: 'Remote'  }, description: { fr: 'À distance' } },
-    { name: { fr: 'Hybride',     en: 'Hybrid'  }, description: { fr: 'Mixte' } },
-  ]);
   const jobModels: any[] = await JobOfferModel.insertMany([
     { name: { fr: 'CDI',        en: 'Permanent'   } },
     { name: { fr: 'CDD',        en: 'Fixed-term'  } },
@@ -167,15 +155,15 @@ async function seed() {
   );
 
   // ── 3a. Tâches pour les programmes (créées ici pour être disponibles à l'étape 5) ──
-  const programTasks: any[] = await Task.insertMany(
+  const trainingTasks: any[] = await Task.insertMany(
     Array.from({ length: 20 }, (_, i) => ({
-      title: { fr: `Tâche programme ${i + 1}`, en: `Program Task ${i + 1}` },
+      title: { fr: `Tâche programme ${i + 1}`, en: `Training Task ${i + 1}` },
       description: { fr: `Exercice pratique ${i + 1} à rendre dans les délais.` },
       keyWords: pickN(HARD_SKILLS, 2),
       online: true, deadLineInHours: 24 + rnd(96),
     })),
   );
-  console.log(`✅ ${programTasks.length} tâches-programme créées`);
+  console.log(`✅ ${trainingTasks.length} tâches-programme créées`);
 
   // ── 3b. Documentation (ressources PDF pour les cours) ────────────────
   const DOC_SAMPLES = [
@@ -245,7 +233,7 @@ async function seed() {
   console.log(`✅ ${mentors.length} mentors créés`);
 
   // ── 5. Programmes (30 — variés, chaque mentor est owner d'1-2 prog) ─
-  const programsPayload = Array.from({ length: 30 }, (_, i) => {
+  const trainingsPayload = Array.from({ length: 30 }, (_, i) => {
     const title = `${pick(PROGRAM_TITLES)} ${i + 1}`;
     // 1 programme sur 6 est hors-ligne ; 1 sur 8 sans contenu (cas limites).
     const online   = i % 6 !== 0;
@@ -259,7 +247,7 @@ async function seed() {
         const tb   = pick(textBlocs);
         const vid  = pick(videos);
         const doc  = pick(documentations);
-        const task = pick(programTasks);
+        const task = pick(trainingTasks);
         const quiz = pick(quizzes);
         const deadline = new Date(Date.now() + 72 * 3600_000);
         return [
@@ -311,16 +299,16 @@ async function seed() {
       })() : [],
     };
   });
-  const programs: any[] = await Program.insertMany(programsPayload);
-  console.log(`✅ ${programs.length} programmes créés (avec owner assigné)`);
+  const trainings: any[] = await Training.insertMany(trainingsPayload);
+  console.log(`✅ ${trainings.length} programmes créés (avec owner assigné)`);
 
   // ── 5b. Lier chaque tâche-programme à son programme ─────────────────
   // (fait après la création des programmes car les tâches sont créées avant)
-  for (const prog of programs) {
+  for (const prog of trainings) {
     for (const week of (prog as any).weeks || []) {
       for (const lesson of (week.lessons || []) as any[]) {
         if (lesson.taskRef) {
-          await Task.findByIdAndUpdate(lesson.taskRef, { program: prog._id });
+          await Task.findByIdAndUpdate(lesson.taskRef, { training: prog._id });
         }
       }
     }
@@ -389,7 +377,7 @@ async function seed() {
     const o = await JobOffer.create({
       company: companies[compIdx]._id,
       jobOfferModel: pick(jobModels)._id,
-      workingMode: pick(workingModes)._id,
+      workingMode: pick(['remote', 'onsite', 'hybrid', 'freelance']),
       title: `Offre ${i} — ${pick(CAREERS)}`,
       description: `Description détaillée de l'offre ${i}.`,
       profilesNeeded: 1 + rnd(4),
@@ -451,24 +439,24 @@ async function seed() {
     // mentor 19 reste sans stagiaire (cas limite) → on tire parmi 0..18.
     const withMentor = chance(0.7);
     let selectedMentor: any = undefined;
-    let selectedPrograms: any[];
+    let selectedTrainings: any[];
 
     if (withMentor) {
       selectedMentor = mentors[rnd(19)];
-      // Use only programs owned by this mentor for coherence
-      const mentorOwned = programs.filter((p: any) =>
+      // Use only trainings owned by this mentor for coherence
+      const mentorOwned = trainings.filter((p: any) =>
         p.owner && (p.owner.equals ? p.owner.equals(selectedMentor._id) : String(p.owner) === String(selectedMentor._id))
       );
-      selectedPrograms = mentorOwned.length > 0
+      selectedTrainings = mentorOwned.length > 0
         ? pickN(mentorOwned, 1).map(p => p._id)
-        : pickN(programs, 1 + rnd(2)).map(p => p._id);
+        : pickN(trainings, 1 + rnd(2)).map(p => p._id);
     } else {
-      selectedPrograms = pickN(programs, 1 + rnd(3)).map(p => p._id);
+      selectedTrainings = pickN(trainings, 1 + rnd(3)).map(p => p._id);
     }
 
     const ins = await Inscription.create({
       user: cand._id,
-      programs: selectedPrograms,
+      trainings: selectedTrainings,
       mentor: selectedMentor?._id,
       status: pick(['active', 'completed']),
       createdAt: daysAgo(rnd(300)),
@@ -482,15 +470,15 @@ async function seed() {
   // et créer une TaskResponse owner=candidat.
   let progTrCount = 0;
   for (const ins of pickN(inscriptions, 180)) {
-    for (const progId of (ins.programs || [])) {
-      const prog = programs.find((p: any) =>
+    for (const progId of (ins.trainings || [])) {
+      const prog = trainings.find((p: any) =>
         p._id.toString() === progId.toString()
       );
       if (!prog?.weeks) continue;
       for (const week of prog.weeks) {
         for (const lesson of (week.lessons || []) as any[]) {
           if (!lesson.taskRef) continue;
-          const task = programTasks.find(
+          const task = trainingTasks.find(
             (t: any) => t._id.toString() === lesson.taskRef
           );
           if (!task) continue;
@@ -509,23 +497,23 @@ async function seed() {
   console.log(`✅ ${progTrCount} réponses aux tâches-programme créées`);
 
   // ── 13. Tâches (200) + réponses (700, statuts 0..3) ───────────────
-  // Chaque tâche est rattachée à un programme (champ program) pour que le
-  // frontend puisse les récupérer via GET /Task/ByAttribute/program/{id}.
+  // Chaque tâche est rattachée à un programme (champ training) pour que le
+  // frontend puisse les récupérer via GET /Task/ByAttribute/training/{id}.
   const tasks: any[] = [];
   for (let i = 0; i < 200; i++) {
     // Choisir un mentor, puis un programme qu'il possède (cohérence mentor ↔ programme)
     const mentor = pick(mentors);
-    const mentorProgs = programs.filter((p: any) =>
+    const mentorProgs = trainings.filter((p: any) =>
       p.owner && (p.owner.equals ? p.owner.equals(mentor._id) : String(p.owner) === String(mentor._id))
     );
-    const prog = mentorProgs.length > 0 ? pick(mentorProgs) : pick(programs);
+    const prog = mentorProgs.length > 0 ? pick(mentorProgs) : pick(trainings);
     const t = await Task.create({
       title: { fr: `Tâche ${i}`, en: `Task ${i}` },
       description: { fr: `Description de la tâche ${i}.` },
       keyWords: pickN(HARD_SKILLS, 2),
       online: true, deadLineInHours: 12 + rnd(160),
       createdBy: mentor._id,
-      program: prog._id,
+      training: prog._id,
       createdAt: daysAgo(rnd(250)),
     });
     tasks.push(t);
@@ -537,7 +525,7 @@ async function seed() {
     // Chercher une inscription du candidat qui inclut le programme de la tâche
     const candIns = inscriptions.filter((ins: any) =>
       String(ins.user) === String(cand._id) &&
-      (ins.programs || []).some((p: any) => p.toString() === t.program?.toString())
+      (ins.trainings || []).some((p: any) => p.toString() === t.training?.toString())
     );
     // Fallback : n'importe quelle inscription du candidat (~40% sans inscription)
     const fallbackIns = inscriptions.filter((ins: any) =>
@@ -622,9 +610,9 @@ async function seed() {
   // ── 17. Demandes de programme (120 — pending/approved/rejected) ──
   let reqCount = 0;
   for (const ins of pickN(inscriptions, 120)) {
-    await ProgramRequest.create({
+    await TrainingRequest.create({
       user: ins.user,
-      program: pick(ins.programs as any[]),
+      training: pick(ins.trainings as any[]),
       inscription: ins._id,
       status: pick(['pending', 'approved', 'rejected']),
     });
@@ -641,7 +629,7 @@ async function seed() {
     const cu = pick(companyUsers);
     const co = companies.find((c: any) => c.owner?.equals ? c.owner.equals(cu._id) : String(c.owner) === String(cu._id));
     if (!co) continue;
-    await CompanyProgramProposal.create({
+    await CompanyTrainingProposal.create({
       company:        co._id,
       proposedBy:     cu._id,
       title:          pick(PROPOSAL_TITLES),
@@ -661,17 +649,17 @@ async function seed() {
   // et demandent un NOUVEAU programme → permet de tester :
   //   • le choix d'un autre programme par le candidat,
   //   • la validation de ces demandes par l'admin (page Validation).
-  const onlinePrograms = programs.filter((p: any) => p.online);
+  const onlineTrainings = trainings.filter((p: any) => p.online);
   let finishedCount = 0;
   for (let i = 0; i < 15; i++) {
     const cand = candidates[i];
-    const finishedProgram = onlinePrograms[i % onlinePrograms.length];
-    const nextProgram     = onlinePrograms[(i + 1) % onlinePrograms.length];
+    const finishedTraining = onlineTrainings[i % onlineTrainings.length];
+    const nextTraining     = onlineTrainings[(i + 1) % onlineTrainings.length];
 
     // Inscription TERMINÉE sur le 1er programme.
     const finishedIns = await Inscription.create({
       user: cand._id,
-      programs: [finishedProgram._id],
+      trainings: [finishedTraining._id],
       mentor: mentors[i % 19]._id,
       status: 'completed',
       closed: true,
@@ -679,7 +667,7 @@ async function seed() {
     });
 
     // Toutes ses réponses de tâches passées en « Closed » (statut 3).
-    const cohortTasks = pickN(programTasks, 4);
+    const cohortTasks = pickN(trainingTasks, 4);
     for (const t of cohortTasks) {
       await TaskResponse.create({
         task: t._id, owner: cand._id, inscription: finishedIns._id,
@@ -690,13 +678,13 @@ async function seed() {
     // Nouvelle inscription (pour le programme choisi) + demande EN ATTENTE.
     const newIns = await Inscription.create({
       user: cand._id,
-      programs: [nextProgram._id],
+      trainings: [nextTraining._id],
       status: 'active',
       createdAt: daysAgo(rnd(5)),
     });
-    await ProgramRequest.create({
+    await TrainingRequest.create({
       user: cand._id,
-      program: nextProgram._id,
+      training: nextTraining._id,
       inscription: newIns._id,
       status: 'pending',          // ← l'admin doit valider
     });
@@ -709,14 +697,14 @@ async function seed() {
   console.log('─────────────────────────────────────────');
   console.log(`   Candidats     : ${candidates.length}`);
   console.log(`   Entreprises   : ${companies.length}  | Mentors : ${mentors.length}`);
-  console.log(`   Programmes    : ${programs.length}  | Documentations : ${documentations.length}`);
+  console.log(`   Programmes    : ${trainings.length}  | Documentations : ${documentations.length}`);
   console.log(`   Offres        : ${jobOffers.length}  | Candidatures : ${applications.length}`);
   console.log(`   Entretiens    : ${itvCount}`);
   console.log(`   Inscriptions  : ${inscriptions.length}`);
-  console.log(`   Tâches        : ${programTasks.length} (prog) + ${tasks.length} (standalone)  | Réponses : ${progTrCount} (prog) + ${trCount} (standalone)`);
+  console.log(`   Tâches        : ${trainingTasks.length} (prog) + ${tasks.length} (standalone)  | Réponses : ${progTrCount} (prog) + ${trCount} (standalone)`);
   console.log(`   Conversations : ${convCount}  | Messages : ${msgCount}`);
   console.log(`   Notifications : ${notifCount}  | Évaluations : ${evalCount}`);
-  console.log(`   ProgramRequest: ${reqCount + finishedCount} (dont ${finishedCount} EN ATTENTE)`);
+  console.log(`   TrainingRequest: ${reqCount + finishedCount} (dont ${finishedCount} EN ATTENTE)`);
   console.log(`   Propositions   : ${proposalCount}`);
   console.log(`   Formation terminée : ${finishedCount} candidats (candidate0..14)`);
   console.log('─────────────────────────────────────────');

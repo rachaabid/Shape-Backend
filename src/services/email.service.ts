@@ -177,14 +177,14 @@ interface AccountValidationData {
   role?:       'CANDIDATE' | 'COMPANY';
 }
 
-export const sendProgramApproved = async (data: { userEmail: string; userName: string; programTitle: string; frontendUrl: string }): Promise<void> => {
+export const sendTrainingApproved = async (data: { userEmail: string; userName: string; trainingTitle: string; frontendUrl: string }): Promise<void> => {
   await transporter.sendMail({
     from:    process.env.MAIL_FROM,
     to:      data.userEmail,
-    subject: `Demande acceptée — ${data.programTitle}`,
+    subject: `Demande acceptée — ${data.trainingTitle}`,
     html: `
       <h2>Bonne nouvelle, ${data.userName} !</h2>
-      <p>Votre demande d'inscription au programme <strong>${data.programTitle}</strong> a été <strong style="color:#27a8ba;">approuvée</strong>.</p>
+      <p>Votre demande d'inscription au programme <strong>${data.trainingTitle}</strong> a été <strong style="color:#27a8ba;">approuvée</strong>.</p>
       <p>Vous pouvez maintenant commencer ce programme depuis votre espace.</p>
       <p>
         <a href="${data.frontendUrl}/shaper-panel/courses"
@@ -197,17 +197,17 @@ export const sendProgramApproved = async (data: { userEmail: string; userName: s
   });
 };
 
-export const sendProgramRejected = async (data: { userEmail: string; userName: string; programTitle: string; frontendUrl: string }): Promise<void> => {
+export const sendTrainingRejected = async (data: { userEmail: string; userName: string; trainingTitle: string; frontendUrl: string }): Promise<void> => {
   await transporter.sendMail({
     from:    process.env.MAIL_FROM,
     to:      data.userEmail,
-    subject: `Demande refusée — ${data.programTitle}`,
+    subject: `Demande refusée — ${data.trainingTitle}`,
     html: `
       <h2>Bonjour ${data.userName},</h2>
-      <p>Votre demande d'inscription au programme <strong>${data.programTitle}</strong> a été <strong style="color:#e74c3c;">refusée</strong> par notre équipe.</p>
+      <p>Votre demande d'inscription au programme <strong>${data.trainingTitle}</strong> a été <strong style="color:#e74c3c;">refusée</strong> par notre équipe.</p>
       <p>Pour plus d'informations, veuillez contacter votre administrateur.</p>
       <p>
-        <a href="${data.frontendUrl}/shaper-panel/available-programs"
+        <a href="${data.frontendUrl}/shaper-panel/available-trainings"
            style="background:#27a8ba;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
           Voir les programmes disponibles
         </a>
