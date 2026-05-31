@@ -17,6 +17,8 @@ export interface IJobOffer extends Document {
   softwareSkills:     { skill: mongoose.Types.ObjectId; level: number }[];
   attributes:         { key: string; value: string; type: number }[];
   status?:            string;
+  salaryMin?:         number;
+  salaryMax?:         number;
   deleted?:           boolean;
   createdAt:          Date;
 }
@@ -36,6 +38,8 @@ const JobOfferSchema = new Schema<IJobOffer>({
   softwareSkills:     [{ skill: { type: Schema.Types.ObjectId, ref: 'SoftwareSkill' }, level: Number }],
   attributes:         [{ key: String, value: String, type: Number }],
   status:             { type: String, default: 'open' },
+  salaryMin:          { type: Number, default: null },
+  salaryMax:          { type: Number, default: null },
   deleted:            { type: Boolean, default: false },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
