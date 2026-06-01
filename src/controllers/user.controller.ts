@@ -9,7 +9,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { HttpError }    from '../utils/HttpError';
 import { triggerMatchForNewCandidate } from '../services/autoMatch.service';
-import { sendAccountValidationEmail } from '../services/email.service';
+import { sendAccountValidationEmail, sendAccountRejectionEmail } from '../services/email.service';
 import { notifyAdmins } from './notification.controller';
 
 const USER_SKILLS_POPULATE = [
@@ -175,6 +175,31 @@ export const validateUserAccount = asyncHandler<AuthRequest>(async (req, res) =>
       .catch(err => console.error(`❌ Échec envoi validation à ${user.email}:`, err?.message || err)),
   );
   res.json(user);
+});
+
+// PATCH /api/User/:id/reject
+// Refuse une inscription COMPANY/CANDIDATE : envoie un email puis supprime
+// l'utilisateur. L'email est envoyé AVANT la suppression pour pouvoir lire
+// l'adresse + le rôle ; en cas d'échec d'envoi, on supprime quand même
+// (l'admin garde la main sur la décision).
+export const rejectUserAccount = asyncHandler<AuthRequest>(async (req, res) => {
+  const user = await User.findById(req.params['id']);
+  if (!user) throw HttpError.notFound('Utilisateur non trouvé');
+
+  const email = user.email;
+  const name  = (user as any).firstNameDisplay || user.login || email;
+  const role  = user.roles?.includes('COMPANY') ? 'COMPANY' : 'CANDIDATE';
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : undefined;
+  const frontendUrl = process.env['FRONTEND_URL'] || '';
+
+  await User.findByIdAndDelete(user._id);
+
+  setImmediate(() =>
+    sendAccountRejectionEmail({ userEmail: email, userName: name, frontendUrl, role, reason })
+      .catch(err => console.error(`❌ Échec envoi refus à ${email}:`, err?.message || err)),
+  );
+
+  res.json({ message: 'Inscription refusée', email });
 });
 
 // GET /api/User/authenticaterecovery/:email/:code

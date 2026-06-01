@@ -217,6 +217,29 @@ export const sendTrainingRejected = async (data: { userEmail: string; userName: 
   });
 };
 
+export const sendAccountRejectionEmail = async (data: AccountValidationData & { reason?: string }): Promise<void> => {
+  const isCompany = data.role === 'COMPANY';
+  const espace    = isCompany ? 'entreprise' : 'candidat';
+  const reasonBlock = data.reason
+    ? `<p><strong>Motif :</strong> ${data.reason}</p>`
+    : '';
+
+  await transporter.sendMail({
+    from:    process.env.MAIL_FROM,
+    to:      data.userEmail,
+    subject: 'Votre inscription Shape a été refusée',
+    html: `
+      <h2>Bonjour ${data.userName},</h2>
+      <p>Nous regrettons de vous informer que votre demande de création de compte
+         <strong>${espace}</strong> sur Shape a été <strong style="color:#e74c3c;">refusée</strong>
+         par notre équipe.</p>
+      ${reasonBlock}
+      <p>Pour toute question, vous pouvez nous contacter en répondant à cet email.</p>
+      <hr/><small>Shape Platform</small>
+    `,
+  });
+};
+
 export const sendAccountValidationEmail = async (data: AccountValidationData): Promise<void> => {
   const isCompany   = data.role === 'COMPANY';
   const loginPath   = isCompany ? '/login?role=company' : '/login';

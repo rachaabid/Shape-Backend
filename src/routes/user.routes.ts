@@ -2,7 +2,7 @@ import { Router } from 'express';
 import {
   authenticate, createUser, getUserById,
   updateUser, patchUser, deleteUser, resetPassword, authenticateRecovery,
-  getCandidateUsers, getAllUsers, validateUserAccount,
+  getCandidateUsers, getAllUsers, validateUserAccount, rejectUserAccount,
 } from '../controllers/user.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 
@@ -18,6 +18,7 @@ router.post('/',           createUser);
 router.get ('/',           authMiddleware, getAllUsers);
 router.get ('/candidates', authMiddleware, getCandidateUsers);
 router.patch('/:id/validate', authMiddleware, validateUserAccount);
+router.patch('/:id/reject',   authMiddleware, rejectUserAccount);
 router.get ('/:id',        authMiddleware, getUserById);
 router.put ('/',    authMiddleware, updateUser);
 router.patch('/',   authMiddleware, patchUser);
