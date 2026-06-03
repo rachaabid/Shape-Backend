@@ -177,6 +177,23 @@ interface AccountValidationData {
   role?:       'CANDIDATE' | 'COMPANY';
 }
 
+export const sendPasswordResetEmail = async (data: { userEmail: string; userName: string; code: string }): Promise<void> => {
+  await transporter.sendMail({
+    from:    process.env.MAIL_FROM,
+    to:      data.userEmail,
+    subject: 'Code de réinitialisation Shape',
+    html: `
+      <h2>Bonjour ${data.userName},</h2>
+      <p>Vous avez demandé une réinitialisation de votre mot de passe sur Shape.</p>
+      <p>Votre code de vérification est :</p>
+      <p style="font-size:32px;font-weight:700;letter-spacing:8px;color:#27a8ba;font-family:monospace;text-align:center;background:#f1f5f9;padding:16px;border-radius:8px;">${data.code}</p>
+      <p>Saisissez ce code dans la page de vérification pour définir un nouveau mot de passe.</p>
+      <p style="color:#94a3b8;font-size:13px;">Si vous n'êtes pas à l'origine de cette demande, ignorez simplement ce message — votre mot de passe actuel reste inchangé.</p>
+      <hr/><small>Shape Platform</small>
+    `,
+  });
+};
+
 export const sendTrainingApproved = async (data: { userEmail: string; userName: string; trainingTitle: string; frontendUrl: string }): Promise<void> => {
   await transporter.sendMail({
     from:    process.env.MAIL_FROM,

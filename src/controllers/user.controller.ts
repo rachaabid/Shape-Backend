@@ -1,6 +1,5 @@
 import { Request } from 'express';
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
 import User from '../models/User';
 import Company from '../models/Company';
 import NotificationSetting from '../models/NotificationSetting';
@@ -9,7 +8,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { HttpError }    from '../utils/HttpError';
 import { triggerMatchForNewCandidate } from '../services/autoMatch.service';
-import { sendAccountValidationEmail, sendAccountRejectionEmail } from '../services/email.service';
+import { sendAccountValidationEmail, sendAccountRejectionEmail, sendPasswordResetEmail } from '../services/email.service';
 import { notifyAdmins } from './notification.controller';
 
 const USER_SKILLS_POPULATE = [
@@ -141,15 +140,25 @@ export const deleteUser = asyncHandler<AuthRequest>(async (req, res) => {
 });
 
 // GET /api/User/ResetPassword/:email
+// Envoie un code de verification a 4 chiffres a l'utilisateur par email.
+// Le code est stocke sur user.verificationCode et verifie ensuite par
+// /authenticaterecovery/:email/:code. Le mot de passe actuel n'est PAS touche.
 export const resetPassword = asyncHandler(async (req, res) => {
-  const user = await User.findOne({ email: req.params['email'] });
+  const email = req.params['email']?.toLowerCase().trim();
+  const user  = await User.findOne({ email });
   if (!user) throw HttpError.notFound('Email non trouvé');
 
-  const tempPass = crypto.randomBytes(4).toString('hex');
-  const hashed   = await bcrypt.hash(tempPass, BCRYPT_ROUNDS);
-  await User.findByIdAndUpdate(user._id, { password: hashed });
+  // Code a 4 chiffres pour matcher le formulaire (4 inputs numeriques).
+  const code = Math.floor(1000 + Math.random() * 9000).toString();
+  await User.findByIdAndUpdate(user._id, { verificationCode: code });
 
-  res.json({ message: 'Mot de passe temporaire généré', tempPassword: tempPass });
+  const name = (user as any).firstNameDisplay || user.login || user.email;
+  setImmediate(() =>
+    sendPasswordResetEmail({ userEmail: user.email, userName: name, code })
+      .catch(err => console.error(`❌ Échec envoi reset password à ${user.email}:`, err?.message || err)),
+  );
+
+  res.json({ message: 'Email de récupération envoyé' });
 });
 
 // GET /api/User
