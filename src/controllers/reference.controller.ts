@@ -32,7 +32,23 @@ function makeCrud(Model: mongoose.Model<any>) {
   return {
     getAll: asyncHandler(async (req, res) => {
       const { skip, limit } = paginate(req);
-      res.json(await Model.find().skip(skip).limit(limit));
+      res.json(await Model.find({ archived: { $ne: true } }).skip(skip).limit(limit));
+    }),
+
+    getArchived: asyncHandler(async (_req, res) => {
+      res.json(await Model.find({ archived: true }).sort({ updatedAt: -1 }));
+    }),
+
+    archive: asyncHandler(async (req, res) => {
+      const item = await Model.findByIdAndUpdate(req.params['id'], { archived: true }, { new: true });
+      if (!item) throw HttpError.notFound();
+      res.json(item);
+    }),
+
+    unarchive: asyncHandler(async (req, res) => {
+      const item = await Model.findByIdAndUpdate(req.params['id'], { archived: false }, { new: true });
+      if (!item) throw HttpError.notFound();
+      res.json(item);
     }),
 
     getById: asyncHandler(async (req, res) => {

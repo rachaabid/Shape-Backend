@@ -163,7 +163,32 @@ export const resetPassword = asyncHandler(async (req, res) => {
 
 // GET /api/User
 export const getAllUsers = asyncHandler(async (_req, res) =>
-  res.json(await User.find({ deleted: { $ne: true } }).select('-password')));
+  res.json(await User.find({ deleted: { $ne: true }, archived: { $ne: true } }).select('-password')));
+
+// GET /api/User/archived
+export const getArchivedUsers = asyncHandler(async (_req, res) =>
+  res.json(
+    await User.find({ deleted: { $ne: true }, archived: true })
+      .select('-password').sort({ updatedAt: -1 }),
+  ));
+
+// PATCH /api/User/:id/archive
+export const archiveUser = asyncHandler(async (req, res) => {
+  const user = await User.findByIdAndUpdate(
+    req.params['id'], { archived: true }, { new: true },
+  ).select('-password');
+  if (!user) throw HttpError.notFound('Utilisateur non trouvé');
+  res.json(user);
+});
+
+// PATCH /api/User/:id/unarchive
+export const unarchiveUser = asyncHandler(async (req, res) => {
+  const user = await User.findByIdAndUpdate(
+    req.params['id'], { archived: false }, { new: true },
+  ).select('-password');
+  if (!user) throw HttpError.notFound('Utilisateur non trouvé');
+  res.json(user);
+});
 
 // GET /api/User/candidates
 export const getCandidateUsers = asyncHandler(async (_req, res) =>

@@ -82,6 +82,7 @@ export interface ITraining extends Document {
   order?:       number;
   online?:      boolean;
   deleted?:     boolean;
+  archived?:    boolean;
   owner?:       mongoose.Types.ObjectId;
 }
 
@@ -164,6 +165,7 @@ const TrainingSchema = new Schema<ITraining>({
   order:       Number,
   online:      { type: Boolean, default: false },
   deleted:     { type: Boolean, default: false },
+  archived:    { type: Boolean, default: false },
   owner:       { type: Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 

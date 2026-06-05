@@ -38,6 +38,7 @@ export interface IUser extends Document {
   verificationCode?:       string;
   isTermsAccepted?:        boolean;
   deleted?:                boolean;
+  archived?:               boolean;
   createdAt:               Date;
 }
 
@@ -77,6 +78,7 @@ const UserSchema = new Schema<IUser>({
   verificationCode:  String,
   isTermsAccepted:   Boolean,
   deleted:           { type: Boolean, default: false },
+  archived:          { type: Boolean, default: false },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 // Computed display names from multilingual firstName/lastName

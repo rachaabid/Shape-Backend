@@ -13,8 +13,35 @@ export const getTrainings = asyncHandler(async (req, res) => {
   const start = parseInt(req.query['start'] as string) || 0;
   const count = parseInt(req.query['count'] as string) || 100;
   res.json(
-    await Training.find({ deleted: { $ne: true } }).skip(start).limit(count),
+    await Training.find({ deleted: { $ne: true }, archived: { $ne: true } })
+      .skip(start).limit(count),
   );
+});
+
+// GET /api/Training/archived — formations archivees (non supprimees)
+export const getArchivedTrainings = asyncHandler(async (_req, res) => {
+  res.json(
+    await Training.find({ deleted: { $ne: true }, archived: true })
+      .sort({ updatedAt: -1 }),
+  );
+});
+
+// PATCH /api/Training/:id/archive
+export const archiveTraining = asyncHandler(async (req, res) => {
+  const training = await Training.findByIdAndUpdate(
+    req.params['id'], { archived: true }, { new: true },
+  );
+  if (!training) throw HttpError.notFound('Training introuvable');
+  res.json(training);
+});
+
+// PATCH /api/Training/:id/unarchive
+export const unarchiveTraining = asyncHandler(async (req, res) => {
+  const training = await Training.findByIdAndUpdate(
+    req.params['id'], { archived: false }, { new: true },
+  );
+  if (!training) throw HttpError.notFound('Training introuvable');
+  res.json(training);
 });
 
 // GET /api/Training/mine — programmes créés par le mentor connecté
@@ -43,7 +70,7 @@ export const getTrainingById = asyncHandler(async (req, res) => {
 });
 
 export const countTrainings = asyncHandler(async (_req, res) => {
-  res.json({ count: await Training.countDocuments({ deleted: { $ne: true } }) });
+  res.json({ count: await Training.countDocuments({ deleted: { $ne: true }, archived: { $ne: true } }) });
 });
 
 export const createTraining = asyncHandler<AuthRequest>(async (req, res) => {

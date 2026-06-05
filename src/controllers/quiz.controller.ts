@@ -36,7 +36,7 @@ async function allQuizResponses(): Promise<{ quiz: any; r: any }[]> {
 // ── Quiz ──────────────────────────────────────────────────────
 
 export const countQuizzes = asyncHandler(async (_req, res) =>
-  res.json(await Quiz.countDocuments({ deleted: { $ne: true } })));
+  res.json(await Quiz.countDocuments({ deleted: { $ne: true }, archived: { $ne: true } })));
 
 export const getQuizzesByAttribute = asyncHandler(async (req, res) => {
   const { attributeName, value } = req.params;
@@ -60,7 +60,36 @@ export const getQuizById = asyncHandler(async (req, res) => {
 
 export const getAllQuizzes = asyncHandler(async (req, res) => {
   const { start, count } = paginate(req);
-  res.json(await Quiz.find({ deleted: { $ne: true } }).skip(start).limit(count));
+  res.json(
+    await Quiz.find({ deleted: { $ne: true }, archived: { $ne: true } })
+      .skip(start).limit(count),
+  );
+});
+
+// GET /api/Quiz/archived
+export const getArchivedQuizzes = asyncHandler(async (_req, res) => {
+  res.json(
+    await Quiz.find({ deleted: { $ne: true }, archived: true })
+      .sort({ updatedAt: -1 }),
+  );
+});
+
+// PATCH /api/Quiz/:id/archive
+export const archiveQuiz = asyncHandler(async (req, res) => {
+  const quiz = await Quiz.findByIdAndUpdate(
+    req.params['id'], { archived: true }, { new: true },
+  );
+  if (!quiz) throw HttpError.notFound('Quiz introuvable');
+  res.json(quiz);
+});
+
+// PATCH /api/Quiz/:id/unarchive
+export const unarchiveQuiz = asyncHandler(async (req, res) => {
+  const quiz = await Quiz.findByIdAndUpdate(
+    req.params['id'], { archived: false }, { new: true },
+  );
+  if (!quiz) throw HttpError.notFound('Quiz introuvable');
+  res.json(quiz);
 });
 
 export const createQuiz = asyncHandler(async (req, res) =>

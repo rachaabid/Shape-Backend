@@ -30,15 +30,36 @@ const buildFilter = (attributeName: string, value: string) => {
 };
 
 // GET /api/JobOffer
+// Note: les offres "closed" sont considerees comme archivees et ne sortent pas
+// du listing principal. Voir /closed pour les recuperer.
 export const getAll = asyncHandler(async (_req, res) => {
   res.json(
-    await JobOffer.find({ deleted: { $ne: true } }).populate(OFFER_POPULATE),
+    await JobOffer.find({ deleted: { $ne: true }, status: { $ne: 'closed' } })
+      .populate(OFFER_POPULATE),
   );
+});
+
+// GET /api/JobOffer/closed
+export const getClosed = asyncHandler(async (_req, res) => {
+  res.json(
+    await JobOffer.find({ deleted: { $ne: true }, status: 'closed' })
+      .populate(OFFER_POPULATE)
+      .sort({ updatedAt: -1 }),
+  );
+});
+
+// PATCH /api/JobOffer/:id/reopen — bascule le status sur "open"
+export const reopen = asyncHandler(async (req, res) => {
+  const offer = await JobOffer.findByIdAndUpdate(
+    req.params['id'], { status: 'open' }, { new: true },
+  );
+  if (!offer) throw HttpError.notFound('Offre introuvable');
+  res.json(offer);
 });
 
 // GET /api/JobOffer/count
 export const getCount = asyncHandler(async (_req, res) =>
-  res.json(await JobOffer.countDocuments({ deleted: { $ne: true } })));
+  res.json(await JobOffer.countDocuments({ deleted: { $ne: true }, status: { $ne: 'closed' } })));
 
 // GET /api/JobOffer/byattribute/:attr/:value
 export const getByAttribute = asyncHandler(async (req, res) => {

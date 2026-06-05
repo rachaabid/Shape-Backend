@@ -46,6 +46,7 @@ export interface IQuiz extends Document {
   training?:       mongoose.Types.ObjectId;
   responses?:     IQuizResponse[];
   deleted?:       boolean;
+  archived?:      boolean;
 }
 
 const QuizQuestionOptionSchema = new Schema<IQuizQuestionOption>({
@@ -91,6 +92,7 @@ const QuizSchema = new Schema<IQuiz>({
   training:        { type: Schema.Types.ObjectId, ref: 'Training', default: null },
   responses:      [QuizResponseSchema],
   deleted:        { type: Boolean, default: false },
+  archived:       { type: Boolean, default: false },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 export default mongoose.model<IQuiz>('Quiz', QuizSchema);

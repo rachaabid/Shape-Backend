@@ -3,6 +3,7 @@ import { authMiddleware } from '../middleware/auth.middleware';
 import {
   countQuizzes, getQuizzesByAttribute, countQuizzesByAttribute,
   getQuizById, getAllQuizzes, createQuiz, updateQuiz, patchQuiz, deleteQuiz,
+  getArchivedQuizzes, archiveQuiz, unarchiveQuiz,
   countQuizResponses, getQuizResponsesByAttribute, countQuizResponsesByAttribute,
   getQuizResponseById, getAllQuizResponses, createQuizResponse,
   updateQuizResponse, patchQuizResponse, deleteQuizResponse,
@@ -11,6 +12,7 @@ import {
 const router = Router();
 
 // ── Quiz ──────────────────────────────────────────────────────
+router.get('/Quiz/archived',                                 authMiddleware, getArchivedQuizzes);
 router.get('/Quiz/count',                                    authMiddleware, countQuizzes);
 router.get('/Quiz/ByAttribute/:attributeName/:value',        authMiddleware, getQuizzesByAttribute);
 router.get('/Quiz/ByAttributeCount/:attributeName/:value',   authMiddleware, countQuizzesByAttribute);
@@ -18,6 +20,8 @@ router.get('/Quiz/:id',                                      authMiddleware, get
 router.get('/Quiz',                                          authMiddleware, getAllQuizzes);
 router.post('/Quiz',                                         authMiddleware, createQuiz);
 router.put('/Quiz',                                          authMiddleware, updateQuiz);
+router.patch('/Quiz/:id/archive',                            authMiddleware, archiveQuiz);
+router.patch('/Quiz/:id/unarchive',                          authMiddleware, unarchiveQuiz);
 router.patch('/Quiz',                                        authMiddleware, patchQuiz);
 router.delete('/Quiz/:id',                                   authMiddleware, deleteQuiz);
 

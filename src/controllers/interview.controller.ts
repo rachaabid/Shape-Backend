@@ -73,14 +73,43 @@ export const confirm = asyncHandler(async (req, res) => {
 });
 
 // GET /api/Interview
+// GET /api/Interview
+// Note: les entretiens "completed"/"cancelled" sont considérés comme archivés
+// et ne sortent pas du listing principal. Voir /archived pour les récupérer.
 export const getInterviews = asyncHandler(async (_req, res) => {
   res.json(
-    await Interview.find({})
+    await Interview.find({ status: { $nin: ['completed', 'cancelled'] } })
       .populate('candidateId', '-password')
       .populate('companyId', 'name logo')
       .populate('jobOfferId')
       .sort({ scheduledAt: 1 }),
   );
+});
+
+// GET /api/Interview/archived
+export const getArchivedInterviews = asyncHandler(async (_req, res) => {
+  res.json(
+    await Interview.find({ status: { $in: ['completed', 'cancelled'] } })
+      .populate('candidateId', '-password')
+      .populate('companyId', 'name logo')
+      .populate('jobOfferId')
+      .sort({ scheduledAt: -1 }),
+  );
+});
+
+// PATCH /api/Interview/:id/restore — re-bascule sur 'scheduled'
+export const restoreInterview = asyncHandler(async (req, res) => {
+  const interview = await Interview.findByIdAndUpdate(
+    req.params['id'], { status: 'scheduled' }, { new: true },
+  );
+  if (!interview) throw HttpError.notFound('Entretien introuvable');
+  res.json(interview);
+});
+
+// DELETE /api/Interview/:id
+export const removeInterview = asyncHandler(async (req, res) => {
+  await Interview.findByIdAndDelete(req.params['id']);
+  res.json({ message: 'Entretien supprimé' });
 });
 
 // PUT /api/Interview

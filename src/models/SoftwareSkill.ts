@@ -3,11 +3,13 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface ISoftwareSkill extends Document {
   name:      { fr?: string; en?: string; ar?: string };
   category?: string;
+  archived?: boolean;
 }
 
 const SoftwareSkillSchema = new Schema<ISoftwareSkill>({
   name:     { fr: String, en: String, ar: String },
   category: String,
+  archived: { type: Boolean, default: false },
 }, { toJSON: { virtuals: true, transform: (_doc: any, ret: any) => {
   ret.id = ret._id?.toString();
   if (ret.name && typeof ret.name === 'object') {

@@ -9,6 +9,7 @@ import {
 const router = Router();
 
 // ── Career ────────────────────────────────────────────────────────────────────
+router.get('/Career/archived',                                   auth, career.getArchived);
 router.get('/Career/count',                                      career.count);
 router.get('/Career/byattribute/:attributeName/:value',          career.getByAttribute);
 router.get('/Career/ByAttributeCount/:attributeName/:value',     career.countByAttribute);
@@ -16,11 +17,14 @@ router.get('/Career/:id',      career.getById);
 router.get('/Career',          career.getAll);
 router.post('/Career',         auth, career.create);
 router.put('/Career',          auth, career.update);
+router.patch('/Career/:id/archive',   auth, career.archive);
+router.patch('/Career/:id/unarchive', auth, career.unarchive);
 router.patch('/Career/:id',    auth, career.patch);
 router.patch('/Career',        auth, career.patch);
 router.delete('/Career/:id',   auth, career.remove);
 
 // ── HardSkill ─────────────────────────────────────────────────────────────────
+router.get('/HardSkill/archived',                                   auth, hardSkill.getArchived);
 router.get('/HardSkill/count',                                      hardSkill.count);
 router.get('/HardSkill/countSoftwareSkill',                         countSoftwareSkillHandler);
 router.get('/HardSkill/byattribute/:attributeName/:value',          hardSkill.getByAttribute);
@@ -29,6 +33,8 @@ router.get('/HardSkill/:id',    hardSkill.getById);
 router.get('/HardSkill',        hardSkill.getAll);
 router.post('/HardSkill',       auth, hardSkill.create);
 router.put('/HardSkill',        auth, hardSkill.update);
+router.patch('/HardSkill/:id/archive',   auth, hardSkill.archive);
+router.patch('/HardSkill/:id/unarchive', auth, hardSkill.unarchive);
 router.patch('/HardSkill/:id',  auth, hardSkill.patch);
 router.patch('/HardSkill',      auth, hardSkill.patch);
 router.delete('/HardSkill/:id', auth, hardSkill.remove);
@@ -46,6 +52,7 @@ router.patch('/SoftSkill',      auth, softSkill.patch);
 router.delete('/SoftSkill/:id', auth, softSkill.remove);
 
 // ── SoftwareSkill ─────────────────────────────────────────────────────────────
+router.get('/SoftwareSkill/archived',                                   auth, softwareSkill.getArchived);
 router.get('/SoftwareSkill/count',                                      softwareSkill.count);
 router.get('/SoftwareSkill/countFocusedSkill',                          countFocusedSkillHandler);
 router.get('/SoftwareSkill/byattribute/:attributeName/:value',          softwareSkill.getByAttribute);
@@ -54,11 +61,14 @@ router.get('/SoftwareSkill/:id',    softwareSkill.getById);
 router.get('/SoftwareSkill',        softwareSkill.getAll);
 router.post('/SoftwareSkill',       auth, softwareSkill.create);
 router.put('/SoftwareSkill',        auth, softwareSkill.update);
+router.patch('/SoftwareSkill/:id/archive',   auth, softwareSkill.archive);
+router.patch('/SoftwareSkill/:id/unarchive', auth, softwareSkill.unarchive);
 router.patch('/SoftwareSkill/:id',  auth, softwareSkill.patch);
 router.patch('/SoftwareSkill',      auth, softwareSkill.patch);
 router.delete('/SoftwareSkill/:id', auth, softwareSkill.remove);
 
 // ── FocusedSkill ──────────────────────────────────────────────────────────────
+router.get('/FocusedSkill/archived',                                   auth, focusedSkill.getArchived);
 router.get('/FocusedSkill/count',                                      focusedSkill.count);
 router.get('/FocusedSkill/countHardSkill',                             countHardSkillHandler);
 router.get('/FocusedSkill/byattribute/:attributeName/:value',          focusedSkill.getByAttribute);
@@ -67,6 +77,8 @@ router.get('/FocusedSkill/:id',    focusedSkill.getById);
 router.get('/FocusedSkill',        focusedSkill.getAll);
 router.post('/FocusedSkill',       auth, focusedSkill.create);
 router.put('/FocusedSkill',        auth, focusedSkill.update);
+router.patch('/FocusedSkill/:id/archive',   auth, focusedSkill.archive);
+router.patch('/FocusedSkill/:id/unarchive', auth, focusedSkill.unarchive);
 router.patch('/FocusedSkill/:id',  auth, focusedSkill.patch);
 router.patch('/FocusedSkill',      auth, focusedSkill.patch);
 router.delete('/FocusedSkill/:id', auth, focusedSkill.remove);

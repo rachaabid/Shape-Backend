@@ -5,6 +5,7 @@ export interface ICareer extends Document {
   description?: { fr?: string; en?: string; ar?: string };
   domain?:      string;
   online?:      boolean;
+  archived?:    boolean;
 }
 
 const CareerSchema = new Schema<ICareer>({
@@ -12,6 +13,7 @@ const CareerSchema = new Schema<ICareer>({
   description: { fr: String, en: String, ar: String },
   domain:      { type: String, default: null },
   online:      { type: Boolean, default: true },
+  archived:    { type: Boolean, default: false },
 }, { toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 export default mongoose.model<ICareer>('Career', CareerSchema);
