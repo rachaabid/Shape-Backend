@@ -13,9 +13,7 @@ dotenv.config();
 
 import User              from '../src/models/User';
 import Company           from '../src/models/Company';
-import HardSkill         from '../src/models/HardSkill';
-import SoftwareSkill     from '../src/models/SoftwareSkill';
-import FocusedSkill      from '../src/models/FocusedSkill';
+import Skill             from '../src/models/Skill';
 import Career            from '../src/models/Career';
 import JobOfferModel     from '../src/models/JobOfferModel';
 import Training           from '../src/models/Training';
@@ -80,8 +78,7 @@ async function seed() {
   // ── 1. Purge ──────────────────────────────────────────────────────
   await Promise.all([
     User.deleteMany({}), Company.deleteMany({}),
-    HardSkill.deleteMany({}), SoftwareSkill.deleteMany({}),
-    FocusedSkill.deleteMany({}), Career.deleteMany({}),
+    Skill.deleteMany({}), Career.deleteMany({}),
     JobOfferModel.deleteMany({}), Training.deleteMany({}), Quiz.deleteMany({}),
     TextBloc.deleteMany({}), VideoYoutube.deleteMany({}), JobOffer.deleteMany({}),
     Application.deleteMany({}), Interview.deleteMany({}), Task.deleteMany({}),
@@ -91,20 +88,20 @@ async function seed() {
     CompanyTrainingProposal.deleteMany({}), Documentation.deleteMany({}),
   ]);
   // Supprime les anciennes collections orphelines (renommage Program → Training)
-  for (const legacy of ['programs', 'programrequests', 'companyprogramproposals', 'taskresponses', 'taskresponsecomments', 'quizresponses']) {
+  for (const legacy of ['programs', 'programrequests', 'companyprogramproposals', 'taskresponses', 'taskresponsecomments', 'quizresponses', 'hardskills', 'softwareskills', 'focusedskills', 'softskills']) {
     await mongoose.connection.db!.dropCollection(legacy).catch(() => {});
   }
   console.log('🗑️  Toutes les collections vidées');
 
   // ── 2. Référentiel ────────────────────────────────────────────────
-  const hardSkills: any[] = await HardSkill.insertMany(
-    HARD_SKILLS.map((n, i) => ({ name: { fr: n, en: n, ...(i % 4 ? { ar: n } : {}) }, category: pick(DOMAINS) })),
+  const hardSkills: any[] = await Skill.insertMany(
+    HARD_SKILLS.map((n, i) => ({ name: { fr: n, en: n, ...(i % 4 ? { ar: n } : {}) }, category: pick(DOMAINS), type: 'HARD' })),
   );
-  const softwares: any[] = await SoftwareSkill.insertMany(
-    SOFTWARES.map((n, i) => ({ name: { fr: n, en: n, ...(i % 3 ? { ar: n } : {}) }, category: 'Outil' })),
+  const softwares: any[] = await Skill.insertMany(
+    SOFTWARES.map((n, i) => ({ name: { fr: n, en: n, ...(i % 3 ? { ar: n } : {}) }, category: 'Outil', type: 'SOFTWARE' })),
   );
-  const focused: any[] = await FocusedSkill.insertMany(
-    FOCUSED.map(n => ({ name: { fr: n, en: n }, category: 'Marketing' })),
+  const focused: any[] = await Skill.insertMany(
+    FOCUSED.map(n => ({ name: { fr: n, en: n }, category: 'Marketing', type: 'FOCUSED' })),
   );
   const jobModels: any[] = await JobOfferModel.insertMany([
     { name: { fr: 'CDI',        en: 'Permanent'   } },
