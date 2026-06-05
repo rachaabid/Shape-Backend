@@ -3,7 +3,6 @@ import crypto   from 'crypto';
 import User         from '../models/User';
 import Inscription  from '../models/Inscription';
 import Task         from '../models/Task';
-import TaskResponse from '../models/TaskResponse';
 import MentorEvaluation from '../models/MentorEvaluation';
 import NotificationSetting from '../models/NotificationSetting';
 import QuizResponse from '../models/QuizResponse';
@@ -32,10 +31,9 @@ export const getMentorStats = asyncHandler<AuthRequest>(async (req, res) => {
     Inscription.countDocuments({ mentor: req.userId, deleted: { $ne: true } }),
     Task.countDocuments({ createdBy: req.userId, deleted: { $ne: true } }),
     MentorEvaluation.countDocuments({ mentor: req.userId, deleted: { $ne: true } }),
-    Task.find({ createdBy: req.userId, deleted: { $ne: true } }).select('_id')
-      .then(tasks => TaskResponse.countDocuments({
-        task: { $in: tasks.map(t => t._id) }, status: 2, deleted: { $ne: true },
-      })),
+    Task.find({ createdBy: req.userId, deleted: { $ne: true } })
+      .then(tasks => tasks.reduce((n, t) =>
+        n + (t.responses || []).filter((r: any) => !r.deleted && r.status === 2).length, 0)),
   ]);
   res.json({ internCount, taskCount: myTasks, evalCount: myEvals, pendingReviews });
 });
@@ -45,7 +43,14 @@ export const getEvaluationSuggestion = asyncHandler<AuthRequest>(async (req, res
   const internId = req.params['internId'];
 
   const [taskResponses, quizResponses, intern, inscriptions, messagesSent] = await Promise.all([
-    TaskResponse.find({ owner: internId, deleted: { $ne: true } }),
+    // réponses du stagiaire à plat (depuis Task.responses[])
+    Task.find({ deleted: { $ne: true } }).then(tasks => {
+      const out: any[] = [];
+      tasks.forEach(t => (t.responses || []).forEach((r: any) => {
+        if (!r.deleted && String(r.owner) === String(internId)) out.push(r);
+      }));
+      return out;
+    }),
     QuizResponse.find({ owner: internId, deleted: { $ne: true } }),
     User.findById(internId),
     Inscription.find({ user: internId, deleted: { $ne: true } }),
@@ -99,11 +104,23 @@ export const getEvaluationSuggestion = asyncHandler<AuthRequest>(async (req, res
 
 // ── Réponses aux tâches d'un stagiaire ───────────────────────────────────────
 export const getInternTaskResponses = asyncHandler(async (req, res) => {
-  res.json(
-    await TaskResponse.find({ owner: req.params['internId'], deleted: { $ne: true } })
-      .populate('task')
-      .populate('owner', '-password'),
-  );
+  const internId = req.params['internId'];
+  const tasks = await Task.find({ deleted: { $ne: true } });
+  const pairs: { task: any; r: any }[] = [];
+  tasks.forEach(t => (t.responses || []).forEach((r: any) => {
+    if (!r.deleted && String(r.owner) === String(internId)) pairs.push({ task: t, r });
+  }));
+  const users = await User.find({ _id: internId }).select('-password').lean();
+  const owner = users[0];
+  res.json(pairs.map(({ task, r }) => {
+    const rr = r.toObject ? r.toObject() : r;
+    const { responses, ...taskPlain } = (task.toObject ? task.toObject() : task);
+    return {
+      ...rr, id: rr._id, task: taskPlain,
+      owner: owner ?? rr.owner,
+      comments: (rr.comments || []).filter((c: any) => !c.deleted),
+    };
+  }));
 });
 
 // ── Tâches créées par ce mentor ──────────────────────────────────────────────
@@ -132,13 +149,12 @@ export const createMentorTask = asyncHandler<AuthRequest>(async (req, res) => {
       inscriptions.map(ins => [ins.user!.toString(), ins._id]),
     );
 
-    const responses = (internIds as string[]).map((uid: string) => ({
-      task:        task._id,
+    task.responses = (internIds as string[]).map((uid: string) => ({
       owner:       uid,
       status:      0,
       inscription: inscriptionByUser.get(uid),
-    }));
-    await TaskResponse.insertMany(responses);
+    })) as any;
+    await task.save();
   }
   res.status(201).json(task);
   setImmediate(() => notifyAdmins(

@@ -26,7 +26,6 @@ import JobOffer          from '../src/models/JobOffer';
 import Application       from '../src/models/JobOfferApplication';
 import Interview         from '../src/models/Interview';
 import Task              from '../src/models/Task';
-import TaskResponse      from '../src/models/TaskResponse';
 import Inscription       from '../src/models/Inscription';
 import Conversation      from '../src/models/Conversation';
 import Message           from '../src/models/Message';
@@ -86,13 +85,13 @@ async function seed() {
     JobOfferModel.deleteMany({}), Training.deleteMany({}), Quiz.deleteMany({}),
     TextBloc.deleteMany({}), VideoYoutube.deleteMany({}), JobOffer.deleteMany({}),
     Application.deleteMany({}), Interview.deleteMany({}), Task.deleteMany({}),
-    TaskResponse.deleteMany({}), Inscription.deleteMany({}), Conversation.deleteMany({}),
+    Inscription.deleteMany({}), Conversation.deleteMany({}),
     Message.deleteMany({}), Notification.deleteMany({}), NotificationSetting.deleteMany({}),
     MentorEvaluation.deleteMany({}), TrainingRequest.deleteMany({}),
     CompanyTrainingProposal.deleteMany({}), Documentation.deleteMany({}),
   ]);
   // Supprime les anciennes collections orphelines (renommage Program → Training)
-  for (const legacy of ['programs', 'programrequests', 'companyprogramproposals']) {
+  for (const legacy of ['programs', 'programrequests', 'companyprogramproposals', 'taskresponses', 'taskresponsecomments']) {
     await mongoose.connection.db!.dropCollection(legacy).catch(() => {});
   }
   console.log('🗑️  Toutes les collections vidées');
@@ -482,13 +481,14 @@ async function seed() {
             (t: any) => t._id.toString() === lesson.taskRef
           );
           if (!task) continue;
-          await TaskResponse.create({
-            task:        task._id,
+          task.responses = task.responses || [];
+          (task.responses as any).push({
             owner:       ins.user,
             inscription: ins._id,
             status:      rnd(4),
             createdAt:   daysAgo(rnd(200)),
           });
+          await task.save();
           progTrCount++;
         }
       }
@@ -534,12 +534,14 @@ async function seed() {
     const ins = candIns.length
       ? pick(candIns)
       : (chance(0.4) && fallbackIns.length ? pick(fallbackIns) : undefined);
-    await TaskResponse.create({
-      task: t._id, owner: cand._id,
+    t.responses = t.responses || [];
+    (t.responses as any).push({
+      owner: cand._id,
       inscription: ins?._id,
       status: rnd(4),
       createdAt: daysAgo(rnd(200)),
     });
+    await t.save();
     trCount++;
   }
   console.log(`✅ ${tasks.length} tâches + ${trCount} réponses créées`);
@@ -669,10 +671,12 @@ async function seed() {
     // Toutes ses réponses de tâches passées en « Closed » (statut 3).
     const cohortTasks = pickN(trainingTasks, 4);
     for (const t of cohortTasks) {
-      await TaskResponse.create({
-        task: t._id, owner: cand._id, inscription: finishedIns._id,
+      t.responses = t.responses || [];
+      (t.responses as any).push({
+        owner: cand._id, inscription: finishedIns._id,
         status: 3, createdAt: daysAgo(40 + rnd(60)),
       });
+      await t.save();
     }
 
     // Nouvelle inscription (pour le programme choisi) + demande EN ATTENTE.

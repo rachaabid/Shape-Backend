@@ -1,10 +1,51 @@
 import Task from '../models/Task';
-import TaskResponse from '../models/TaskResponse';
+import User from '../models/User';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { HttpError }    from '../utils/HttpError';
 
-// ── Task ─────────────────────────────────────────────────────
+// ── Helpers (modèle Task unifié : réponses imbriquées) ───────────────────────
+
+/** Tâche « énoncé » sans le tableau responses (pour l'imbriquer dans response.task). */
+function taskPlain(t: any) {
+  const o = t?.toObject ? t.toObject() : t;
+  if (!o) return o;
+  const { responses, ...rest } = o;
+  return rest;
+}
+
+/** Convertit un sous-document réponse vers la forme historique de TaskResponse
+ *  (pour préserver le contrat d'API consommé par les fronts). */
+function mapResponse(task: any, r: any, opts: { populateTask?: boolean; ownerMap?: Map<string, any> } = {}) {
+  const rr = r?.toObject ? r.toObject() : r;
+  return {
+    ...rr,
+    id:      rr._id,
+    task:    opts.populateTask ? taskPlain(task) : task._id,
+    owner:   opts.ownerMap ? (opts.ownerMap.get(String(rr.owner)) ?? rr.owner) : rr.owner,
+    comments: (rr.comments || []).filter((c: any) => !c.deleted),
+  };
+}
+
+/** Récupère les utilisateurs (owners) pour peupler le champ owner des réponses. */
+async function ownerMapFor(responses: any[]) {
+  const ids = [...new Set(responses.map(r => String(r.owner)).filter(v => v && v !== 'undefined'))];
+  const map = new Map<string, any>();
+  if (!ids.length) return map;
+  const users = await User.find({ _id: { $in: ids } }).select('-password').lean();
+  users.forEach((u: any) => map.set(String(u._id), u));
+  return map;
+}
+
+/** Itère sur toutes les réponses non supprimées de toutes les tâches. */
+async function allResponses(): Promise<{ task: any; r: any }[]> {
+  const tasks = await Task.find({ deleted: { $ne: true } });
+  const out: { task: any; r: any }[] = [];
+  tasks.forEach(t => (t.responses || []).forEach(r => { if (!(r as any).deleted) out.push({ task: t, r }); }));
+  return out;
+}
+
+// ── Task (énoncé) ────────────────────────────────────────────────────────────
 
 export const getTasks = asyncHandler(async (_req, res) => {
   res.json(await Task.find({ deleted: { $ne: true } }));
@@ -31,83 +72,114 @@ export const createTask = asyncHandler<AuthRequest>(async (req, res) => {
 });
 
 export const updateTask = asyncHandler<AuthRequest>(async (req, res) => {
-  const { id, ...rest } = req.body;
+  const { id, responses, ...rest } = req.body;     // on ne remplace pas les réponses ici
   res.json(await Task.findByIdAndUpdate(id, rest, { new: true }));
 });
 
 export const patchTask = asyncHandler<AuthRequest>(async (req, res) => {
-  const { id, ...rest } = req.body;
+  const { id, responses, ...rest } = req.body;
   res.json(await Task.findByIdAndUpdate(id, rest, { new: true }));
 });
 
-// ── TaskResponse ─────────────────────────────────────────────
+// ── TaskResponse (réponses imbriquées — API préservée) ───────────────────────
 
 export const getTaskResponses = asyncHandler(async (_req, res) => {
-  res.json(await TaskResponse.find({ deleted: { $ne: true } }));
+  const pairs = await allResponses();
+  res.json(pairs.map(p => mapResponse(p.task, p.r)));
 });
 
 export const getTaskResponseById = asyncHandler(async (req, res) => {
-  const r = await TaskResponse.findById(req.params['id']).populate('task');
-  if (!r) throw HttpError.notFound();
-  res.json(r);
+  const id = req.params['id'];
+  const task = await Task.findOne({ 'responses._id': id });
+  const r = task && (task.responses as any).id(id);
+  if (!task || !r) throw HttpError.notFound();
+  const ownerMap = await ownerMapFor([r]);
+  res.json(mapResponse(task, r, { populateTask: true, ownerMap }));
 });
 
 export const getTaskResponseByAttribute = asyncHandler(async (req, res) => {
-  const { value } = req.params;
-  const attr = req.params['attributeName'].toLowerCase();
-  const filter: Record<string, unknown> = { deleted: { $ne: true } };
-  if (attr === 'task')        filter['task']        = value;
-  if (attr === 'inscription') filter['inscription'] = value;
-  if (attr === 'status')      filter['status']      = Number(value);
-  const results = await TaskResponse.find(filter).populate('task').populate('owner', '-password');
-  res.json(results);
+  const value = req.params['value'];
+  const attr  = req.params['attributeName'].toLowerCase();
+  let pairs: { task: any; r: any }[] = [];
+
+  if (attr === 'task') {
+    const t = await Task.findById(value);
+    if (t) (t.responses || []).forEach(r => { if (!(r as any).deleted) pairs.push({ task: t, r }); });
+  } else {
+    const all = await allResponses();
+    pairs = all.filter(({ r }) =>
+      (attr === 'inscription' && String(r.inscription) === String(value)) ||
+      (attr === 'status'      && r.status === Number(value)),
+    );
+  }
+  const ownerMap = await ownerMapFor(pairs.map(p => p.r));
+  res.json(pairs.map(p => mapResponse(p.task, p.r, { populateTask: true, ownerMap })));
 });
 
 export const getTaskResponseCountByAttribute = asyncHandler(async (req, res) => {
   const { attributeName, value } = req.params;
-  const filter: Record<string, unknown> = { deleted: { $ne: true } };
-  if (attributeName === 'status') filter['status'] = Number(value);
-  else filter[attributeName] = value;
-  res.json(await TaskResponse.countDocuments(filter));
+  const all = await allResponses();
+  const count = all.filter(({ r }) =>
+    attributeName === 'status'
+      ? r.status === Number(value)
+      : String((r as any)[attributeName]) === String(value),
+  ).length;
+  res.json(count);
 });
 
 export const createTaskResponse = asyncHandler<AuthRequest>(async (req, res) => {
-  res.status(201).json(await TaskResponse.create({
-    ...req.body,
-    owner: req.body.owner || req.userId,
-  }));
+  const { task, id, ...rest } = req.body;
+  const t = await Task.findById(task);
+  if (!t) throw HttpError.notFound('Tâche non trouvée');
+  t.responses = t.responses || [];
+  (t.responses as any).push({ ...rest, owner: rest.owner || req.userId });
+  await t.save();
+  const created = t.responses[t.responses.length - 1];
+  res.status(201).json(mapResponse(t, created, { populateTask: true }));
 });
 
 export const updateTaskResponse = asyncHandler<AuthRequest>(async (req, res) => {
-  const { id, ...rest } = req.body;
-  res.json(await TaskResponse.findByIdAndUpdate(id, rest, { new: true }));
+  const { id, task, ...rest } = req.body;
+  const t = await Task.findOne({ 'responses._id': id });
+  const r = t && (t.responses as any).id(id);
+  if (!t || !r) throw HttpError.notFound();
+  ['status', 'files', 'inscription', 'owner', 'deleted'].forEach(k => {
+    if (rest[k] !== undefined) (r as any)[k] = rest[k];
+  });
+  await t.save();
+  res.json(mapResponse(t, r, { populateTask: true }));
 });
 
 export const patchTaskResponse = asyncHandler<AuthRequest>(async (req, res) => {
   const { id, status } = req.body;
-  res.json(await TaskResponse.findByIdAndUpdate(id, { status }, { new: true }));
+  const t = await Task.findOne({ 'responses._id': id });
+  const r = t && (t.responses as any).id(id);
+  if (!t || !r) throw HttpError.notFound();
+  (r as any).status = status;
+  await t.save();
+  res.json(mapResponse(t, r, { populateTask: true }));
 });
 
 export const addFileToTaskResponse = asyncHandler<AuthRequest>(async (req, res) => {
-  const { id } = req.params;
   const { name, url } = req.body;
-  const updated = await TaskResponse.findByIdAndUpdate(
-    id,
-    { $push: { files: { name, url } } },
-    { new: true },
-  ).populate('task').populate('owner', '-password');
-  if (!updated) throw HttpError.notFound('Réponse non trouvée');
-  res.json(updated);
+  const t = await Task.findOne({ 'responses._id': req.params['id'] });
+  const r = t && (t.responses as any).id(req.params['id']);
+  if (!t || !r) throw HttpError.notFound('Réponse non trouvée');
+  (r as any).files = (r as any).files || [];
+  (r as any).files.push({ name, url });
+  await t.save();
+  const ownerMap = await ownerMapFor([r]);
+  res.json(mapResponse(t, r, { populateTask: true, ownerMap }));
 });
 
 export const removeFileFromTaskResponse = asyncHandler<AuthRequest>(async (req, res) => {
-  const { id } = req.params;
   const fileIndex = parseInt(req.params['fileIndex'], 10);
-  const response = await TaskResponse.findById(id);
-  if (!response) throw HttpError.notFound('Réponse non trouvée');
-  if (response.files && fileIndex >= 0 && fileIndex < response.files.length) {
-    response.files.splice(fileIndex, 1);
-    await response.save();
+  const t = await Task.findOne({ 'responses._id': req.params['id'] });
+  const r = t && (t.responses as any).id(req.params['id']);
+  if (!t || !r) throw HttpError.notFound('Réponse non trouvée');
+  if ((r as any).files && fileIndex >= 0 && fileIndex < (r as any).files.length) {
+    (r as any).files.splice(fileIndex, 1);
+    await t.save();
   }
-  res.json(response);
+  res.json(mapResponse(t, r, { populateTask: true }));
 });

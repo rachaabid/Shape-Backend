@@ -5,7 +5,7 @@ import Application      from '../models/JobOfferApplication';
 import Interview        from '../models/Interview';
 import Notification     from '../models/Notification';
 import QuizResponse     from '../models/QuizResponse';
-import TaskResponse     from '../models/TaskResponse';
+import Task             from '../models/Task';
 import MentorEvaluation from '../models/MentorEvaluation';
 import { sendCompanyProposal } from './email.service';
 import axios from 'axios';
@@ -94,7 +94,12 @@ const computeQuizScoresForCandidates = async (ids: string[]): Promise<Record<str
 
 const computeTaskScoresForCandidates = async (ids: string[]): Promise<Record<string, number>> => {
   if (ids.length === 0) return {};
-  const responses = await TaskResponse.find({ owner: { $in: ids }, deleted: { $ne: true } });
+  const idSet = new Set(ids.map(String));
+  const tasks = await Task.find({ deleted: { $ne: true } });
+  const responses: any[] = [];
+  tasks.forEach(t => (t.responses || []).forEach((r: any) => {
+    if (!r.deleted && idSet.has(String(r.owner))) responses.push(r);
+  }));
   const map: Record<string, { total: number; closed: number }> = {};
   for (const r of responses) {
     const ownerId = r.owner?.toString();

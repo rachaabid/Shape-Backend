@@ -10,11 +10,20 @@ import Training from '../../models/Training';
 import Inscription from '../../models/Inscription';
 import TrainingRequest from '../../models/TrainingRequest';
 import Task from '../../models/Task';
-import TaskResponse from '../../models/TaskResponse';
 import MentorEvaluation from '../../models/MentorEvaluation';
 
 const TASK_STATUS = { OPEN: 0, IN_PROGRESS: 1, REVIEW: 2, DONE: 3 } as const;
 const APP_STATUS  = { RETAINED: 2, REJECTED: 3, HIRED: 4 } as const;
+
+/** Compte les réponses (Task.responses[]) ayant un statut donné. */
+function countResponsesByStatus(status: number): Promise<number> {
+  return Task.aggregate([
+    { $match: { deleted: { $ne: true } } },
+    { $unwind: '$responses' },
+    { $match: { 'responses.deleted': { $ne: true }, 'responses.status': status } },
+    { $count: 'n' },
+  ]).then((r: any[]) => r[0]?.n || 0);
+}
 
 export interface GlobalStats {
   users: {
@@ -95,10 +104,10 @@ export async function buildGlobalStats(): Promise<GlobalStats> {
     TrainingRequest.countDocuments({ status: 'pending', deleted: { $ne: true } }),
 
     Task.countDocuments({ deleted: { $ne: true } }),
-    TaskResponse.countDocuments({ status: TASK_STATUS.OPEN,        deleted: { $ne: true } }),
-    TaskResponse.countDocuments({ status: TASK_STATUS.IN_PROGRESS, deleted: { $ne: true } }),
-    TaskResponse.countDocuments({ status: TASK_STATUS.REVIEW,      deleted: { $ne: true } }),
-    TaskResponse.countDocuments({ status: TASK_STATUS.DONE,        deleted: { $ne: true } }),
+    countResponsesByStatus(TASK_STATUS.OPEN),
+    countResponsesByStatus(TASK_STATUS.IN_PROGRESS),
+    countResponsesByStatus(TASK_STATUS.REVIEW),
+    countResponsesByStatus(TASK_STATUS.DONE),
 
     Inscription.distinct('mentor', { mentor: { $ne: null }, deleted: { $ne: true } })
       .then((ids: any[]) => ids.length),
