@@ -91,7 +91,7 @@ async function seed() {
     CompanyTrainingProposal.deleteMany({}), Documentation.deleteMany({}),
   ]);
   // Supprime les anciennes collections orphelines (renommage Program → Training)
-  for (const legacy of ['programs', 'programrequests', 'companyprogramproposals', 'taskresponses', 'taskresponsecomments']) {
+  for (const legacy of ['programs', 'programrequests', 'companyprogramproposals', 'taskresponses', 'taskresponsecomments', 'quizresponses']) {
     await mongoose.connection.db!.dropCollection(legacy).catch(() => {});
   }
   console.log('🗑️  Toutes les collections vidées');

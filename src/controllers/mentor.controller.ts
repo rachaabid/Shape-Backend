@@ -5,7 +5,7 @@ import Inscription  from '../models/Inscription';
 import Task         from '../models/Task';
 import MentorEvaluation from '../models/MentorEvaluation';
 import NotificationSetting from '../models/NotificationSetting';
-import QuizResponse from '../models/QuizResponse';
+import Quiz from '../models/Quiz';
 import Message      from '../models/Message';
 import { AuthRequest }  from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -51,7 +51,14 @@ export const getEvaluationSuggestion = asyncHandler<AuthRequest>(async (req, res
       }));
       return out;
     }),
-    QuizResponse.find({ owner: internId, deleted: { $ne: true } }),
+    // réponses quiz du stagiaire à plat (depuis Quiz.responses[])
+    Quiz.find({ deleted: { $ne: true } }).then(quizzes => {
+      const out: any[] = [];
+      quizzes.forEach(q => (q.responses || []).forEach((r: any) => {
+        if (!r.deleted && String(r.owner) === String(internId)) out.push(r);
+      }));
+      return out;
+    }),
     User.findById(internId),
     Inscription.find({ user: internId, deleted: { $ne: true } }),
     Message.countDocuments({ sender: internId }),

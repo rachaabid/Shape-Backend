@@ -20,6 +20,21 @@ export interface IQuizSection {
   questions:    IMultipleChoicesQuestion[];
 }
 
+// ── Réponse au quiz (ex-QuizResponse, désormais imbriquée) ─────────────────
+export interface IQuizQuestionResponse {
+  quizQuestion: mongoose.Types.ObjectId;
+  options:      mongoose.Types.ObjectId[];
+}
+
+export interface IQuizResponse {
+  _id?:         mongoose.Types.ObjectId;
+  owner?:       mongoose.Types.ObjectId;
+  inscription?: mongoose.Types.ObjectId;
+  reponses?:    IQuizQuestionResponse[];
+  deleted?:     boolean;
+  createdAt?:   Date;
+}
+
 export interface IQuiz extends Document {
   title:          { fr?: string; en?: string; ar?: string };
   description?:   { fr?: string; en?: string; ar?: string };
@@ -29,6 +44,7 @@ export interface IQuiz extends Document {
   deadLineInHours?: number;
   duration?:      number;
   training?:       mongoose.Types.ObjectId;
+  responses?:     IQuizResponse[];
   deleted?:       boolean;
 }
 
@@ -52,6 +68,18 @@ const QuizSectionSchema = new Schema<IQuizSection>({
   questions:   [MultipleChoicesQuestionSchema],
 });
 
+const QuizQuestionResponseSchema = new Schema<IQuizQuestionResponse>({
+  quizQuestion: { type: Schema.Types.ObjectId },
+  options:      [{ type: Schema.Types.ObjectId }],
+}, { _id: false });
+
+const QuizResponseSchema = new Schema<IQuizResponse>({
+  owner:       { type: Schema.Types.ObjectId, ref: 'User' },
+  inscription: { type: Schema.Types.ObjectId, ref: 'Inscription' },
+  reponses:    [QuizQuestionResponseSchema],
+  deleted:     { type: Boolean, default: false },
+}, { timestamps: true });
+
 const QuizSchema = new Schema<IQuiz>({
   title:          { fr: String, en: String, ar: String },
   description:    { fr: String, en: String, ar: String },
@@ -61,6 +89,7 @@ const QuizSchema = new Schema<IQuiz>({
   deadLineInHours: Number,
   duration:       Number,
   training:        { type: Schema.Types.ObjectId, ref: 'Training', default: null },
+  responses:      [QuizResponseSchema],
   deleted:        { type: Boolean, default: false },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 

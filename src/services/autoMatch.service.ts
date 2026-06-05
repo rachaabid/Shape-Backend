@@ -4,7 +4,7 @@ import JobOffer         from '../models/JobOffer';
 import Application      from '../models/JobOfferApplication';
 import Interview        from '../models/Interview';
 import Notification     from '../models/Notification';
-import QuizResponse     from '../models/QuizResponse';
+import Quiz             from '../models/Quiz';
 import Task             from '../models/Task';
 import MentorEvaluation from '../models/MentorEvaluation';
 import { sendCompanyProposal } from './email.service';
@@ -55,8 +55,15 @@ const getSkillName = (s: any): string => {
 // Compute quiz score (0-100) for a list of candidates in one DB round
 const computeQuizScoresForCandidates = async (ids: string[]): Promise<Record<string, number>> => {
   if (ids.length === 0) return {};
-  const responses = await QuizResponse.find({ owner: { $in: ids }, deleted: { $ne: true } })
-    .populate({ path: 'quiz', select: 'sections' });
+  // Réponses imbriquées dans Quiz.responses[] : on aplatit en attachant le quiz parent.
+  const idSet = new Set(ids.map(String));
+  const quizzes = await Quiz.find({ deleted: { $ne: true } });
+  const responses: any[] = [];
+  quizzes.forEach(q => (q.responses || []).forEach((r: any) => {
+    if (!r.deleted && idSet.has(String(r.owner))) {
+      responses.push({ owner: r.owner, quiz: q, reponses: r.reponses });
+    }
+  }));
 
   const scoreMap: Record<string, { got: number; max: number }> = {};
   for (const resp of responses) {
