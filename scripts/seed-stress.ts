@@ -12,7 +12,6 @@ import dotenv   from 'dotenv';
 dotenv.config();
 
 import User              from '../src/models/User';
-import Company           from '../src/models/Company';
 import Skill             from '../src/models/Skill';
 import Career            from '../src/models/Career';
 import JobOfferModel     from '../src/models/JobOfferModel';
@@ -77,7 +76,7 @@ async function seed() {
 
   // ── 1. Purge ──────────────────────────────────────────────────────
   await Promise.all([
-    User.deleteMany({}), Company.deleteMany({}),
+    User.deleteMany({}),
     Skill.deleteMany({}), Career.deleteMany({}),
     JobOfferModel.deleteMany({}), Training.deleteMany({}), Quiz.deleteMany({}),
     TextBloc.deleteMany({}), VideoYoutube.deleteMany({}), JobOffer.deleteMany({}),
@@ -88,7 +87,7 @@ async function seed() {
     CompanyTrainingProposal.deleteMany({}), Documentation.deleteMany({}),
   ]);
   // Supprime les anciennes collections orphelines (renommage Program → Training)
-  for (const legacy of ['programs', 'programrequests', 'companyprogramproposals', 'taskresponses', 'taskresponsecomments', 'quizresponses', 'hardskills', 'softwareskills', 'focusedskills', 'softskills']) {
+  for (const legacy of ['programs', 'programrequests', 'companyprogramproposals', 'taskresponses', 'taskresponsecomments', 'quizresponses', 'hardskills', 'softwareskills', 'focusedskills', 'softskills', 'companies']) {
     await mongoose.connection.db!.dropCollection(legacy).catch(() => {});
   }
   console.log('🗑️  Toutes les collections vidées');
@@ -313,23 +312,21 @@ async function seed() {
 
   // ── 6. Entreprises + comptes COMPANY (25, dont 1 sans offre) ──────
   const companyUsers: any[] = [];
-  const companies: any[] = [];
   for (let i = 0; i < 25; i++) {
     const verified = i % 7 !== 0;            // ~1/7 non vérifiée
     const deleted  = i === 24;               // 1 entreprise supprimée (soft)
     const u = await User.create({
       login: `company${i}`, email: `company${i}@shape-test.com`, password: pw,
       roles: ['COMPANY'], firstName: { fr: pick(FIRST_NAMES) }, lastName: { fr: pick(LAST_NAMES) },
+      companyProfile: {
+        companyName: { fr: `Entreprise ${i}`, en: `Company ${i}` },
+        address:     { fr: `${pick(COUNTRIES).name.fr || 'Ville'}, ${10 + i} rue Test` },
+      },
       verifiedAccount: verified, deleted, createdAt: daysAgo(rnd(500)),
     });
-    const c = await Company.create({
-      name: { fr: `Entreprise ${i}`, en: `Company ${i}` },
-      address: { fr: `${pick(COUNTRIES).name.fr || 'Ville'}, ${10 + i} rue Test` },
-      owner: u._id, deleted,
-    });
-    companyUsers.push(u); companies.push(c);
+    companyUsers.push(u);
   }
-  console.log(`✅ ${companies.length} entreprises créées`);
+  console.log(`✅ ${companyUsers.length} entreprises créées`);
 
   // ── 7. Candidats (150 — répartition de statuts variée) ────────────
   const candidates: any[] = [];
@@ -346,12 +343,14 @@ async function seed() {
       gender: rnd(3), country: ctry.code,
       phoneNumber: chance(0.8) ? `+216 ${20000000 + rnd(9999999)}` : undefined,
       interfaceLanguage: pick(['fr', 'en', 'ar']),
-      workingMode: pick(['Présentiel', 'Télétravail', 'Hybride']),
-      languages: pickN(['fr', 'en', 'ar', 'es'], 1 + rnd(3)),
-      softSkills: pickN(SOFT_SKILLS, 1 + rnd(4)),
-      hardSkills: pickN(hardSkills, 1 + rnd(4)).map(s => ({ skill: s._id, level: 1 + rnd(5) })),
-      softwares:  pickN(softwares,  1 + rnd(4)).map(s => ({ skill: s._id, level: 1 + rnd(5) })),
-      focusedSkills: pickN(focused, rnd(3)).map(s => s._id.toString()),
+      candidateProfile: {
+        workingMode: pick(['Présentiel', 'Télétravail', 'Hybride']),
+        languages: pickN(['fr', 'en', 'ar', 'es'], 1 + rnd(3)),
+        softSkills: pickN(SOFT_SKILLS, 1 + rnd(4)),
+        hardSkills: pickN(hardSkills, 1 + rnd(4)).map(s => ({ skill: s._id, level: 1 + rnd(5) })),
+        softwares:  pickN(softwares,  1 + rnd(4)).map(s => ({ skill: s._id, level: 1 + rnd(5) })),
+        focusedSkills: pickN(focused, rnd(3)).map(s => s._id.toString()),
+      },
       verifiedAccount: verified, deleted,
       createdAt: daysAgo(rnd(540)),
     });
@@ -371,7 +370,7 @@ async function seed() {
     // L'entreprise 0 reçoit beaucoup d'offres ; l'entreprise 23 n'en reçoit aucune.
     const compIdx = i < 20 ? 0 : 1 + rnd(22);
     const o = await JobOffer.create({
-      company: companies[compIdx]._id,
+      company: companyUsers[compIdx]._id,
       jobOfferModel: pick(jobModels)._id,
       workingMode: pick(['remote', 'onsite', 'hybrid', 'freelance']),
       title: `Offre ${i} — ${pick(CAREERS)}`,
@@ -626,10 +625,8 @@ async function seed() {
   let proposalCount = 0;
   for (let i = 0; i < 60; i++) {
     const cu = pick(companyUsers);
-    const co = companies.find((c: any) => c.owner?.equals ? c.owner.equals(cu._id) : String(c.owner) === String(cu._id));
-    if (!co) continue;
     await CompanyTrainingProposal.create({
-      company:        co._id,
+      company:        cu._id,
       proposedBy:     cu._id,
       title:          pick(PROPOSAL_TITLES),
       description:    `Description de la proposition de formation ${i + 1}.`,

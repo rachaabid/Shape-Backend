@@ -75,9 +75,10 @@ export const getEvaluationSuggestion = asyncHandler<AuthRequest>(async (req, res
   const quizScore = Math.min(100, quizCount * 20);
 
   // 3. Maîtrise des compétences (moyenne des levels /5, en %)
+  const internCp = (intern as any)?.candidateProfile || {};
   const skillLevels: number[] = [
-    ...((intern?.hardSkills as any[]) || []).map(s => s.level || 0),
-    ...((intern?.softwares  as any[]) || []).map(s => s.level || 0),
+    ...((internCp.hardSkills as any[]) || []).map(s => s.level || 0),
+    ...((internCp.softwares  as any[]) || []).map(s => s.level || 0),
   ];
   const skillMastery = skillLevels.length
     ? Math.round((skillLevels.reduce((a, b) => a + b, 0) / skillLevels.length / 5) * 100)
@@ -269,7 +270,7 @@ export const createMentor = asyncHandler(async (req, res) => {
     firstName: { fr: firstName, en: firstName },
     lastName:  { fr: lastName,  en: lastName  },
     verifiedAccount: true,
-    expertise: expertise || '',
+    mentorProfile: { expertise: expertise ? [expertise] : [] },
     mustChangePassword: true,
   });
   await NotificationSetting.create({ userId: mentor._id });

@@ -8,17 +8,17 @@ import { notifyAdmins }        from './notification.controller';
 const USER_POPULATE = {
   path: 'user', select: '-password',
   populate: [
-    { path: 'hardSkills.skill', model: 'HardSkill' },
-    { path: 'softwares.skill',  model: 'SoftwareSkill' },
+    { path: 'candidateProfile.hardSkills.skill', model: 'Skill' },
+    { path: 'candidateProfile.softwares.skill',  model: 'Skill' },
   ],
 };
 
 const JOBOFFER_POPULATE = {
   path: 'jobOffer',
   populate: [
-    { path: 'company',              model: 'Company', select: 'name logo' },
-    { path: 'hardSkills.skill',     model: 'HardSkill' },
-    { path: 'softwareSkills.skill', model: 'SoftwareSkill' },
+    { path: 'company',              model: 'User', select: 'companyProfile login' },
+    { path: 'hardSkills.skill',     model: 'Skill' },
+    { path: 'softwareSkills.skill', model: 'Skill' },
     { path: 'jobOfferModel',        model: 'JobOfferModel' },
   ],
 };
@@ -124,7 +124,7 @@ export const getApplicationsByCompany = asyncHandler(async (req, res) => {
       .populate(USER_POPULATE)
       .populate({
         path: 'jobOffer',
-        populate: [{ path: 'company', model: 'Company', select: 'name logo' }],
+        populate: [{ path: 'company', model: 'User', select: 'companyProfile login' }],
       })
       .sort({ createdAt: -1 }),
   );

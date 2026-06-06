@@ -6,7 +6,7 @@ import { HttpError }          from '../utils/HttpError';
 export const getAll = asyncHandler(async (_req, res) =>
   res.json(
     await CompanyTrainingProposal.find({ deleted: { $ne: true } })
-      .populate('company',    'name logo')
+      .populate('company', 'companyProfile login')
       .populate('proposedBy', '-password')
       .sort({ createdAt: -1 }),
   ));

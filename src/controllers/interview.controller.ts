@@ -80,7 +80,7 @@ export const getInterviews = asyncHandler(async (_req, res) => {
   res.json(
     await Interview.find({ status: { $nin: ['completed', 'cancelled'] } })
       .populate('candidateId', '-password')
-      .populate('companyId', 'name logo')
+      .populate('companyId', 'companyProfile login email')
       .populate('jobOfferId')
       .sort({ scheduledAt: 1 }),
   );
@@ -91,7 +91,7 @@ export const getArchivedInterviews = asyncHandler(async (_req, res) => {
   res.json(
     await Interview.find({ status: { $in: ['completed', 'cancelled'] } })
       .populate('candidateId', '-password')
-      .populate('companyId', 'name logo')
+      .populate('companyId', 'companyProfile login email')
       .populate('jobOfferId')
       .sort({ scheduledAt: -1 }),
   );
@@ -118,7 +118,7 @@ export const updateInterview = asyncHandler<AuthRequest>(async (req, res) => {
   res.json(
     await Interview.findByIdAndUpdate(id, rest, { new: true })
       .populate('candidateId', '-password')
-      .populate('companyId', 'name logo')
+      .populate('companyId', 'companyProfile login email')
       .populate('jobOfferId'),
   );
 });

@@ -24,7 +24,7 @@ export interface IJobOffer extends Document {
 }
 
 const JobOfferSchema = new Schema<IJobOffer>({
-  company:            { type: Schema.Types.ObjectId, ref: 'Company' },
+  company:            { type: Schema.Types.ObjectId, ref: 'User' },
   jobOfferModel:      { type: Schema.Types.ObjectId, ref: 'JobOfferModel' },
   workingMode:        { type: String, enum: ['remote', 'onsite', 'hybrid', 'freelance'] },
   title:              String,

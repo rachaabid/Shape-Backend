@@ -7,14 +7,14 @@ import { runAutoMatchPipeline } from '../services/autoMatch.service';
 import { notifyAdmins } from './notification.controller';
 
 const OFFER_POPULATE = [
-  { path: 'company',              select: 'name logo' },
+  { path: 'company',              select: 'companyProfile login' },
   { path: 'jobOfferModel',        select: 'name' },
   { path: 'hardSkills.skill',     select: 'name' },
   { path: 'softwareSkills.skill', select: 'name' },
 ];
 
 const OFFER_POPULATE_DETAILED = [
-  { path: 'company',              select: 'name logo address' },
+  { path: 'company',              select: 'companyProfile login' },
   { path: 'jobOfferModel',        select: 'name' },
   { path: 'hardSkills.skill',     select: 'name' },
   { path: 'softwareSkills.skill', select: 'name' },

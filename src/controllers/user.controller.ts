@@ -1,7 +1,6 @@
 import { Request } from 'express';
 import bcrypt from 'bcryptjs';
 import User from '../models/User';
-import Company from '../models/Company';
 import NotificationSetting from '../models/NotificationSetting';
 import { signToken } from '../config/jwt';
 import { AuthRequest } from '../middleware/auth.middleware';
@@ -12,8 +11,8 @@ import { sendAccountValidationEmail, sendAccountRejectionEmail, sendPasswordRese
 import { notifyAdmins } from './notification.controller';
 
 const USER_SKILLS_POPULATE = [
-  { path: 'hardSkills.skill', select: '_id name' },
-  { path: 'softwares.skill',  select: '_id name' },
+  { path: 'candidateProfile.hardSkills.skill', select: '_id name' },
+  { path: 'candidateProfile.softwares.skill',  select: '_id name' },
 ];
 
 const BCRYPT_ROUNDS = 10;
@@ -42,8 +41,12 @@ async function buildUserUpdate(
     updates['email'] = email;
   }
   if (password) updates['password'] = await bcrypt.hash(password, BCRYPT_ROUNDS);
-  if (updates['hardSkills']) updates['hardSkills'] = normalizeSkillArray(updates['hardSkills'] as any[]);
-  if (updates['softwares'])  updates['softwares']  = normalizeSkillArray(updates['softwares']  as any[]);
+  // Les compétences sont désormais portées par candidateProfile (sous-document).
+  const cp = updates['candidateProfile'] as any;
+  if (cp && typeof cp === 'object') {
+    if (cp.hardSkills) cp.hardSkills = normalizeSkillArray(cp.hardSkills);
+    if (cp.softwares)  cp.softwares  = normalizeSkillArray(cp.softwares);
+  }
   return updates;
 }
 
@@ -83,7 +86,8 @@ export const createUser = asyncHandler(async (req: Request, res) => {
   const user   = await User.create({ ...req.body, email, password: hashed, verifiedAccount: false });
 
   if (roles?.includes('COMPANY')) {
-    await Company.create({ name: { fr: companyName || login }, owner: user._id });
+    user.companyProfile = { ...(user.companyProfile || {}), companyName: { fr: companyName || login } };
+    await user.save();
   }
   await NotificationSetting.create({ userId: user._id });
 
