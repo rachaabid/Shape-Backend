@@ -17,7 +17,7 @@ export interface IInterview extends Document {
 
 const InterviewSchema = new Schema<IInterview>({
   applicationId:        { type: Schema.Types.ObjectId, ref: 'JobOfferApplication', required: true },
-  companyId:            { type: Schema.Types.ObjectId, ref: 'Company',             required: true },
+  companyId:            { type: Schema.Types.ObjectId, ref: 'User',             required: true },
   candidateId:          { type: Schema.Types.ObjectId, ref: 'User',                required: true },
   jobOfferId:           { type: Schema.Types.ObjectId, ref: 'JobOffer',            required: true },
   scheduledAt:          { type: Date, required: true },

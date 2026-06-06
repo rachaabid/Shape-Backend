@@ -16,7 +16,7 @@ export interface ICompanyTrainingProposal extends Document {
 }
 
 const CompanyTrainingProposalSchema = new Schema<ICompanyTrainingProposal>({
-  company:        { type: Schema.Types.ObjectId, ref: 'Company', required: true },
+  company:        { type: Schema.Types.ObjectId, ref: 'User', required: true },
   proposedBy:     { type: Schema.Types.ObjectId, ref: 'User',    required: true },
   title:          { type: String, required: true },
   description:    String,

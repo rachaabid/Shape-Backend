@@ -1,10 +1,7 @@
 import { Request } from 'express';
 import mongoose from 'mongoose';
 import Career        from '../models/Career';
-import HardSkill     from '../models/HardSkill';
-import SoftSkill     from '../models/SoftSkill';
-import SoftwareSkill from '../models/SoftwareSkill';
-import FocusedSkill  from '../models/FocusedSkill';
+import Skill, { SkillType } from '../models/Skill';
 import JobOfferModel from '../models/JobOfferModel';
 import Training       from '../models/Training';
 import Quiz          from '../models/Quiz';
@@ -98,20 +95,77 @@ function makeCrud(Model: mongoose.Model<any>) {
   };
 }
 
+/** Variante CRUD pour le modèle Skill unifié : toutes les opérations sont
+ *  cantonnées à un `type` (HARD/SOFTWARE/FOCUSED/SOFT) et le type est injecté
+ *  à la création. Les anciens endpoints (/HardSkill, /SoftwareSkill, …) restent
+ *  donc identiques côté contrat d'API. */
+function makeSkillCrud(type: SkillType) {
+  const withType = (filter: any = {}) => ({ ...filter, type });
+  const clean = (body: any) => { const f: any = { ...body, type }; delete f._id; delete f.id; return f; };
+  const reqId = (req: Request) => req.params['id'] || req.body._id || req.body.id;
+
+  return {
+    getAll: asyncHandler(async (req, res) => {
+      const { skip, limit } = paginate(req);
+      res.json(await Skill.find(withType({ archived: { $ne: true } })).skip(skip).limit(limit));
+    }),
+    getArchived: asyncHandler(async (_req, res) =>
+      res.json(await Skill.find(withType({ archived: true })).sort({ updatedAt: -1 }))),
+    archive: asyncHandler(async (req, res) => {
+      const item = await Skill.findOneAndUpdate(withType({ _id: req.params['id'] }), { archived: true }, { new: true });
+      if (!item) throw HttpError.notFound(); res.json(item);
+    }),
+    unarchive: asyncHandler(async (req, res) => {
+      const item = await Skill.findOneAndUpdate(withType({ _id: req.params['id'] }), { archived: false }, { new: true });
+      if (!item) throw HttpError.notFound(); res.json(item);
+    }),
+    getById: asyncHandler(async (req, res) => {
+      const item = await Skill.findOne(withType({ _id: req.params['id'] }));
+      if (!item) throw HttpError.notFound(); res.json(item);
+    }),
+    create: asyncHandler(async (req, res) => res.status(201).json(await Skill.create(clean(req.body)))),
+    update: asyncHandler(async (req, res) => {
+      const id = reqId(req);
+      if (!id) throw HttpError.badRequest('id manquant dans le body');
+      const item = await Skill.findOneAndUpdate(withType({ _id: id }), clean(req.body), { new: true });
+      if (!item) throw HttpError.notFound(); res.json(item);
+    }),
+    patch: asyncHandler(async (req, res) => {
+      const id = reqId(req);
+      if (!id) throw HttpError.badRequest('id manquant');
+      const item = await Skill.findOneAndUpdate(withType({ _id: id }), { $set: clean(req.body) }, { new: true });
+      if (!item) throw HttpError.notFound(); res.json(item);
+    }),
+    remove: asyncHandler(async (req, res) => {
+      await Skill.findOneAndDelete(withType({ _id: req.params['id'] })); res.status(204).send();
+    }),
+    count: asyncHandler(async (_req, res) => res.json(await Skill.countDocuments(withType()))),
+    getByAttribute: asyncHandler(async (req, res) => {
+      const { skip, limit } = paginate(req);
+      const { attributeName, value } = req.params;
+      res.json(await Skill.find(withType({ [attributeName]: value })).skip(skip).limit(limit));
+    }),
+    countByAttribute: asyncHandler(async (req, res) => {
+      const { attributeName, value } = req.params;
+      res.json(await Skill.countDocuments(withType({ [attributeName]: value })));
+    }),
+  };
+}
+
 export const career        = makeCrud(Career);
-export const hardSkill     = makeCrud(HardSkill);
-export const softSkill     = makeCrud(SoftSkill);
-export const softwareSkill = makeCrud(SoftwareSkill);
-export const focusedSkill  = makeCrud(FocusedSkill);
+export const hardSkill     = makeSkillCrud('HARD');
+export const softSkill     = makeSkillCrud('SOFT');
+export const softwareSkill = makeSkillCrud('SOFTWARE');
+export const focusedSkill  = makeSkillCrud('FOCUSED');
 export const jobOfferModel = makeCrud(JobOfferModel);
 
 // Cross-count helpers
 export const countSoftwareSkillHandler = asyncHandler(async (_req, res) =>
-  res.json(await SoftwareSkill.countDocuments()));
+  res.json(await Skill.countDocuments({ type: 'SOFTWARE' })));
 export const countFocusedSkillHandler  = asyncHandler(async (_req, res) =>
-  res.json(await FocusedSkill.countDocuments()));
+  res.json(await Skill.countDocuments({ type: 'FOCUSED' })));
 export const countHardSkillHandler     = asyncHandler(async (_req, res) =>
-  res.json(await HardSkill.countDocuments()));
+  res.json(await Skill.countDocuments({ type: 'HARD' })));
 
 // Legacy named exports (kept for backward compat)
 export const getHardSkills        = hardSkill.getAll;

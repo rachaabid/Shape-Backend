@@ -1,7 +1,5 @@
 import cron from 'node-cron';
 import Interview from '../models/Interview';
-import User from '../models/User';
-import Company from '../models/Company';
 import JobOffer from '../models/JobOffer';
 import { sendInterviewReminder } from './email.service';
 
@@ -23,16 +21,16 @@ export const startScheduler = (): void => {
 
       for (const interview of upcoming) {
         const candidate = interview.candidateId as any;
-        const company   = interview.companyId   as any;
+        const company   = interview.companyId   as any; // User (rôle COMPANY)
         const offer     = interview.jobOfferId   as any;
 
-        const companyUser = await User.findById(company.userId);
+        const cName = company.companyProfile?.companyName;
 
         await sendInterviewReminder({
           candidateName:  `${candidate.firstName?.fr || candidate.login}`,
           candidateEmail: candidate.email,
-          companyName:    company.name,
-          companyEmail:   companyUser?.email || '',
+          companyName:    cName?.fr || cName?.en || company.login,
+          companyEmail:   company.email || '',
           jobTitle:       offer.title,
           scheduledAt:    interview.scheduledAt,
           channelName:    interview.channelName,

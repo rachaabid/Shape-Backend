@@ -24,7 +24,7 @@ export interface IJobOffer extends Document {
 }
 
 const JobOfferSchema = new Schema<IJobOffer>({
-  company:            { type: Schema.Types.ObjectId, ref: 'Company' },
+  company:            { type: Schema.Types.ObjectId, ref: 'User' },
   jobOfferModel:      { type: Schema.Types.ObjectId, ref: 'JobOfferModel' },
   workingMode:        { type: String, enum: ['remote', 'onsite', 'hybrid', 'freelance'] },
   title:              String,
@@ -34,8 +34,8 @@ const JobOfferSchema = new Schema<IJobOffer>({
   recruitmentProcess: String,
   profilesNeeded:     { type: Number, default: 1 },
   softSkills:         [String],
-  hardSkills:         [{ skill: { type: Schema.Types.ObjectId, ref: 'HardSkill' }, level: Number }],
-  softwareSkills:     [{ skill: { type: Schema.Types.ObjectId, ref: 'SoftwareSkill' }, level: Number }],
+  hardSkills:         [{ skill: { type: Schema.Types.ObjectId, ref: 'Skill' }, level: Number }],
+  softwareSkills:     [{ skill: { type: Schema.Types.ObjectId, ref: 'Skill' }, level: Number }],
   attributes:         [{ key: String, value: String, type: Number }],
   status:             { type: String, default: 'open' },
   salaryMin:          { type: Number, default: null },

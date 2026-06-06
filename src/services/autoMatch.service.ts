@@ -1,5 +1,4 @@
 import User             from '../models/User';
-import Company          from '../models/Company';
 import JobOffer         from '../models/JobOffer';
 import Application      from '../models/JobOfferApplication';
 import Interview        from '../models/Interview';
@@ -149,10 +148,11 @@ const computeBehaviorScoresForCandidates = async (ids: string[]): Promise<Record
   for (const u of users) {
     let score = 0;
     const ua = u as any;
-    if (ua.hardSkills?.length > 0) score += 25;
-    if (ua.softSkills?.length  > 0) score += 25;
-    if (ua.softwares?.length   > 0) score += 25;
-    if (ua.cvUrl || ua.cv)          score += 25;
+    const cp = ua.candidateProfile || {};
+    if (cp.hardSkills?.length > 0) score += 25;
+    if (cp.softSkills?.length > 0) score += 25;
+    if (cp.softwares?.length  > 0) score += 25;
+    if (cp.cvStorage || ua.cvUrl || ua.cv) score += 25;
     result[u._id.toString()] = score;
   }
   return result;
@@ -234,8 +234,8 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
       }).populate({
         path: 'user', select: '-password',
         populate: [
-          { path: 'hardSkills.skill', model: 'HardSkill' },
-          { path: 'softwares.skill',  model: 'SoftwareSkill' },
+          { path: 'candidateProfile.hardSkills.skill', model: 'Skill' },
+          { path: 'candidateProfile.softwares.skill',  model: 'Skill' },
         ],
       });
 
@@ -243,8 +243,8 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
       const app = await Application.findById(options.applicationId).populate({
         path: 'user', select: '-password',
         populate: [
-          { path: 'hardSkills.skill', model: 'HardSkill' },
-          { path: 'softwares.skill',  model: 'SoftwareSkill' },
+          { path: 'candidateProfile.hardSkills.skill', model: 'Skill' },
+          { path: 'candidateProfile.softwares.skill',  model: 'Skill' },
         ],
       });
       if (!app) return;
@@ -258,11 +258,12 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
 
     if (!offer || applications.length === 0) return;
 
-    const company      = await Company.findById(offer.company);
-    if (!company) return;
-    const companyUser  = await User.findById((company as any).owner);
-    const companyEmail = companyUser?.email || '';
-    const companyName  = (company.name as any)?.fr || (company.name as any)?.en || 'Entreprise';
+    // L'entreprise est désormais un User (rôle COMPANY) : offer.company == User._id.
+    const companyUser  = await User.findById(offer.company);
+    if (!companyUser) return;
+    const companyEmail = companyUser.email || '';
+    const cName        = (companyUser.companyProfile as any)?.companyName;
+    const companyName  = cName?.fr || cName?.en || 'Entreprise';
     const jobTitle     = offer.title || 'Poste';
 
     const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`;
@@ -271,11 +272,12 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
       .filter((a: any) => a.user)
       .map((a: any) => {
         const u = a.user;
+        const cp = u.candidateProfile || {};
         return {
           id:         u._id.toString(),
-          hardSkills: (u.hardSkills || []).map((s: any) => ({ skill: getSkillName(s), level: s.level ?? 1 })).filter((s: any) => s.skill),
-          softwares:  (u.softwares  || []).map((s: any) => ({ skill: getSkillName(s), level: s.level ?? 1 })).filter((s: any) => s.skill),
-          softSkills: u.softSkills  || [],
+          hardSkills: (cp.hardSkills || []).map((s: any) => ({ skill: getSkillName(s), level: s.level ?? 1 })).filter((s: any) => s.skill),
+          softwares:  (cp.softwares  || []).map((s: any) => ({ skill: getSkillName(s), level: s.level ?? 1 })).filter((s: any) => s.skill),
+          softSkills: cp.softSkills  || [],
           cvUrl:      a.cv ? `${backendUrl}/api/Storage/${a.cv}` : undefined,
         };
       });
@@ -359,7 +361,7 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
       } else {
         // ── Score >= 70 ───────────────────────────────────────────
         if (isRealApplication) {
-          const proposedDate = await nextSlot(company._id.toString());
+          const proposedDate = await nextSlot(companyUser._id.toString());
           await Application.findByIdAndUpdate(app._id, { ...scoreUpdate, proposedDate });
 
           await Notification.create({
