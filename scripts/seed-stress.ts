@@ -46,6 +46,24 @@ const daysAgo  = (n: number) => new Date(Date.now() - n * 86_400_000);
 const daysAhead = (n: number) => new Date(Date.now() + n * 86_400_000);
 const chance = (p: number) => Math.random() < p;
 
+// Normalise un texte en slug (sans accents/espaces) pour login & email.
+const slug = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/[^a-z0-9]+/g, '');
+
+// Génère une identité réaliste et UNIQUE (login + email dérivés du nom).
+const usedLogins = new Set<string>();
+const EMAIL_DOMAINS = ['gmail.com', 'outlook.com', 'yahoo.fr', 'hotmail.fr'];
+function uniquePerson(domain?: string): { firstName: string; lastName: string; login: string; email: string } {
+  const firstName = pick(FIRST_NAMES);
+  const lastName  = pick(LAST_NAMES);
+  const base = `${slug(firstName)}.${slug(lastName)}`;
+  let login = base, n = 1;
+  while (usedLogins.has(login)) login = `${base}${++n}`;
+  usedLogins.add(login);
+  const email = `${login}@${domain ?? pick(EMAIL_DOMAINS)}`;
+  return { firstName, lastName, login, email };
+}
+
 // ── Données de base ────────────────────────────────────────────────
 const FIRST_NAMES = ['Sarah','Mohamed','Leila','Thomas','Fatima','Lucas','Yasmine','Antoine','Amira','Mathieu','Rania','Kevin','Houda','Pierre','Nadia','Karim','Samira','David','Meriem','Théo','Imane','Hugo','Sonia','Walid','Inès','Ayoub','Chloé','Bilal','Manon','Omar','Camille','Sami','Julie','Nabil','Laura','Reda','Emma','Ziad','Sophie','Anis'];
 const LAST_NAMES  = ['Dubois','Amara','Mansouri','Martin','Benali','Bernard','Khelifi','Dupont','Touati','Leroy','Saidi','Moreau','Chakroun','Lambert','Bouzid','Haddad','Hadj','Richard','Trabelsi','Fontaine','Bensalem','Garnier','Cherif','Brahimi','Faure','Slimani','Roux','Othmani','Girard','Nasri'];
@@ -61,13 +79,23 @@ const COUNTRIES = [
   // cas limite : seulement l'arabe
   { name: { ar: 'الإمارات' },                             code: 'AE', flag: '🇦🇪' },
 ];
-const HARD_SKILLS = ['SEO / Référencement','Social Media Marketing','Marketing de contenu','Email Marketing','Google Ads / SEA','Analyse web / Analytics','Community Management','Marketing d\'influence','Copywriting','Growth Hacking','E-commerce','Stratégie digitale','Création vidéo','A/B Testing','Gestion de campagnes'];
-const SOFT_SKILLS = ['Créativité','Communication','Organisation','Rigueur','Curiosité','Analyse','Leadership','Adaptabilité','Autonomie','Storytelling','Initiative','Résilience'];
-const SOFTWARES   = ['Hootsuite','Canva','Meta Business Suite','SEMrush','Ahrefs','Google Search Console','Mailchimp','Klaviyo','HubSpot','Google Analytics','Notion','Buffer','Adobe Premiere Pro','WordPress','Shopify','CapCut','Figma','Trello'];
-const FOCUSED     = ['Marketing Digital','Branding','Data Marketing','UX Writing','Stratégie de marque'];
-const CAREERS     = ['Community Manager','Spécialiste SEO','Créateur de contenu','Chargé de publicité','Responsable Marketing','Growth Marketer','Brand Manager'];
-const DOMAINS     = ['Marketing','Communication','Digital','Vente','Data'];
-const PROGRAM_TITLES = ['Social Media Marketing','SEO & Référencement','Content Marketing','Email Marketing','Google Ads & Paid Media','Analytics & Data','Community Management','Marketing d\'influence','Growth Hacking','E-commerce','Brand Strategy','UX Writing','Video Marketing','Influencer Relations','Marketing Automation'];
+// Compétences techniques (HARD) — tout le digital : dev, marketing, data, design, cloud…
+const HARD_SKILLS = ['JavaScript','TypeScript','Python','React','Angular','Node.js','API REST','SQL','Docker','Cloud AWS','Machine Learning','Data Analyse','Big Data','SEO / Référencement','Google Ads / SEA','Social Media Marketing','Marketing de contenu','Email Marketing','Community Management','Growth Hacking','UX / UI Design','Motion Design','Copywriting','E-commerce','Cybersécurité','DevOps'];
+// Soft skills (transverses)
+const SOFT_SKILLS = ['Communication','Travail en équipe','Résolution de problèmes','Autonomie','Rigueur','Adaptabilité','Esprit d\'analyse','Curiosité','Gestion du temps','Leadership','Créativité','Esprit critique'];
+// Outils & logiciels (SOFTWARE) — dev, marketing, design, data…
+const SOFTWARES   = ['VS Code','Git','Docker','Postman','MongoDB','PostgreSQL','Figma','Adobe XD','Adobe Photoshop','Canva','Google Analytics','Google Search Console','SEMrush','HubSpot','Mailchimp','Meta Business Suite','WordPress','Notion','Jira','Power BI','Tableau','Trello'];
+// Focused skills = qualités personnelles (texte libre saisi dans le formulaire)
+const FOCUSED     = ['Gestion du stress','Polyvalence','Prise d\'initiative','Sens de l\'organisation','Capacité d\'adaptation','Résistance à la pression','Curiosité intellectuelle','Persévérance','Sens du détail','Esprit d\'équipe','Gestion du temps','Autonomie'];
+// Métiers du digital
+const CAREERS     = ['Développeur Full-Stack','Développeur Front-End','Ingénieur DevOps','Data Scientist','Data Analyst','UX/UI Designer','Community Manager','Spécialiste SEO','Growth Marketer','Traffic Manager','Chef de projet digital','Développeur Mobile','Analyste Cybersécurité','Product Owner'];
+const DOMAINS     = ['Développement','Marketing Digital','Data & IA','Design','Cloud & DevOps','Cybersécurité','E-commerce'];
+// Intitulés de formations (tout le digital)
+const TRAINING_TITLES = ['Développement Web Full-Stack','React & TypeScript','Marketing Digital & SEO','Social Media & Community Management','Google Ads & Publicité en ligne','Data Science avec Python','Machine Learning & IA','UX/UI Design avec Figma','DevOps avec Docker & Kubernetes','Cloud Computing AWS','Cybersécurité Offensive','E-commerce & Growth Hacking','Développement Mobile Flutter','Content Marketing & Copywriting','Data Analyse & Power BI','Java & Spring Boot'];
+// Entreprises tech (FR / Maghreb) — 25 noms distincts
+const COMPANY_NAMES = ['Capgemini','Sopra Steria','Atos','OVHcloud','Devoteam','Talan','Orange Business','Thales Digital','Vermeg','Telnet','Proxym Group','Sofrecom','InstaDeep','Expensya','Wevioo','Linedata','Vneuron','Cynapsys','Sagemcom','Actia Engineering','BIAT Tech','Softeam','Wimobi','Focus Corporation','GFI Tunisie'];
+// Villes (sièges)
+const CITIES = ['Paris, La Défense','Lyon, Part-Dieu','Nantes, Île de Nantes','Toulouse, Labège','Tunis, Lac 2','Sfax, Technopole','Casablanca, Casanearshore','Alger, Bab Ezzouar','Sophia Antipolis','Lille, EuraTechnologies'];
 // Statuts de candidature : 0=AutoSuggested 1=Applied 2=Rejected 3=Interview 4=Hired 5=Intern
 
 async function seed() {
@@ -93,14 +121,89 @@ async function seed() {
   console.log('🗑️  Toutes les collections vidées');
 
   // ── 2. Référentiel ────────────────────────────────────────────────
+  // Descriptions des compétences (affichées dans le back-office / profils).
+  const SKILL_DESC: Record<string, string> = {
+    // — Compétences techniques —
+    'JavaScript': 'Langage de programmation incontournable du web, côté client et serveur.',
+    'TypeScript': 'Sur-ensemble typé de JavaScript pour des applications robustes et maintenables.',
+    'Python': 'Langage polyvalent très prisé en data science, IA et automatisation.',
+    'React': 'Bibliothèque JavaScript pour construire des interfaces utilisateur réactives.',
+    'Angular': 'Framework front-end complet pour les applications web d\'entreprise.',
+    'Node.js': 'Environnement d\'exécution JavaScript côté serveur pour des API performantes.',
+    'API REST': 'Conception d\'interfaces web standardisées pour l\'échange de données.',
+    'SQL': 'Langage de requêtes pour manipuler les bases de données relationnelles.',
+    'Docker': 'Conteneurisation des applications pour des déploiements reproductibles.',
+    'Cloud AWS': 'Services cloud d\'Amazon pour héberger et faire évoluer les applications.',
+    'Machine Learning': 'Conception de modèles d\'apprentissage automatique à partir de données.',
+    'Data Analyse': 'Exploitation et interprétation des données pour la prise de décision.',
+    'Big Data': 'Traitement et analyse de très grands volumes de données distribuées.',
+    'SEO / Référencement': 'Optimisation de la visibilité d\'un site sur les moteurs de recherche.',
+    'Google Ads / SEA': 'Gestion de campagnes publicitaires payantes sur les moteurs de recherche.',
+    'Social Media Marketing': 'Stratégie et animation des réseaux sociaux pour une marque.',
+    'Marketing de contenu': 'Création de contenus à valeur ajoutée pour attirer et fidéliser.',
+    'Email Marketing': 'Conception de campagnes email et de scénarios d\'automatisation.',
+    'Community Management': 'Animation et modération d\'une communauté en ligne.',
+    'Growth Hacking': 'Techniques d\'acquisition et de croissance rapide pilotées par la data.',
+    'UX / UI Design': 'Conception d\'expériences et d\'interfaces utilisateur ergonomiques.',
+    'Motion Design': 'Création d\'animations graphiques pour le web et la vidéo.',
+    'Copywriting': 'Rédaction persuasive orientée conversion.',
+    'E-commerce': 'Gestion et optimisation d\'une boutique en ligne.',
+    'Cybersécurité': 'Protection des systèmes et des données contre les menaces.',
+    'DevOps': 'Pratiques d\'intégration et de déploiement continus (CI/CD).',
+    // — Outils & logiciels —
+    'VS Code': 'Éditeur de code léger et extensible, très répandu.',
+    'Git': 'Système de gestion de versions pour le travail collaboratif.',
+    'Postman': 'Outil de test et de documentation d\'API.',
+    'MongoDB': 'Base de données NoSQL orientée documents.',
+    'PostgreSQL': 'Base de données relationnelle open source robuste.',
+    'Figma': 'Outil de design d\'interfaces collaboratif.',
+    'Adobe XD': 'Outil de prototypage et de design d\'expérience utilisateur.',
+    'Adobe Photoshop': 'Logiciel de référence pour la retouche et la création graphique.',
+    'Canva': 'Outil de création graphique simple et collaboratif.',
+    'Google Analytics': 'Mesure et analyse du trafic et des conversions d\'un site.',
+    'Google Search Console': 'Suivi de la performance d\'un site dans la recherche Google.',
+    'SEMrush': 'Suite d\'outils SEO et d\'analyse concurrentielle.',
+    'HubSpot': 'Plateforme CRM et de marketing automation.',
+    'Mailchimp': 'Plateforme d\'email marketing et d\'automatisation.',
+    'Meta Business Suite': 'Gestion des pages et publicités Facebook / Instagram.',
+    'WordPress': 'Système de gestion de contenu pour créer des sites web.',
+    'Notion': 'Outil de productivité et de documentation collaborative.',
+    'Jira': 'Outil de gestion de projet agile et de suivi des tickets.',
+    'Power BI': 'Outil de visualisation de données et de business intelligence.',
+    'Tableau': 'Plateforme de visualisation et d\'exploration de données.',
+    'Trello': 'Gestion de tâches sous forme de tableaux kanban.',
+  };
+  const descOf = (n: string, fallback: string) => SKILL_DESC[n] ?? fallback;
+
   const hardSkills: any[] = await Skill.insertMany(
-    HARD_SKILLS.map((n, i) => ({ name: { fr: n, en: n, ...(i % 4 ? { ar: n } : {}) }, category: pick(DOMAINS), type: 'HARD' })),
+    HARD_SKILLS.map((n, i) => ({
+      name: { fr: n, en: n, ...(i % 4 ? { ar: n } : {}) },
+      description: { fr: descOf(n, `Compétence technique : ${n}.`) },
+      category: pick(DOMAINS), type: 'HARD',
+    })),
   );
   const softwares: any[] = await Skill.insertMany(
-    SOFTWARES.map((n, i) => ({ name: { fr: n, en: n, ...(i % 3 ? { ar: n } : {}) }, category: 'Outil', type: 'SOFTWARE' })),
+    SOFTWARES.map((n, i) => ({
+      name: { fr: n, en: n, ...(i % 3 ? { ar: n } : {}) },
+      description: { fr: descOf(n, `Outil utilisé dans le digital : ${n}.`) },
+      category: 'Outil', type: 'SOFTWARE',
+    })),
   );
-  const focused: any[] = await Skill.insertMany(
-    FOCUSED.map(n => ({ name: { fr: n, en: n }, category: 'Marketing', type: 'FOCUSED' })),
+  // Référentiel des qualités (géré dans le back-office ; côté candidat c'est du texte libre)
+  await Skill.insertMany(
+    FOCUSED.map(n => ({
+      name: { fr: n, en: n },
+      description: { fr: `${n} — savoir-être personnel valorisé en milieu professionnel.` },
+      category: 'Qualité personnelle', type: 'FOCUSED',
+    })),
+  );
+  // Référentiel des soft skills (sélection multiple + niveau côté candidat, comme hard/software)
+  const softSkillRefs: any[] = await Skill.insertMany(
+    SOFT_SKILLS.map(n => ({
+      name: { fr: n, en: n },
+      description: { fr: `Compétence humaine : ${n.toLowerCase()}.` },
+      category: 'Compétence humaine', type: 'SOFT',
+    })),
   );
   const jobModels: any[] = await JobOfferModel.insertMany([
     { name: { fr: 'CDI',        en: 'Permanent'   } },
@@ -117,74 +220,77 @@ async function seed() {
 
   // ── 3. Contenus (Quiz / TextBloc / Video) pour les programmes ─────
   const quizzes: any[] = await Quiz.insertMany(
-    Array.from({ length: 20 }, (_, i) => ({
-      title: { fr: `Quiz ${i + 1}`, en: `Quiz ${i + 1}` },
-      online: true, duration: 10 + rnd(20), deadLineInHours: 72,
-      keyWords: pickN(SOFT_SKILLS, 3),
-      sections: [{
-        text: { fr: 'Section 1' },
-        questions: [{
-          text: { fr: 'Question exemple ?' },
-          questionType: 'single',
-          options: [
-            { text: { fr: 'Réponse A' }, score: 1 },
-            { text: { fr: 'Réponse B' }, score: 0 },
-          ],
+    Array.from({ length: 20 }, (_, i) => {
+      const topic = TRAINING_TITLES[i % TRAINING_TITLES.length];
+      return {
+        title: { fr: `Quiz — ${topic}`, en: `Quiz — ${topic}` },
+        online: true, duration: 10 + rnd(20), deadLineInHours: 72,
+        keyWords: pickN(HARD_SKILLS, 3),
+        sections: [{
+          text: { fr: 'Notions fondamentales' },
+          questions: [{
+            text: { fr: `Quelle affirmation décrit le mieux ${topic} ?` },
+            questionType: 'single',
+            options: [
+              { text: { fr: 'Réponse correcte' }, score: 1 },
+              { text: { fr: 'Réponse incorrecte' }, score: 0 },
+            ],
+          }],
         }],
-      }],
-    })),
+      };
+    }),
   );
   const textBlocs: any[] = await TextBloc.insertMany(
-    Array.from({ length: 20 }, (_, i) => ({
-      title: { fr: `Leçon ${i + 1}`, en: `Lesson ${i + 1}` },
-      online: true, keyWords: pickN(HARD_SKILLS, 2),
-      html: `<h2>Leçon ${i + 1}</h2><p>Contenu pédagogique de test pour la leçon ${i + 1}.</p>`,
-    })),
+    Array.from({ length: 20 }, (_, i) => {
+      const topic = HARD_SKILLS[i % HARD_SKILLS.length];
+      return {
+        title: { fr: `Cours : ${topic}`, en: `Course: ${topic}` },
+        online: true, keyWords: [topic],
+        html: `<h2>${topic}</h2><p>Concepts clés, bonnes pratiques et exemples de code autour de ${topic}.</p>`,
+      };
+    }),
   );
   const videos: any[] = await VideoYoutube.insertMany(
-    Array.from({ length: 20 }, (_, i) => ({
-      title: { fr: `Vidéo ${i + 1}`, en: `Video ${i + 1}` },
-      online: true, keyWords: pickN(HARD_SKILLS, 2),
-      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    })),
+    Array.from({ length: 20 }, (_, i) => {
+      const topic = HARD_SKILLS[(i + 5) % HARD_SKILLS.length];
+      return {
+        title: { fr: `Tutoriel vidéo : ${topic}`, en: `Video tutorial: ${topic}` },
+        online: true, keyWords: [topic],
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      };
+    }),
   );
 
   // ── 3a. Tâches pour les programmes (créées ici pour être disponibles à l'étape 5) ──
   const trainingTasks: any[] = await Task.insertMany(
-    Array.from({ length: 20 }, (_, i) => ({
-      title: { fr: `Tâche programme ${i + 1}`, en: `Training Task ${i + 1}` },
-      description: { fr: `Exercice pratique ${i + 1} à rendre dans les délais.` },
-      keyWords: pickN(HARD_SKILLS, 2),
-      online: true, deadLineInHours: 24 + rnd(96),
-    })),
+    Array.from({ length: 20 }, (_, i) => {
+      const topic = HARD_SKILLS[(i + 10) % HARD_SKILLS.length];
+      return {
+        title: { fr: `TP : ${topic}`, en: `Lab: ${topic}` },
+        description: { fr: `Mettez en pratique ${topic} : implémentez la solution et rendez votre code dans les délais.` },
+        keyWords: [topic],
+        online: true, deadLineInHours: 24 + rnd(96),
+      };
+    }),
   );
   console.log(`✅ ${trainingTasks.length} tâches-programme créées`);
 
   // ── 3b. Documentation (ressources PDF pour les cours) ────────────────
   const DOC_SAMPLES = [
     {
-      title: { fr: 'Introduction au Marketing Digital', en: 'Introduction to Digital Marketing' },
-      description: { fr: 'Guide complet pour démarrer en marketing digital.' },
-      keyWords: ['marketing', 'digital', 'SEO'],
+      title: { fr: 'Fondamentaux du Développement Web', en: 'Web Development Fundamentals' },
+      description: { fr: 'HTML, CSS, JavaScript et les bases du web moderne.' },
+      keyWords: ['HTML/CSS', 'JavaScript', 'Web'],
       online: true,
       documents: [
-        { title: { fr: 'Guide PDF' }, url: 'https://www.w3.org/WAI/WCAG21/wcag21.pdf' },
-        { title: { fr: 'Fiche résumé' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
+        { title: { fr: 'Guide HTML/CSS (PDF)' }, url: 'https://www.w3.org/WAI/WCAG21/wcag21.pdf' },
+        { title: { fr: 'Aide-mémoire JavaScript' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
       ],
     },
     {
-      title: { fr: 'Stratégie de Contenu', en: 'Content Strategy' },
-      description: { fr: 'Apprenez à créer une stratégie de contenu efficace.' },
-      keyWords: ['contenu', 'stratégie', 'copywriting'],
-      online: true,
-      documents: [
-        { title: { fr: 'Template stratégie' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
-      ],
-    },
-    {
-      title: { fr: 'SEO & Référencement', en: 'SEO & Search Engine Optimization' },
-      description: { fr: 'Les bases du référencement naturel et les bonnes pratiques.' },
-      keyWords: ['SEO', 'référencement', 'Google'],
+      title: { fr: 'Marketing Digital & SEO', en: 'Digital Marketing & SEO' },
+      description: { fr: 'Référencement naturel, Google Ads et stratégie d\'acquisition.' },
+      keyWords: ['SEO', 'Marketing Digital', 'Google Ads'],
       online: true,
       documents: [
         { title: { fr: 'Checklist SEO' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
@@ -192,22 +298,31 @@ async function seed() {
       ],
     },
     {
-      title: { fr: 'Community Management', en: 'Community Management' },
-      description: { fr: 'Gérer et animer une communauté en ligne.' },
-      keyWords: ['community', 'réseaux sociaux', 'engagement'],
+      title: { fr: 'Data Science avec Python', en: 'Data Science with Python' },
+      description: { fr: 'Analyse de données, visualisation et machine learning.' },
+      keyWords: ['Python', 'Data', 'Machine Learning'],
       online: true,
       documents: [
-        { title: { fr: 'Calendrier éditorial' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
+        { title: { fr: 'Notebook d\'exemple' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
       ],
     },
     {
-      title: { fr: 'Email Marketing', en: 'Email Marketing' },
-      description: { fr: 'Créer des campagnes email performantes.' },
-      keyWords: ['email', 'newsletter', 'conversion'],
+      title: { fr: 'UX/UI Design avec Figma', en: 'UX/UI Design with Figma' },
+      description: { fr: 'Concevoir des interfaces utilisateur ergonomiques et esthétiques.' },
+      keyWords: ['UX/UI Design', 'Figma', 'Design'],
       online: true,
       documents: [
-        { title: { fr: 'Templates email' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
-        { title: { fr: 'Guide Mailchimp' }, url: 'https://www.w3.org/WAI/WCAG21/wcag21.pdf' },
+        { title: { fr: 'Guide des bonnes pratiques UX' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
+      ],
+    },
+    {
+      title: { fr: 'DevOps & Cloud AWS', en: 'DevOps & AWS Cloud' },
+      description: { fr: 'Conteneurisation, CI/CD et déploiement sur le cloud.' },
+      keyWords: ['Docker', 'DevOps', 'Cloud AWS'],
+      online: true,
+      documents: [
+        { title: { fr: 'Guide Docker' }, url: 'https://www.africau.edu/images/default/sample.pdf' },
+        { title: { fr: 'Pipeline CI/CD' }, url: 'https://www.w3.org/WAI/WCAG21/wcag21.pdf' },
       ],
     },
   ];
@@ -217,10 +332,15 @@ async function seed() {
   // ── 4. Mentors (créés avant les programmes pour l'assignation owner) ─
   const mentors: any[] = [];
   for (let i = 0; i < 20; i++) {
+    const p = uniquePerson();
+    const expertise = pickN(FOCUSED, 1 + rnd(2));
     const m = await User.create({
-      login: `mentor${i}`, email: `mentor${i}@shape-test.com`, password: pw,
-      roles: ['MENTOR'], firstName: { fr: pick(FIRST_NAMES), en: pick(FIRST_NAMES) },
-      lastName: { fr: pick(LAST_NAMES) }, jobTitle: pick(CAREERS),
+      login: p.login, email: p.email, password: pw,
+      roles: ['MENTOR'],
+      firstName: { fr: p.firstName, en: p.firstName },
+      lastName:  { fr: p.lastName },
+      jobTitle:  pick(CAREERS),
+      mentorProfile: { expertise, bio: `Mentor spécialisé en ${expertise.join(' & ')}, ${5 + rnd(15)} ans d'expérience.` },
       verifiedAccount: true, createdAt: daysAgo(rnd(400)),
     });
     mentors.push(m);
@@ -229,13 +349,15 @@ async function seed() {
 
   // ── 5. Programmes (30 — variés, chaque mentor est owner d'1-2 prog) ─
   const trainingsPayload = Array.from({ length: 30 }, (_, i) => {
-    const title = `${pick(PROGRAM_TITLES)} ${i + 1}`;
+    const base    = TRAINING_TITLES[i % TRAINING_TITLES.length];
+    const session = i >= TRAINING_TITLES.length ? ` — Session ${Math.floor(i / TRAINING_TITLES.length) + 1}` : '';
+    const title   = `${base}${session}`;
     // 1 programme sur 6 est hors-ligne ; 1 sur 8 sans contenu (cas limites).
     const online   = i % 6 !== 0;
     const hasCourses = i % 8 !== 0;
     return {
       title: { fr: title, en: title, ...(i % 3 ? { ar: title } : {}) },
-      description: { fr: `Programme de formation ${title}.` },
+      description: { fr: `Formation ${base} : objectifs, prérequis et projet fil rouge.` },
       owner: mentors[i % mentors.length]._id,
       online, price: rnd(5) * 100, priceEur: rnd(5) * 30, duration: 4 + rnd(20),
       weeks: hasCourses ? (() => {
@@ -303,7 +425,8 @@ async function seed() {
     for (const week of (prog as any).weeks || []) {
       for (const lesson of (week.lessons || []) as any[]) {
         if (lesson.taskRef) {
-          await Task.findByIdAndUpdate(lesson.taskRef, { training: prog._id });
+          // La tâche appartient à la formation, donc au mentor propriétaire.
+          await Task.findByIdAndUpdate(lesson.taskRef, { training: prog._id, createdBy: prog.owner });
         }
       }
     }
@@ -315,12 +438,21 @@ async function seed() {
   for (let i = 0; i < 25; i++) {
     const verified = i % 7 !== 0;            // ~1/7 non vérifiée
     const deleted  = i === 24;               // 1 entreprise supprimée (soft)
+    const companyName = COMPANY_NAMES[i];
+    const cslug = slug(companyName);
+    let login = cslug, n = 1;
+    while (usedLogins.has(login)) login = `${cslug}${++n}`;
+    usedLogins.add(login);
+    const contact = uniquePerson();          // représentant RH de l'entreprise
     const u = await User.create({
-      login: `company${i}`, email: `company${i}@shape-test.com`, password: pw,
-      roles: ['COMPANY'], firstName: { fr: pick(FIRST_NAMES) }, lastName: { fr: pick(LAST_NAMES) },
+      login, email: `recrutement@${cslug}.com`, password: pw,
+      roles: ['COMPANY'],
+      firstName: { fr: contact.firstName }, lastName: { fr: contact.lastName },
       companyProfile: {
-        companyName: { fr: `Entreprise ${i}`, en: `Company ${i}` },
-        address:     { fr: `${pick(COUNTRIES).name.fr || 'Ville'}, ${10 + i} rue Test` },
+        companyName: { fr: companyName, en: companyName },
+        address:     { fr: pick(CITIES) },
+        sector:      'Technologies de l\'information',
+        website:     `https://www.${cslug}.com`,
       },
       verifiedAccount: verified, deleted, createdAt: daysAgo(rnd(500)),
     });
@@ -335,21 +467,23 @@ async function seed() {
     // ~1/9 non vérifié, 1/30 supprimé (cas limites).
     const verified = i % 9 !== 0;
     const deleted  = i % 30 === 29;
+    const p = uniquePerson();
     const c = await User.create({
-      login: `candidate${i}`, email: `candidate${i}@shape-test.com`, password: pw,
+      login: p.login, email: p.email, password: pw,
       roles: ['CANDIDATE'],
-      firstName: { fr: pick(FIRST_NAMES), ...(i % 4 ? { en: pick(FIRST_NAMES) } : {}) },
-      lastName:  { fr: pick(LAST_NAMES) },
+      firstName: { fr: p.firstName, ...(i % 4 ? { en: p.firstName } : {}) },
+      lastName:  { fr: p.lastName },
       gender: rnd(3), country: ctry.code,
       phoneNumber: chance(0.8) ? `+216 ${20000000 + rnd(9999999)}` : undefined,
       interfaceLanguage: pick(['fr', 'en', 'ar']),
       candidateProfile: {
         workingMode: pick(['Présentiel', 'Télétravail', 'Hybride']),
         languages: pickN(['fr', 'en', 'ar', 'es'], 1 + rnd(3)),
-        softSkills: pickN(SOFT_SKILLS, 1 + rnd(4)),
+        softSkills: pickN(softSkillRefs, 1 + rnd(4)).map(s => ({ skill: s._id, level: 1 + rnd(5) })),
         hardSkills: pickN(hardSkills, 1 + rnd(4)).map(s => ({ skill: s._id, level: 1 + rnd(5) })),
         softwares:  pickN(softwares,  1 + rnd(4)).map(s => ({ skill: s._id, level: 1 + rnd(5) })),
-        focusedSkills: pickN(focused, rnd(3)).map(s => s._id.toString()),
+        // texte libre saisi par le candidat (qualités personnelles)
+        focusedSkills: pickN(FOCUSED, 1 + rnd(3)),
       },
       verifiedAccount: verified, deleted,
       createdAt: daysAgo(rnd(540)),
@@ -369,12 +503,14 @@ async function seed() {
   for (let i = 0; i < 80; i++) {
     // L'entreprise 0 reçoit beaucoup d'offres ; l'entreprise 23 n'en reçoit aucune.
     const compIdx = i < 20 ? 0 : 1 + rnd(22);
+    const role = pick(CAREERS);
+    const seniority = pick(['Junior', 'Confirmé', 'Senior', '']);
     const o = await JobOffer.create({
       company: companyUsers[compIdx]._id,
       jobOfferModel: pick(jobModels)._id,
       workingMode: pick(['remote', 'onsite', 'hybrid', 'freelance']),
-      title: `Offre ${i} — ${pick(CAREERS)}`,
-      description: `Description détaillée de l'offre ${i}.`,
+      title: `${role} ${seniority} (H/F)`.replace(/\s+\(/, ' (').trim(),
+      description: `Nous recherchons un(e) ${role} pour rejoindre nos équipes et contribuer à des projets digitaux innovants.`,
       profilesNeeded: 1 + rnd(4),
       softSkills: pickN(SOFT_SKILLS, 2 + rnd(3)),
       hardSkills: pickN(hardSkills, 2 + rnd(3)).map(s => ({ skill: s._id, level: 1 + rnd(5) })),
@@ -427,24 +563,22 @@ async function seed() {
   }
   console.log(`✅ ${itvCount} entretiens créés`);
 
-  // ── 12. Inscriptions (250 — mentor parfois assigné) ───────────────
+  // ── 12. Inscriptions (250) ────────────────────────────────────────
+  // Cohérence clé : le candidat choisit une formation, et SON mentor est le
+  // mentor PROPRIÉTAIRE de cette formation (training.owner). ~30 % des
+  // inscriptions restent sans mentor assigné (cas « en attente de mentor »).
   const inscriptions: any[] = [];
   for (let i = 0; i < 250; i++) {
     const cand = pick(candidates);
-    // mentor 19 reste sans stagiaire (cas limite) → on tire parmi 0..18.
     const withMentor = chance(0.7);
     let selectedMentor: any = undefined;
     let selectedTrainings: any[];
 
     if (withMentor) {
-      selectedMentor = mentors[rnd(19)];
-      // Use only trainings owned by this mentor for coherence
-      const mentorOwned = trainings.filter((p: any) =>
-        p.owner && (p.owner.equals ? p.owner.equals(selectedMentor._id) : String(p.owner) === String(selectedMentor._id))
-      );
-      selectedTrainings = mentorOwned.length > 0
-        ? pickN(mentorOwned, 1).map(p => p._id)
-        : pickN(trainings, 1 + rnd(2)).map(p => p._id);
+      // On choisit d'abord UNE formation, puis le mentor = son propriétaire.
+      const chosen = pick(trainings);
+      selectedTrainings = [chosen._id];
+      selectedMentor    = chosen.owner;   // mentor propriétaire de la formation choisie
     } else {
       selectedTrainings = pickN(trainings, 1 + rnd(3)).map(p => p._id);
     }
@@ -452,7 +586,7 @@ async function seed() {
     const ins = await Inscription.create({
       user: cand._id,
       trainings: selectedTrainings,
-      mentor: selectedMentor?._id,
+      mentor: selectedMentor,
       status: pick(['active', 'completed']),
       createdAt: daysAgo(rnd(300)),
     });
@@ -542,6 +676,30 @@ async function seed() {
   }
   console.log(`✅ ${tasks.length} tâches + ${trCount} réponses créées`);
 
+  // ── 13b. Réponses aux quiz (imbriquées dans Quiz.responses) ───────
+  // Pour un échantillon d'inscriptions, on enregistre une réponse de quiz :
+  // chaque question reçoit une option (70 % la bonne → score réaliste).
+  let quizRespCount = 0;
+  for (const ins of pickN(inscriptions, 160)) {
+    const quiz = pick(quizzes);
+    const reponses: any[] = [];
+    (quiz.sections || []).forEach((sec: any) =>
+      (sec.questions || []).forEach((q: any) => {
+        const opts = q.options || [];
+        if (!opts.length) return;
+        const chosen = chance(0.7)
+          ? opts.reduce((best: any, o: any) => (o.score > (best?.score ?? -1) ? o : best), null)
+          : pick(opts);
+        reponses.push({ quizQuestion: q._id, options: [chosen._id] });
+      }),
+    );
+    quiz.responses = quiz.responses || [];
+    (quiz.responses as any).push({ owner: ins.user, inscription: ins._id, reponses, createdAt: daysAgo(rnd(180)) });
+    await quiz.save();
+    quizRespCount++;
+  }
+  console.log(`✅ ${quizRespCount} réponses aux quiz créées`);
+
   // ── 14. Conversations (120) + messages (≈2000) ────────────────────
   let convCount = 0, msgCount = 0;
   for (let i = 0; i < 120; i++) {
@@ -619,8 +777,8 @@ async function seed() {
   console.log(`✅ ${reqCount} demandes de programme créées`);
 
   // ── 18. Propositions de formation des entreprises (60) ───────────
-  const PROPOSAL_TITLES = ['Formation Marketing Digital','Atelier Growth Hacking','Formation SEO avancé','Bootcamp Community Manager','Formation Email Marketing','Atelier Créa Vidéo','Formation Data & Analytics','Bootcamp Social Media','Formation Brand Strategy','Atelier Copywriting'];
-  const CAREERS_LIST    = ['Community Manager','Spécialiste SEO','Chargé de publicité','Growth Marketer','Brand Manager'];
+  const PROPOSAL_TITLES = ['Formation React pour nos équipes','Bootcamp DevOps','Atelier Cybersécurité','Formation Data Engineering','Initiation au Cloud AWS','Bootcamp Développement Mobile','Formation Microservices','Atelier Clean Code & Tests','Formation Kubernetes','Bootcamp Java / Spring Boot'];
+  const CAREERS_LIST    = ['Développeur Full-Stack','Ingénieur DevOps','Data Engineer','Analyste Cybersécurité','Développeur Mobile'];
   const AUDIENCES       = ['Candidats juniors','Candidats seniors','Alternants','Stagiaires'];
   let proposalCount = 0;
   for (let i = 0; i < 60; i++) {
@@ -641,7 +799,7 @@ async function seed() {
   console.log(`✅ ${proposalCount} propositions de formation créées`);
 
   // ── 19. Cohorte « formation terminée » ───────────────────────────
-  // 15 candidats connus (candidate0..14) qui ONT TERMINÉ leur formation
+  // 15 candidats (les premiers de la liste) qui ONT TERMINÉ leur formation
   // et demandent un NOUVEAU programme → permet de tester :
   //   • le choix d'un autre programme par le candidat,
   //   • la validation de ces demandes par l'admin (page Validation).
@@ -652,11 +810,11 @@ async function seed() {
     const finishedTraining = onlineTrainings[i % onlineTrainings.length];
     const nextTraining     = onlineTrainings[(i + 1) % onlineTrainings.length];
 
-    // Inscription TERMINÉE sur le 1er programme.
+    // Inscription TERMINÉE sur le 1er programme — mentor = propriétaire de la formation.
     const finishedIns = await Inscription.create({
       user: cand._id,
       trainings: [finishedTraining._id],
-      mentor: mentors[i % 19]._id,
+      mentor: finishedTraining.owner,
       status: 'completed',
       closed: true,
       createdAt: daysAgo(120),
@@ -694,22 +852,24 @@ async function seed() {
   console.log('\n🎉 Seed de stress terminé !');
   console.log('─────────────────────────────────────────');
   console.log(`   Candidats     : ${candidates.length}`);
-  console.log(`   Entreprises   : ${companies.length}  | Mentors : ${mentors.length}`);
+  console.log(`   Entreprises   : ${companyUsers.length}  | Mentors : ${mentors.length}`);
   console.log(`   Programmes    : ${trainings.length}  | Documentations : ${documentations.length}`);
   console.log(`   Offres        : ${jobOffers.length}  | Candidatures : ${applications.length}`);
   console.log(`   Entretiens    : ${itvCount}`);
   console.log(`   Inscriptions  : ${inscriptions.length}`);
   console.log(`   Tâches        : ${trainingTasks.length} (prog) + ${tasks.length} (standalone)  | Réponses : ${progTrCount} (prog) + ${trCount} (standalone)`);
+  console.log(`   Quiz          : ${quizzes.length}  | Réponses quiz : ${quizRespCount}`);
   console.log(`   Conversations : ${convCount}  | Messages : ${msgCount}`);
   console.log(`   Notifications : ${notifCount}  | Évaluations : ${evalCount}`);
   console.log(`   TrainingRequest: ${reqCount + finishedCount} (dont ${finishedCount} EN ATTENTE)`);
   console.log(`   Propositions   : ${proposalCount}`);
-  console.log(`   Formation terminée : ${finishedCount} candidats (candidate0..14)`);
+  console.log(`   Formation terminée : ${finishedCount} candidats (les 15 premiers)`);
   console.log('─────────────────────────────────────────');
-  console.log('🔑 admin@shape.fr / Admin2025!');
-  console.log('🔑 company0@shape-test.com / Shape2025!');
-  console.log('🔑 mentor0@shape-test.com / Shape2025!');
-  console.log('🔑 candidate0@shape-test.com / Shape2025!');
+  console.log('🔑 Comptes de connexion (mot de passe candidat/company/mentor : Shape2025!)');
+  console.log('   👤 ADMIN    : admin@shape.fr / Admin2025!');
+  console.log(`   🏢 COMPANY  : ${companyUsers[0].email}`);
+  console.log(`   🎓 MENTOR   : ${mentors[0].email}`);
+  console.log(`   🧑‍💻 CANDIDAT : ${candidates[0].email}`);
 
   await mongoose.disconnect();
 }

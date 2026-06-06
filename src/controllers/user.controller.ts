@@ -13,6 +13,7 @@ import { notifyAdmins } from './notification.controller';
 const USER_SKILLS_POPULATE = [
   { path: 'candidateProfile.hardSkills.skill', select: '_id name' },
   { path: 'candidateProfile.softwares.skill',  select: '_id name' },
+  { path: 'candidateProfile.softSkills.skill', select: '_id name' },
 ];
 
 const BCRYPT_ROUNDS = 10;
@@ -46,6 +47,9 @@ async function buildUserUpdate(
   if (cp && typeof cp === 'object') {
     if (cp.hardSkills) cp.hardSkills = normalizeSkillArray(cp.hardSkills);
     if (cp.softwares)  cp.softwares  = normalizeSkillArray(cp.softwares);
+    if (cp.softSkills && Array.isArray(cp.softSkills) && typeof cp.softSkills[0] === 'object') {
+      cp.softSkills = normalizeSkillArray(cp.softSkills);
+    }
   }
   return updates;
 }

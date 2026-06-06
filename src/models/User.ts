@@ -8,7 +8,7 @@ export interface ICandidateProfile {
   cvStorage?:    string;
   hardSkills?:   { skill: mongoose.Types.ObjectId; level: number }[];
   softwares?:    { skill: mongoose.Types.ObjectId; level: number }[];
-  softSkills?:   string[];
+  softSkills?:   { skill: mongoose.Types.ObjectId; level: number }[];
   focusedSkills?: string[];
   languages?:    string[];
   workingMode?:  string;
@@ -75,7 +75,7 @@ const CandidateProfileSchema = new Schema<ICandidateProfile>({
   cvStorage:     String,
   hardSkills:    [{ skill: { type: Schema.Types.ObjectId, ref: 'Skill' }, level: Number }],
   softwares:     [{ skill: { type: Schema.Types.ObjectId, ref: 'Skill' }, level: Number }],
-  softSkills:    [String],
+  softSkills:    [{ skill: { type: Schema.Types.ObjectId, ref: 'Skill' }, level: Number }],
   focusedSkills: [String],
   languages:     [String],
   workingMode:   String,

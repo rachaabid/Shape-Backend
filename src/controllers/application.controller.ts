@@ -10,6 +10,7 @@ const USER_POPULATE = {
   populate: [
     { path: 'candidateProfile.hardSkills.skill', model: 'Skill' },
     { path: 'candidateProfile.softwares.skill',  model: 'Skill' },
+    { path: 'candidateProfile.softSkills.skill', model: 'Skill' },
   ],
 };
 

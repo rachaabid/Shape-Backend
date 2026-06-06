@@ -236,6 +236,7 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
         populate: [
           { path: 'candidateProfile.hardSkills.skill', model: 'Skill' },
           { path: 'candidateProfile.softwares.skill',  model: 'Skill' },
+          { path: 'candidateProfile.softSkills.skill', model: 'Skill' },
         ],
       });
 
@@ -245,6 +246,7 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
         populate: [
           { path: 'candidateProfile.hardSkills.skill', model: 'Skill' },
           { path: 'candidateProfile.softwares.skill',  model: 'Skill' },
+          { path: 'candidateProfile.softSkills.skill', model: 'Skill' },
         ],
       });
       if (!app) return;
@@ -277,7 +279,7 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
           id:         u._id.toString(),
           hardSkills: (cp.hardSkills || []).map((s: any) => ({ skill: getSkillName(s), level: s.level ?? 1 })).filter((s: any) => s.skill),
           softwares:  (cp.softwares  || []).map((s: any) => ({ skill: getSkillName(s), level: s.level ?? 1 })).filter((s: any) => s.skill),
-          softSkills: cp.softSkills  || [],
+          softSkills: (cp.softSkills || []).map((s: any) => getSkillName(s)).filter((s: any) => s),
           cvUrl:      a.cv ? `${backendUrl}/api/Storage/${a.cv}` : undefined,
         };
       });
