@@ -3,3 +3,8 @@ dist/
 uploads/
 .env
 *.log
+
+# Python (service de matching)
+__pycache__/
+*.pyc
+src/python/venv/
