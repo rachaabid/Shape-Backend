@@ -16,6 +16,7 @@ export interface IApplication extends Document {
   missingSkills?:     string[];
   extractedCvSkills?: string[];
   deleted?:           boolean;
+  archived?:          boolean;
   createdAt:          Date;
 }
 
@@ -34,6 +35,7 @@ const ApplicationSchema = new Schema<IApplication>({
   missingSkills:     [String],
   extractedCvSkills: [String],
   deleted:           { type: Boolean, default: false },
+  archived:          { type: Boolean, default: false },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 // The frontend expects "userDetails" and "jobOfferDetails" instead of "user" and "jobOffer"

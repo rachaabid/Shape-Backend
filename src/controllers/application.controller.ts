@@ -35,15 +35,43 @@ const buildFilter = (attributeName: string, value: string) => {
 // GET /api/JobOfferApplication
 export const getAll = asyncHandler(async (_req, res) => {
   res.json(
-    await Application.find({ deleted: false })
+    await Application.find({ deleted: false, archived: { $ne: true } })
       .populate(USER_POPULATE)
       .populate(JOBOFFER_POPULATE),
   );
 });
 
+// GET /api/JobOfferApplication/archived
+export const getArchived = asyncHandler(async (_req, res) => {
+  res.json(
+    await Application.find({ deleted: false, archived: true })
+      .populate(USER_POPULATE)
+      .populate(JOBOFFER_POPULATE)
+      .sort({ updatedAt: -1 }),
+  );
+});
+
+// PATCH /api/JobOfferApplication/:id/archive
+export const archive = asyncHandler(async (req, res) => {
+  const app = await Application.findByIdAndUpdate(
+    req.params['id'], { archived: true }, { new: true },
+  );
+  if (!app) throw HttpError.notFound('Candidature introuvable');
+  res.json(app);
+});
+
+// PATCH /api/JobOfferApplication/:id/unarchive
+export const unarchive = asyncHandler(async (req, res) => {
+  const app = await Application.findByIdAndUpdate(
+    req.params['id'], { archived: false }, { new: true },
+  );
+  if (!app) throw HttpError.notFound('Candidature introuvable');
+  res.json(app);
+});
+
 // GET /api/JobOfferApplication/count
 export const getCount = asyncHandler(async (_req, res) =>
-  res.json(await Application.countDocuments({ deleted: false })));
+  res.json(await Application.countDocuments({ deleted: false, archived: { $ne: true } })));
 
 // GET /api/JobOfferApplication/byattribute/:attr/:value
 export const getByAttribute = asyncHandler(async (req, res) => {

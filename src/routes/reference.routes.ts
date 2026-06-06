@@ -40,6 +40,7 @@ router.patch('/HardSkill',      auth, hardSkill.patch);
 router.delete('/HardSkill/:id', auth, hardSkill.remove);
 
 // ── SoftSkill ─────────────────────────────────────────────────────────────────
+router.get('/SoftSkill/archived',                                   auth, softSkill.getArchived);
 router.get('/SoftSkill/count',                                      softSkill.count);
 router.get('/SoftSkill/byattribute/:attributeName/:value',          softSkill.getByAttribute);
 router.get('/SoftSkill/ByAttributeCount/:attributeName/:value',     softSkill.countByAttribute);
@@ -47,6 +48,8 @@ router.get('/SoftSkill/:id',    softSkill.getById);
 router.get('/SoftSkill',        softSkill.getAll);
 router.post('/SoftSkill',       auth, softSkill.create);
 router.put('/SoftSkill',        auth, softSkill.update);
+router.patch('/SoftSkill/:id/archive',   auth, softSkill.archive);
+router.patch('/SoftSkill/:id/unarchive', auth, softSkill.unarchive);
 router.patch('/SoftSkill/:id',  auth, softSkill.patch);
 router.patch('/SoftSkill',      auth, softSkill.patch);
 router.delete('/SoftSkill/:id', auth, softSkill.remove);
