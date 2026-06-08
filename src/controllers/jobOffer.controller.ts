@@ -96,7 +96,7 @@ export const create = asyncHandler<AuthRequest>(async (req, res) => {
   setImmediate(() => runAutoMatchPipeline({ jobOfferId: offer._id.toString() }));
   setImmediate(() => notifyAdmins(
     'NEW_JOB_OFFER',
-    `Nouvelle offre d'emploi publiée : "${offer.title || 'Sans titre'}"`,
+    `Nouvelle offre d'emploi publiée : "${(offer.title as any)?.fr || (offer.title as any)?.en || offer.title || 'Sans titre'}"`,
     { offerId: offer._id.toString() },
   ).catch(() => undefined));
 });

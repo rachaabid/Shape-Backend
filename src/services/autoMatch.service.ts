@@ -9,6 +9,12 @@ import MentorEvaluation from '../models/MentorEvaluation';
 import { sendCompanyProposal } from './email.service';
 import axios from 'axios';
 
+const localized = (val: any, fallback = ''): string => {
+  if (!val) return fallback;
+  if (typeof val === 'string') return val || fallback;
+  return val.fr || val.en || val.ar || fallback;
+};
+
 // ── Matching interfaces ───────────────────────────────────────
 export interface SkillVector  { skill: string; level: number; }
 export interface MatchResult  {
@@ -266,7 +272,7 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
     const companyEmail = companyUser.email || '';
     const cName        = (companyUser.companyProfile as any)?.companyName;
     const companyName  = cName?.fr || cName?.en || 'Entreprise';
-    const jobTitle     = offer.title || 'Poste';
+    const jobTitle     = localized(offer.title, 'Poste');
 
     const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`;
 
@@ -288,11 +294,11 @@ export const runAutoMatchPipeline = async (options: PipelineOptions): Promise<vo
 
     // Combine offer text fields for CV semantic comparison
     const offerDescription = [
-    offer.title,
-    offer.description,
-    offer.whoAreThey,
-    offer.requiredProfile,
-  ].filter(Boolean).join(' ').toLowerCase();
+      offer.title,
+      offer.description,
+      offer.whoAreThey,
+      offer.requiredProfile,
+    ].map(f => localized(f as any)).filter(Boolean).join(' ').toLowerCase();
 
     const offerInput = {
       hardSkills:  (offer.hardSkills     || []).map((s: any) => ({ skill: getSkillName(s), level: s.level ?? 1 })).filter((s: any) => s.skill),

@@ -31,7 +31,7 @@ export const startScheduler = (): void => {
           candidateEmail: candidate.email,
           companyName:    cName?.fr || cName?.en || company.login,
           companyEmail:   company.email || '',
-          jobTitle:       offer.title,
+          jobTitle:       (offer.title as any)?.fr || (offer.title as any)?.en || String(offer.title || 'Poste'),
           scheduledAt:    interview.scheduledAt,
           channelName:    interview.channelName,
           frontendUrl:    process.env.FRONTEND_URL!,
