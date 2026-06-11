@@ -44,8 +44,24 @@ const rankWithPython = async (
   offer: JobOfferSkills,
   candidates: CandidateSkills[]
 ): Promise<MatchResult[]> => {
-  const { data } = await axios.post(`${process.env.PYTHON_SERVICE_URL}/match`, { offer, candidates });
-  return data.results;
+  const url = process.env.PYTHON_SERVICE_URL;
+  if (!url) {
+    // Sans le micro-service Python, la pipeline auto-match ne peut pas
+    // calculer matchScore. On loggue clairement plutot que d'echouer en
+    // silence : sinon les candidats voient « 0% » sans explication.
+    console.warn('[autoMatch] PYTHON_SERVICE_URL non defini — aucun score IA ne sera calcule.');
+    return candidates.map(c => ({ candidateId: c.id, score: 0, matchedSkills: [], missingSkills: [] }));
+  }
+  try {
+    const { data } = await axios.post(`${url}/match`, { offer, candidates }, { timeout: 30_000 });
+    return data.results;
+  } catch (err: any) {
+    const reason = err?.code === 'ECONNREFUSED'
+      ? 'service injoignable (verifier que python main.py tourne sur ' + url + ')'
+      : err?.message;
+    console.warn(`[autoMatch] Echec appel IA Python (${reason}) — retour de scores nuls.`);
+    return candidates.map(c => ({ candidateId: c.id, score: 0, matchedSkills: [], missingSkills: [] }));
+  }
 };
 
 // Extract a plain string from a potentially multilingual skill name object
