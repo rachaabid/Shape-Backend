@@ -172,8 +172,58 @@ export const createMentorTask = asyncHandler<AuthRequest>(async (req, res) => {
   ).catch(() => undefined));
 });
 
+// PUT /api/Mentor/tasks/:id — US20 : modifier titre / description / deadline / training
+// Le mentor ne peut editer que ses propres taches (filtre `createdBy: req.userId`).
+// `internIds` (optionnel) remplace les assignations en preservant les reponses
+// deja en cours (status, fichiers, commentaires) des owners conserves.
+export const updateMentorTask = asyncHandler<AuthRequest>(async (req, res) => {
+  const id = req.params['id'];
+  const { trainingId, internIds, ...taskData } = req.body;
+
+  const task = await Task.findOne({ _id: id, createdBy: req.userId, deleted: { $ne: true } });
+  if (!task) throw HttpError.notFound('Tâche introuvable');
+
+  Object.assign(task, taskData);
+  if (trainingId !== undefined) task.training = trainingId || undefined;
+
+  if (Array.isArray(internIds)) {
+    const wantedSet = new Set<string>(internIds.map(String));
+    const existing  = (task.responses || []) as any[];
+    // 1) On garde les reponses dont l'owner est toujours dans la liste choisie.
+    const kept = existing.filter(r => wantedSet.has(String(r.owner)));
+    // 2) On rattache (ou cree) une reponse pour chaque nouvel intern.
+    const keptOwners = new Set(kept.map(r => String(r.owner)));
+    const inscriptions = task.training
+      ? await Inscription.find({
+          user: { $in: internIds },
+          trainings: task.training,
+          deleted: { $ne: true },
+        }).select('_id user')
+      : [];
+    const inscriptionByUser = new Map(inscriptions.map(ins => [ins.user!.toString(), ins._id]));
+    const added = internIds
+      .filter((uid: string) => !keptOwners.has(String(uid)))
+      .map((uid: string) => ({
+        owner:       uid,
+        status:      0,
+        inscription: inscriptionByUser.get(String(uid)),
+      }));
+    task.responses = [...kept, ...added] as any;
+  }
+
+  await task.save();
+  res.json(task);
+});
+
 export const deleteMentorTask = asyncHandler<AuthRequest>(async (req, res) => {
-  await Task.findByIdAndUpdate(req.params['id'], { deleted: true });
+  // US21 : suppression douce (preserve l'historique pour les candidats/admins).
+  // Seul le createur peut supprimer sa tache.
+  const task = await Task.findOneAndUpdate(
+    { _id: req.params['id'], createdBy: req.userId },
+    { deleted: true },
+    { new: true },
+  );
+  if (!task) throw HttpError.notFound('Tâche introuvable');
   res.json({ message: 'Tâche supprimée' });
 });
 

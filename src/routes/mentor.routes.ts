@@ -7,6 +7,7 @@ import {
   getInternTaskResponses,
   getMentorTasks,
   createMentorTask,
+  updateMentorTask,
   deleteMentorTask,
   getEvaluations,
   getMyEvaluations,
@@ -26,6 +27,7 @@ router.get('/stats',                       authMiddleware, getMentorStats);
 router.get('/evaluation-suggestion/:internId', authMiddleware, getEvaluationSuggestion);
 router.get('/tasks',                       authMiddleware, getMentorTasks);
 router.post('/tasks',                      authMiddleware, createMentorTask);
+router.put('/tasks/:id',                   authMiddleware, updateMentorTask);
 router.delete('/tasks/:id',               authMiddleware, deleteMentorTask);
 router.get('/interns/:internId/tasks',    authMiddleware, getInternTaskResponses);
 router.get('/evaluations/mine',           authMiddleware, getMyEvaluations);
