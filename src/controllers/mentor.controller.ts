@@ -132,8 +132,31 @@ export const getInternTaskResponses = asyncHandler(async (req, res) => {
 });
 
 // ── Tâches créées par ce mentor ──────────────────────────────────────────────
-export const getMentorTasks = asyncHandler<AuthRequest>(async (req, res) =>
-  res.json(await Task.find({ createdBy: req.userId, deleted: { $ne: true } })));
+export const getMentorTasks = asyncHandler<AuthRequest>(async (req, res) => {
+  const tasks = await Task.find({ createdBy: req.userId, deleted: { $ne: true } }).lean();
+
+  const ownerIds = [...new Set(
+    tasks.flatMap(t => (t.responses || [])
+      .filter((r: any) => !r.deleted && r.owner)
+      .map((r: any) => String(r.owner))
+    )
+  )];
+
+  const users = await User.find({ _id: { $in: ownerIds } })
+    .select('firstName lastName firstNameDisplay lastNameDisplay login email')
+    .lean();
+  const userMap = new Map(users.map(u => [String(u._id), u]));
+
+  const result = tasks.map(t => ({
+    ...t,
+    responses: (t.responses || []).map((r: any) => ({
+      ...r,
+      owner: userMap.get(String(r.owner)) ?? r.owner,
+    })),
+  }));
+
+  res.json(result);
+});
 
 export const createMentorTask = asyncHandler<AuthRequest>(async (req, res) => {
   const { trainingId, internIds, ...taskData } = req.body;

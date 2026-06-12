@@ -1,0 +1,238 @@
+{
+  "info": {
+    "name": "Shape — Tests d'intégration Sprint 2",
+    "description": "4 cas de test couvrant la gestion des offres, candidatures et tâches (US12, US15, US16, US18). Lancer dans l'ordre.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Setup-01 — Connexion entreprise (récupère token company)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "http://localhost:3000/api/User/Authenticate",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "User", "Authenticate"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"VOTRE_EMAIL_COMPANY\",\n  \"password\": \"VOTRE_MOT_DE_PASSE\"\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Setup-01 — Connexion réussie (200)', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('token', json.token);",
+              "pm.test('Setup-01 — Token récupéré', function () {",
+              "  pm.expect(json.token).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Setup-02 — Connexion candidat (récupère token candidat)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "http://localhost:3000/api/User/Authenticate",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "User", "Authenticate"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"VOTRE_EMAIL_CANDIDAT\",\n  \"password\": \"VOTRE_MOT_DE_PASSE\"\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Setup-02 — Connexion réussie (200)', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('candidateToken', json.token);",
+              "pm.test('Setup-02 — Token candidat récupéré', function () {",
+              "  pm.expect(json.token).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TI-01 — Créer une offre (US12)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:3000/api/JobOffer",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "JobOffer"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": {\n    \"fr\": \"Ingénieur DevOps Junior (H/F)\",\n    \"en\": \"Junior DevOps Engineer\",\n    \"ar\": \"\"\n  },\n  \"whoAreThey\": {\n    \"fr\": \"Entreprise spécialisée en solutions cloud.\",\n    \"en\": \"Company specialized in cloud solutions.\",\n    \"ar\": \"\"\n  },\n  \"description\": {\n    \"fr\": \"Vous rejoindrez notre équipe DevOps pour déployer et maintenir nos infrastructures.\",\n    \"en\": \"You will join our DevOps team to deploy and maintain our infrastructures.\",\n    \"ar\": \"\"\n  },\n  \"requiredProfile\": {\n    \"fr\": \"2 ans d'expérience minimum, maîtrise de Docker et Kubernetes.\",\n    \"en\": \"Minimum 2 years experience, proficiency in Docker and Kubernetes.\",\n    \"ar\": \"\"\n  },\n  \"recruitmentProcess\": {\n    \"fr\": \"Entretien RH → Test technique → Entretien final.\",\n    \"en\": \"HR interview → Technical test → Final interview.\",\n    \"ar\": \"\"\n  },\n  \"workingMode\": \"onsite\",\n  \"profilesNeeded\": 2,\n  \"salaryMin\": 1500,\n  \"salaryMax\": 2500,\n  \"softSkills\": [\"Travail en équipe\", \"Autonomie\"],\n  \"hardSkills\": [],\n  \"softwareSkills\": [],\n  \"attributes\": []\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-01 — Statut 201 Created', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('TI-01 — Réponse contient un identifiant', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('id').that.is.a('string');",
+              "  pm.collectionVariables.set('offerId', body.id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TI-02 — Postuler à une offre (US15)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{candidateToken}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:3000/api/JobOfferApplication",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "JobOfferApplication"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jobOffer\": \"6a2c4dea34d8bdb6135c6600\",\n  \"coverLetter\": \"Je suis très motivé par ce poste et mes compétences correspondent parfaitement au profil recherché.\"\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-02 — Statut 201 Created', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('TI-02 — Candidature créée avec statut Applied (1)', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('id').that.is.a('string');",
+              "  pm.expect(body.status).to.equal(1);",
+              "  pm.collectionVariables.set('applicationId', body.id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TI-03 — Mettre à jour le statut d'une candidature (US16)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:3000/api/JobOfferApplication",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "JobOfferApplication"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"6a2c4dea34d8bdb6135c660c\",\n  \"status\": 3\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-03 — Statut 200 OK', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('TI-03 — Statut candidature mis à jour à Interview (3)', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.status).to.equal(3);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TI-04 — Créer une tâche avec assignation (US18)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:3000/api/Mentor/tasks",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "Mentor", "tasks"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": {\n    \"fr\": \"TP Python — Algorithmes de tri\",\n    \"en\": \"Python Lab — Sorting Algorithms\",\n    \"ar\": \"\"\n  },\n  \"description\": {\n    \"fr\": \"Implémenter trois algorithmes de tri (bulles, insertion, rapide) et comparer leurs performances.\",\n    \"en\": \"Implement three sorting algorithms (bubble, insertion, quick) and compare their performance.\",\n    \"ar\": \"\"\n  },\n  \"deadLineInHours\": 24,\n  \"internIds\": [\"ID_STAGIAIRE_1\", \"ID_STAGIAIRE_2\"]\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-04 — Statut 201 Created', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('TI-04 — Tâche créée avec deadline et assignés', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('id').that.is.a('string');",
+              "  pm.expect(body.deadLineInHours).to.equal(24);",
+              "  pm.expect(body.responses).to.be.an('array').that.is.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
