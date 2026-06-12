@@ -499,31 +499,75 @@ async function seed() {
   ]);
 
   // ── 9. Offres d'emploi (80 — réparties sur les entreprises) ───────
+  // Fourchettes de salaire réalistes (DT/mois) selon le niveau
+  const SALARY_BASE: Record<string, [number, number]> = {
+    'Junior':   [600,  1200],
+    'Confirmé': [1300, 2500],
+    'Senior':   [2500, 4500],
+    '':         [900,  2800],
+  };
   const jobOffers: any[] = [];
   for (let i = 0; i < 80; i++) {
     // L'entreprise 0 reçoit beaucoup d'offres ; l'entreprise 23 n'en reçoit aucune.
     const compIdx = i < 20 ? 0 : 1 + rnd(22);
     const role = pick(CAREERS);
     const seniority = pick(['Junior', 'Confirmé', 'Senior', '']);
+
+    // Salaire : 80 % des offres ont un salaire min ; 70 % ont aussi un max
+    const [sBase, sTop] = SALARY_BASE[seniority] ?? [800, 2500];
+    const hasSalary  = chance(0.8);
+    const salaryMin  = hasSalary ? sBase + rnd(sTop - sBase) : null;
+    const salaryMax  = hasSalary && chance(0.85) && salaryMin !== null
+      ? salaryMin + 200 + rnd(800)
+      : null;
+
     const o = await JobOffer.create({
       company: companyUsers[compIdx]._id,
       jobOfferModel: pick(jobModels)._id,
       workingMode: pick(['remote', 'onsite', 'hybrid', 'freelance']),
       title: `${role} ${seniority} (H/F)`.replace(/\s+\(/, ' (').trim(),
       description: `Nous recherchons un(e) ${role} pour rejoindre nos équipes et contribuer à des projets digitaux innovants.`,
+      whoAreThey: `${COMPANY_NAMES[compIdx % COMPANY_NAMES.length]} est une entreprise digitale en forte croissance, spécialisée en ${pick(DOMAINS)}.`,
+      requiredProfile: `Profil ${seniority || 'expérimenté'} avec de bonnes compétences en ${pick(HARD_SKILLS)} et ${pick(SOFT_SKILLS)}.`,
+      recruitmentProcess: 'Entretien téléphonique → Test technique → Entretien final avec le responsable technique.',
       profilesNeeded: 1 + rnd(4),
       softSkills: pickN(SOFT_SKILLS, 2 + rnd(3)),
       hardSkills: pickN(hardSkills, 2 + rnd(3)).map(s => ({ skill: s._id, level: 1 + rnd(5) })),
       softwareSkills: pickN(softwares, 1 + rnd(3)).map(s => ({ skill: s._id, level: 1 + rnd(5) })),
       status: chance(0.8) ? 'open' : 'closed',
+      salaryMin,
+      salaryMax,
       createdAt: daysAgo(rnd(400)),
     });
     jobOffers.push(o);
   }
-  console.log(`✅ ${jobOffers.length} offres d'emploi créées`);
+  console.log(`✅ ${jobOffers.length} offres d'emploi créées (salaire présent sur ~80%)`);
 
-  // ── 10. Candidatures (600 — tous les statuts 0..5) ────────────────
+  // ── 10a. AutoSuggested garanti pour les 5 premiers candidats (comptes de test) ──
+  // Sans ces entrées, le frontend affiche 0 % pour TOUTES les offres car le
+  // score de matching provient de JobOfferApplication.matchScore (status=0).
   const applications: any[] = [];
+  for (let ci = 0; ci < Math.min(5, candidates.length); ci++) {
+    const testCand = candidates[ci];
+    for (const offer of jobOffers) {
+      const matchScore = 20 + rnd(81);   // score réaliste 20-100
+      const a = await Application.create({
+        user:          testCand._id,
+        jobOffer:      offer._id,
+        status:        0,               // AutoSuggested — crée par le système
+        matchScore,
+        skillScore:    matchScore - rnd(20),
+        semanticScore: matchScore + rnd(15),
+        matchedSkills: pickN(HARD_SKILLS, 1 + rnd(4)),
+        missingSkills: pickN(HARD_SKILLS, rnd(3)),
+        createdAt:     daysAgo(rnd(30)),
+      });
+      applications.push(a);
+    }
+  }
+  console.log(`✅ ${applications.length} candidatures AutoSuggested créées pour les 5 comptes test`);
+
+  // ── 10b. Candidatures aléatoires (600 — tous les statuts 0..5) ─────
   for (let i = 0; i < 600; i++) {
     const cand  = pick(candidates);
     const offer = pick(jobOffers);
@@ -539,7 +583,7 @@ async function seed() {
     });
     applications.push(a);
   }
-  console.log(`✅ ${applications.length} candidatures créées`);
+  console.log(`✅ ${applications.length} candidatures créées au total`);
 
   // ── 11. Entretiens (150 — scheduled / completed / cancelled) ──────
   let itvCount = 0;

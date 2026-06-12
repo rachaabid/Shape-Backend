@@ -5,6 +5,7 @@ import {
   getTaskResponses, getTaskResponseById, getTaskResponseByAttribute,
   getTaskResponseCountByAttribute, createTaskResponse, updateTaskResponse, patchTaskResponse,
   addFileToTaskResponse, removeFileFromTaskResponse,
+  getMineTasks, getMineTaskResponses,
 } from '../controllers/task.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 
@@ -12,6 +13,7 @@ const router = Router();
 
 // Task
 router.get   ('/Task/count',                                authMiddleware, getTaskCount);
+router.get   ('/Task/mine',                                 authMiddleware, getMineTasks);
 router.get   ('/Task/ByAttribute/:attributeName/:value',    authMiddleware, getTaskByAttribute);
 router.get   ('/Task/:id',                                  authMiddleware, getTaskById);
 router.get   ('/Task',                                      authMiddleware, getTasks);
@@ -20,6 +22,7 @@ router.put   ('/Task',                                      authMiddleware, upda
 router.patch ('/Task',                                      authMiddleware, patchTask);
 
 // TaskResponse
+router.get   ('/TaskResponse/mine',                                   authMiddleware, getMineTaskResponses);
 router.get   ('/TaskResponse/ByAttribute/:attributeName/:value',      authMiddleware, getTaskResponseByAttribute);
 router.get   ('/TaskResponse/ByAttributeCount/:attributeName/:value', authMiddleware, getTaskResponseCountByAttribute);
 router.get   ('/TaskResponse/:id',                                    authMiddleware, getTaskResponseById);

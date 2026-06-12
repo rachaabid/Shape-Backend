@@ -51,6 +51,18 @@ export const getTasks = asyncHandler(async (_req, res) => {
   res.json(await Task.find({ deleted: { $ne: true } }));
 });
 
+export const getMineTasks = asyncHandler<AuthRequest>(async (req, res) => {
+  res.json(await Task.find({ createdBy: req.userId, deleted: { $ne: true } }));
+});
+
+export const getMineTaskResponses = asyncHandler<AuthRequest>(async (req, res) => {
+  const tasks = await Task.find({ createdBy: req.userId, deleted: { $ne: true } });
+  const pairs: { task: any; r: any }[] = [];
+  tasks.forEach(t => (t.responses || []).forEach(r => { if (!(r as any).deleted) pairs.push({ task: t, r }); }));
+  const ownerMap = await ownerMapFor(pairs.map(p => p.r));
+  res.json(pairs.map(p => mapResponse(p.task, p.r, { populateTask: true, ownerMap })));
+});
+
 export const getTaskCount = asyncHandler(async (_req, res) => {
   res.json(await Task.countDocuments({ deleted: { $ne: true } }));
 });
