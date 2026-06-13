@@ -101,7 +101,10 @@ export async function buildGlobalStats(): Promise<GlobalStats> {
     Inscription.countDocuments({ deleted: { $ne: true } }),
     Inscription.countDocuments({ status: 'completed', deleted: { $ne: true } }),
 
-    TrainingRequest.countDocuments({ status: 'pending', deleted: { $ne: true } }),
+    // Le badge dashboard doit refleter la file active : on exclut aussi les
+    // demandes archivees, sinon le compteur reste eleve apres archivage et
+    // la liste backoffice (qui filtre archived) affiche un autre nombre.
+    TrainingRequest.countDocuments({ status: 'pending', archived: { $ne: true }, deleted: { $ne: true } }),
 
     Task.countDocuments({ deleted: { $ne: true } }),
     countResponsesByStatus(TASK_STATUS.OPEN),

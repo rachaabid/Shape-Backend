@@ -3,7 +3,7 @@ import Inscription           from '../models/Inscription';
 import { AuthRequest }       from '../middleware/auth.middleware';
 import { asyncHandler }      from '../middleware/asyncHandler';
 import { HttpError }         from '../utils/HttpError';
-import { sendTrainingApproved, sendTrainingRejected } from '../services/email.service';
+import { sendTrainingApproved, sendTrainingRejected, sendTrainingArchived } from '../services/email.service';
 
 const TRAINING_REQUEST_POPULATE = [
   { path: 'user',    select: 'email firstName lastName login' },
@@ -21,12 +21,26 @@ function decodeUserTraining(reqDoc: any) {
 
 const FRONTEND_URL = () => process.env['FRONTEND_URL'] || 'http://localhost:4200';
 
+// Liste « active » : ce que l'admin voit dans la file de validation.
+// On exclut les demandes archivees pour qu'elles ne polluent pas la vue.
 export const getAll = asyncHandler(async (_req, res) => {
   res.json(
-    await TrainingRequest.find({ deleted: { $ne: true } })
+    await TrainingRequest.find({ deleted: { $ne: true }, archived: { $ne: true } })
       .populate('user', '-password')
       .populate('training')
-      .populate('inscription'),
+      .populate('inscription')
+      .sort({ createdAt: -1 }),
+  );
+});
+
+// Vue dediee aux demandes archivees (pour l'historique).
+export const getArchived = asyncHandler(async (_req, res) => {
+  res.json(
+    await TrainingRequest.find({ deleted: { $ne: true }, archived: true })
+      .populate('user', '-password')
+      .populate('training')
+      .populate('inscription')
+      .sort({ updatedAt: -1 }),
   );
 });
 
@@ -105,4 +119,34 @@ export const reject = asyncHandler(async (req, res) => {
         console.error(`❌ Échec envoi "programme rejeté" à ${user.email}:`, err?.message || err));
     }
   });
+});
+
+// PATCH /api/TrainingRequest/:id/archive — sort la demande de la file et
+// previent le candidat par email.
+export const archive = asyncHandler(async (req, res) => {
+  const request = await TrainingRequest.findByIdAndUpdate(
+    req.params['id'], { archived: true }, { new: true },
+  ).populate(TRAINING_REQUEST_POPULATE);
+  if (!request) throw HttpError.notFound('Demande non trouvée.');
+
+  res.json(request);
+
+  setImmediate(() => {
+    const { user, userName, trainingTitle } = decodeUserTraining(request);
+    if (user?.email && trainingTitle) {
+      sendTrainingArchived({
+        userEmail: user.email, userName, trainingTitle, frontendUrl: FRONTEND_URL(),
+      }).catch(err =>
+        console.error(`❌ Échec envoi "programme archivé" à ${user.email}:`, err?.message || err));
+    }
+  });
+});
+
+// PATCH /api/TrainingRequest/:id/unarchive — remet la demande dans la file.
+export const unarchive = asyncHandler(async (req, res) => {
+  const request = await TrainingRequest.findByIdAndUpdate(
+    req.params['id'], { archived: false }, { new: true },
+  ).populate(TRAINING_REQUEST_POPULATE);
+  if (!request) throw HttpError.notFound('Demande non trouvée.');
+  res.json(request);
 });

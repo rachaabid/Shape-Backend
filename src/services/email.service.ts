@@ -234,6 +234,29 @@ export const sendTrainingRejected = async (data: { userEmail: string; userName: 
   });
 };
 
+// Notifie le candidat que sa demande a ete archivee par l'admin.
+// L'archivage retire la demande de la file mais n'envoie pas de refus
+// definitif — c'est une mise en attente / mise au placard.
+export const sendTrainingArchived = async (data: { userEmail: string; userName: string; trainingTitle: string; frontendUrl: string }): Promise<void> => {
+  await transporter.sendMail({
+    from:    process.env.MAIL_FROM,
+    to:      data.userEmail,
+    subject: `Demande archivée — ${data.trainingTitle}`,
+    html: `
+      <h2>Bonjour ${data.userName},</h2>
+      <p>Votre demande d'inscription au programme <strong>${data.trainingTitle}</strong> a été <strong style="color:#b07f17;">archivée</strong> par notre équipe.</p>
+      <p>Elle reste accessible dans l'historique. Si vous souhaitez relancer la procédure, n'hésitez pas à soumettre une nouvelle demande.</p>
+      <p>
+        <a href="${data.frontendUrl}/shaper-panel/available-trainings"
+           style="background:#27a8ba;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
+          Voir les programmes disponibles
+        </a>
+      </p>
+      <hr/><small>Shape Platform</small>
+    `,
+  });
+};
+
 export const sendAccountRejectionEmail = async (data: AccountValidationData & { reason?: string }): Promise<void> => {
   const isCompany = data.role === 'COMPANY';
   const espace    = isCompany ? 'entreprise' : 'candidat';
