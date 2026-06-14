@@ -4,6 +4,7 @@ import { AuthRequest }       from '../middleware/auth.middleware';
 import { asyncHandler }      from '../middleware/asyncHandler';
 import { HttpError }         from '../utils/HttpError';
 import { sendTrainingApproved, sendTrainingRejected, sendTrainingArchived } from '../services/email.service';
+import { notifyAdmins } from './notification.controller';
 
 const TRAINING_REQUEST_POPULATE = [
   { path: 'user',    select: 'email firstName lastName login' },
@@ -62,6 +63,22 @@ export const create = asyncHandler<AuthRequest>(async (req, res) => {
 
   const request = await TrainingRequest.create({ user: req.userId, training, inscription });
   res.status(201).json(request);
+
+  setImmediate(async () => {
+    try {
+      const populated = await TrainingRequest.findById(request._id)
+        .populate('user', 'firstName lastName login email')
+        .populate('training', 'title');
+      const { userName, trainingTitle } = decodeUserTraining(populated);
+      await notifyAdmins(
+        'TRAINING_REQUEST_NEW',
+        `Nouvelle demande d'inscription : ${userName} → ${trainingTitle}`,
+        { requestId: request._id.toString() },
+      );
+    } catch (err: any) {
+      console.error('❌ Notification admins training request:', err?.message || err);
+    }
+  });
 });
 
 export const approve = asyncHandler(async (req, res) => {

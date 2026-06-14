@@ -14,6 +14,9 @@ import {
   createEvaluation,
   updateEvaluation,
   deleteEvaluation,
+  getAppointments,
+  getMyAppointmentsAsIntern,
+  createAppointment,
   assignMentor,
   getMentors,
   createMentor,
@@ -35,6 +38,11 @@ router.get('/evaluations/:internId',      authMiddleware, getEvaluations);
 router.post('/evaluation',                authMiddleware, createEvaluation);
 router.put('/evaluation',                 authMiddleware, updateEvaluation);
 router.delete('/evaluation/:id',         authMiddleware, deleteEvaluation);
+
+// ── Appointments ────────────────────────────────────────────────
+router.get('/appointments',       authMiddleware, getAppointments);
+router.get('/appointments/mine',  authMiddleware, getMyAppointmentsAsIntern);
+router.post('/appointment',       authMiddleware, createAppointment);
 
 // ── Admin ────────────────────────────────────────────────────────
 router.get('/all',                         authMiddleware, getMentors);

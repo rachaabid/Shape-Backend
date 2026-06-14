@@ -1,0 +1,230 @@
+{
+  "info": {
+    "name": "Shape — Tests d'intégration Sprint 3",
+    "description": "4 cas de test couvrant les évaluations, le dashboard mentor, l'inscription à une formation et les statistiques entreprise (US24, US25, US26, US30). Lancer dans l'ordre.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Setup-01 — Connexion mentor (récupère token mentor)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "http://localhost:3000/api/User/Authenticate",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "User", "Authenticate"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"VOTRE_EMAIL_MENTOR\",\n  \"password\": \"VOTRE_MOT_DE_PASSE\"\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Setup-01 — Connexion réussie (200)', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('mentorToken', json.token);",
+              "pm.test('Setup-01 — Token mentor récupéré', function () {",
+              "  pm.expect(json.token).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Setup-02 — Connexion entreprise (récupère token entreprise)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "http://localhost:3000/api/User/Authenticate",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "User", "Authenticate"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"VOTRE_EMAIL_COMPANY\",\n  \"password\": \"VOTRE_MOT_DE_PASSE\"\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Setup-02 — Connexion réussie (200)', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('companyToken', json.token);",
+              "pm.test('Setup-02 — Token entreprise récupéré', function () {",
+              "  pm.expect(json.token).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TI-01 — Créer une évaluation (US24)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{mentorToken}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:3000/api/Mentor/evaluation",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "Mentor", "evaluation"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"intern\": \"ID_STAGIAIRE_MONGODB\",\n  \"period\": \"Stage été 2025\",\n  \"technical\": 8,\n  \"behavior\": 7,\n  \"communication\": 8,\n  \"initiative\": 6,\n  \"comment\": \"Candidat sérieux, bonne progression sur les algorithmes.\"\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-01 — Statut 201 Created', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('TI-01 — Évaluation créée avec score global calculé', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('id').that.is.a('string');",
+              "  pm.expect(body.globalScore).to.equal(7.3);",
+              "  pm.collectionVariables.set('evaluationId', body.id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TI-02 — Consulter le dashboard mentor (US26)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{mentorToken}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:3000/api/Mentor/stats",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "Mentor", "stats"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-02 — Statut 200 OK', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('TI-02 — Données agrégées retournées', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.be.an('object');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TI-03 — Créer une formation (US28)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{mentorToken}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:3000/api/Training",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "Training"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": {\n    \"fr\": \"Python Avancé — Algorithmes et structures de données\",\n    \"en\": \"Advanced Python — Algorithms and Data Structures\",\n    \"ar\": \"\"\n  },\n  \"description\": {\n    \"fr\": \"Formation complète sur les algorithmes de tri et les structures de données en Python.\",\n    \"en\": \"Complete course on sorting algorithms and data structures in Python.\",\n    \"ar\": \"\"\n  }\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-03 — Statut 201 Created', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('TI-03 — Formation créée avec identifiant', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('id').that.is.a('string');",
+              "  pm.collectionVariables.set('trainingId', body.id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TI-04 — Consulter les statistiques entreprise (US25)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{companyToken}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:3000/api/stats",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "stats"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-04 — Statut 200 OK', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('TI-04 — Statistiques retournées (candidatures, taux, offres)', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.be.an('object');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "mentorToken",   "value": "", "type": "string" },
+    { "key": "companyToken",  "value": "", "type": "string" },
+    { "key": "evaluationId",  "value": "", "type": "string" },
+    { "key": "trainingId",    "value": "", "type": "string" }
+  ]
+}

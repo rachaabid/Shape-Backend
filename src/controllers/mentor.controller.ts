@@ -3,7 +3,8 @@ import crypto   from 'crypto';
 import User         from '../models/User';
 import Inscription  from '../models/Inscription';
 import Task         from '../models/Task';
-import MentorEvaluation from '../models/MentorEvaluation';
+import MentorEvaluation   from '../models/MentorEvaluation';
+import MentorAppointment  from '../models/MentorAppointment';
 import NotificationSetting from '../models/NotificationSetting';
 import Quiz from '../models/Quiz';
 import Message      from '../models/Message';
@@ -309,6 +310,35 @@ export const assignMentor = asyncHandler<AuthRequest>(async (req, res) => {
       .populate('user', '-password')
       .populate('mentor', '-password'),
   );
+});
+
+// ── Appointments ─────────────────────────────────────────────────────────────
+export const getAppointments = asyncHandler<AuthRequest>(async (req, res) => {
+  res.json(
+    await MentorAppointment.find({ mentor: req.userId, deleted: { $ne: true } })
+      .populate('intern', 'firstName lastName login email')
+      .sort({ date: 1, startTime: 1 }),
+  );
+});
+
+export const getMyAppointmentsAsIntern = asyncHandler<AuthRequest>(async (req, res) => {
+  res.json(
+    await MentorAppointment.find({ intern: req.userId, deleted: { $ne: true } })
+      .populate('mentor', 'firstName lastName login email')
+      .sort({ date: 1, startTime: 1 }),
+  );
+});
+
+export const createAppointment = asyncHandler<AuthRequest>(async (req, res) => {
+  const { title, subtitle, date, startTime, endTime, internId, shaperName, meetingLink } = req.body;
+  if (!title || !date || !startTime || !endTime)
+    throw HttpError.badRequest('Champs obligatoires : title, date, startTime, endTime');
+  const appt = await MentorAppointment.create({
+    mentor: req.userId,
+    intern: internId || undefined,
+    title, subtitle, date, startTime, endTime, shaperName, meetingLink,
+  });
+  res.status(201).json(appt);
 });
 
 // ── Admin : liste de tous les mentors ────────────────────────────────────────

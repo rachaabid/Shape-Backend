@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import Interview from '../models/Interview';
+import MentorAppointment from '../models/MentorAppointment';
 import Application from '../models/JobOfferApplication';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -73,17 +74,39 @@ export const confirm = asyncHandler(async (req, res) => {
 });
 
 // GET /api/Interview
-// GET /api/Interview
 // Note: les entretiens "completed"/"cancelled" sont considérés comme archivés
 // et ne sortent pas du listing principal. Voir /archived pour les récupérer.
+// Les MentorAppointments avec un stagiaire assigné sont également inclus.
 export const getInterviews = asyncHandler(async (_req, res) => {
-  res.json(
-    await Interview.find({ status: { $nin: ['completed', 'cancelled'] } })
+  const [interviews, mentorAppts] = await Promise.all([
+    Interview.find({ status: { $nin: ['completed', 'cancelled'] } })
       .populate('candidateId', '-password')
       .populate('companyId', 'companyProfile login email')
       .populate('jobOfferId')
       .sort({ scheduledAt: 1 }),
-  );
+    MentorAppointment.find({ deleted: { $ne: true }, intern: { $exists: true, $ne: null } })
+      .populate('intern', 'firstName lastName login email')
+      .populate('mentor', 'firstName lastName login email mentorProfile')
+      .sort({ date: 1, startTime: 1 }),
+  ]);
+
+  const mappedMentorAppts = mentorAppts.map((a: any) => ({
+    _id:          a._id,
+    candidateId:  a.intern,
+    companyId:    a.mentor,
+    jobOfferId:   null,
+    scheduledAt:  new Date(`${a.date}T${a.startTime}:00`),
+    channelName:  a.meetingLink || '',
+    status:       'scheduled',
+    notes:        a.subtitle || '',
+    isMentorMeeting: true,
+    title:        a.title,
+  }));
+
+  const all = [...(interviews as any[]), ...mappedMentorAppts]
+    .sort((x, y) => new Date(x.scheduledAt).getTime() - new Date(y.scheduledAt).getTime());
+
+  res.json(all);
 });
 
 // GET /api/Interview/archived
