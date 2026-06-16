@@ -12,7 +12,7 @@ import { AuthRequest }  from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { HttpError }    from '../utils/HttpError';
 import { sendMentorCredentials } from '../services/email.service';
-import { notifyAdmins }         from './notification.controller';
+import { notifyAdmins, createNotification } from './notification.controller';
 
 const BCRYPT_ROUNDS = 10;
 const clamp = (v: number) => Math.max(0, Math.min(10, Math.round(v)));
@@ -271,6 +271,16 @@ export const getMyEvaluations = asyncHandler<AuthRequest>(async (req, res) => {
   );
 });
 
+// US24 — vue candidat : ses propres evaluations recues, classees recente -> ancienne.
+export const getMyEvaluationsAsIntern = asyncHandler<AuthRequest>(async (req, res) => {
+  res.json(
+    await MentorEvaluation.find({ intern: req.userId, deleted: { $ne: true } })
+      .populate('mentor', 'firstName lastName login email avatarStorage mentorProfile')
+      .populate('inscription')
+      .sort({ createdAt: -1 }),
+  );
+});
+
 export const createEvaluation = asyncHandler<AuthRequest>(async (req, res) => {
   const { intern, inscription, period, technical, behavior, communication, initiative, comment } = req.body;
   const globalScore = computeGlobalScore(technical, behavior, communication, initiative);
@@ -279,22 +289,37 @@ export const createEvaluation = asyncHandler<AuthRequest>(async (req, res) => {
     technical, behavior, communication, initiative, globalScore, comment,
   });
   res.status(201).json(ev);
-  setImmediate(() => notifyAdmins(
-    'MENTOR_EVALUATION',
-    `Un mentor a soumis une évaluation (score global : ${ev.globalScore}/10)`,
-    { evalId: ev._id.toString(), mentorId: req.userId },
-  ).catch(() => undefined));
+  setImmediate(() => Promise.all([
+    notifyAdmins(
+      'MENTOR_EVALUATION',
+      `Un mentor a soumis une évaluation (score global : ${ev.globalScore}/10)`,
+      { evalId: ev._id.toString(), mentorId: req.userId },
+    ),
+    createNotification(
+      String(intern),
+      'EVALUATION_RECEIVED',
+      `Vous avez reçu une nouvelle évaluation (${ev.globalScore}/10) pour la période « ${period} ».`,
+      { evalId: ev._id.toString(), period, globalScore: ev.globalScore },
+    ),
+  ]).catch(() => undefined));
 });
 
 export const updateEvaluation = asyncHandler<AuthRequest>(async (req, res) => {
   const { id, technical, behavior, communication, initiative, ...rest } = req.body;
   const globalScore = computeGlobalScore(technical, behavior, communication, initiative);
-  res.json(
-    await MentorEvaluation.findByIdAndUpdate(
-      id, { technical, behavior, communication, initiative, globalScore, ...rest },
-      { new: true },
-    ),
+  const updated = await MentorEvaluation.findByIdAndUpdate(
+    id, { technical, behavior, communication, initiative, globalScore, ...rest },
+    { new: true },
   );
+  res.json(updated);
+  if (updated?.intern) {
+    setImmediate(() => createNotification(
+      String(updated.intern),
+      'EVALUATION_UPDATED',
+      `Votre évaluation « ${updated.period} » a été mise à jour (${updated.globalScore}/10).`,
+      { evalId: String(updated._id), period: updated.period, globalScore: updated.globalScore },
+    ).catch(() => undefined));
+  }
 });
 
 export const deleteEvaluation = asyncHandler<AuthRequest>(async (req, res) => {
