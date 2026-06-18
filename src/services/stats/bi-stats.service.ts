@@ -83,8 +83,8 @@ export async function buildBiStats(period: BiPeriod): Promise<BiStats> {
     // Rankings
     countriesAgg, topTrainingsAgg, missingSkillsAgg, scoreDistAgg,
     mentorLeaders,
-    // Score moyen
-    scoreAgg,
+    // Score moyen all-time + sur les deux fenêtres pour le delta
+    scoreAgg, scoreAggInPeriod, scoreAggInPrev,
   ] = await Promise.all([
     User.countDocuments({ ...usersBase, createdAt: inRange }),
     User.countDocuments({ ...usersBase, createdAt: inPrev  }),
@@ -173,11 +173,33 @@ export async function buildBiStats(period: BiPeriod): Promise<BiStats> {
       { $match: { matchScore: { $exists: true, $ne: null }, deleted: false } },
       { $group: { _id: null, avg: { $avg: '$matchScore' } } },
     ]),
+    // Score moyen sur la fenêtre courante et la précédente (pour le delta)
+    Application.aggregate<{ avg: number }>([
+      { $match: { matchScore: { $exists: true, $ne: null }, deleted: false, createdAt: inRange } },
+      { $group: { _id: null, avg: { $avg: '$matchScore' } } },
+    ]),
+    Application.aggregate<{ avg: number }>([
+      { $match: { matchScore: { $exists: true, $ne: null }, deleted: false, createdAt: inPrev } },
+      { $group: { _id: null, avg: { $avg: '$matchScore' } } },
+    ]),
   ]);
 
   const avgScore = Array.isArray(scoreAgg) && scoreAgg.length
     ? Math.round(scoreAgg[0].avg || 0) : 0;
+  // Score moyen courant / précédent : valable seulement si une candidature a été
+  // créée dans la fenêtre (sinon previous=0 → delta non significatif, on le
+  // remet à 0 pour éviter d'afficher un +100% trompeur).
+  const avgScoreInPeriod = Array.isArray(scoreAggInPeriod) && scoreAggInPeriod.length
+    ? Math.round(scoreAggInPeriod[0].avg || 0) : 0;
+  const avgScoreInPrev = Array.isArray(scoreAggInPrev) && scoreAggInPrev.length
+    ? Math.round(scoreAggInPrev[0].avg || 0) : 0;
+  const avgScoreDelta = avgScoreInPrev > 0 ? computeDelta(avgScoreInPeriod, avgScoreInPrev) : 0;
+
   const conversionRate = totalAppsAll > 0 ? Math.round((hiredAll / totalAppsAll) * 100) : 0;
+  // Taux de conversion courant / précédent (hires / candidatures sur la fenêtre)
+  const convInPeriod = appsInPeriod > 0 ? Math.round((hiredInPeriod / appsInPeriod) * 100) : 0;
+  const convInPrev   = appsInPrev   > 0 ? Math.round((hiredInPrev   / appsInPrev)   * 100) : 0;
+  const convDelta    = convInPrev > 0 ? computeDelta(convInPeriod, convInPrev) : 0;
 
   return {
     period: period.label, days: period.days,
@@ -188,8 +210,8 @@ export async function buildBiStats(period: BiPeriod): Promise<BiStats> {
       hires:          { value: hiredInPeriod,      previous: hiredInPrev,      delta: computeDelta(hiredInPeriod, hiredInPrev) },
       interviews:     { value: interviewsInPeriod, previous: interviewsInPrev, delta: computeDelta(interviewsInPeriod, interviewsInPrev) },
       inscriptions:   { value: inscInPeriod,       previous: inscInPrev,       delta: computeDelta(inscInPeriod, inscInPrev) },
-      avgMatchScore:  { value: avgScore,           previous: 0, delta: 0 },
-      conversionRate: { value: conversionRate,     previous: 0, delta: 0 },
+      avgMatchScore:  { value: avgScoreInPeriod || avgScore, previous: avgScoreInPrev, delta: avgScoreDelta },
+      conversionRate: { value: convInPeriod || conversionRate, previous: convInPrev,    delta: convDelta },
     },
     series: {
       users:        Array.isArray(usersSeries)      ? usersSeries      : [],
