@@ -9,6 +9,7 @@
     "start": "node dist/app.js",
     "seed:stress": "ts-node scripts/seed-stress.ts",
     "seed:massive": "ts-node scripts/seed-massive.ts",
+    "seed:export-json": "ts-node scripts/export-to-json.ts",
     "translate:all": "ts-node scripts/translate-all.ts",
     "python": "cd src/python && python main.py",
     "test": "jest",
