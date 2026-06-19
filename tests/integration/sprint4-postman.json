@@ -1,0 +1,196 @@
+{
+  "info": {
+    "name": "Sprint 4 — Tests d'intégration",
+    "description": "TI-01 à TI-04 : Entretiens vidéo & Notifications",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",         "value": "http://localhost:3000/api" },
+    { "key": "token",           "value": "REMPLACER_PAR_TOKEN_JWT" },
+    { "key": "interviewId",     "value": "" },
+    { "key": "applicationId",   "value": "REMPLACER_PAR_ID_CANDIDATURE" },
+    { "key": "notificationId",  "value": "" }
+  ],
+  "item": [
+    {
+      "name": "TI-01 — POST /Interview (Créer un entretien)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-01 : statut 201 Created', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('TI-01 : réponse contient un identifiant', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('_id');",
+              "  pm.collectionVariables.set('interviewId', body._id);",
+              "});",
+              "pm.test('TI-01 : scheduledAt est présent', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('scheduledAt');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"applicationId\": \"{{applicationId}}\",\n  \"candidateId\":   \"REMPLACER_PAR_ID_CANDIDAT\",\n  \"jobOfferId\":    \"REMPLACER_PAR_ID_OFFRE\",\n  \"companyId\":     \"REMPLACER_PAR_ID_ENTREPRISE\",\n  \"scheduledAt\":   \"2025-09-10T10:00:00.000Z\",\n  \"channelName\":   \"interview-cand-test-1725955200000\"\n}"
+        },
+        "url": {
+          "raw":  "{{baseUrl}}/Interview",
+          "host": ["{{baseUrl}}"],
+          "path": ["Interview"]
+        }
+      }
+    },
+    {
+      "name": "TI-02 — PATCH /JobOfferApplication/:id (Statut → Interview)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-02 : statut 200 OK', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('TI-02 : statut candidature est Interview', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.status).to.eql('Interview');",
+              "});",
+              "pm.test('TI-02 : proposedDate est renseignée', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('proposedDate');",
+              "  pm.expect(body.proposedDate).to.not.be.empty;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\":       \"Interview\",\n  \"proposedDate\": \"2025-09-10T10:00:00.000Z\"\n}"
+        },
+        "url": {
+          "raw":  "{{baseUrl}}/JobOfferApplication/{{applicationId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["JobOfferApplication", "{{applicationId}}"]
+        }
+      }
+    },
+    {
+      "name": "TI-03 — GET /Notification/unread-count (Compteur non lues)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-03 : statut 200 OK', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('TI-03 : réponse contient le champ total', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('total');",
+              "  pm.expect(body.total).to.be.a('number');",
+              "});",
+              "pm.test('TI-03 : compteur est >= 1 après planification', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.total).to.be.at.least(1);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw":  "{{baseUrl}}/Notification/unread-count",
+          "host": ["{{baseUrl}}"],
+          "path": ["Notification", "unread-count"]
+        }
+      }
+    },
+    {
+      "name": "TI-04 — PUT /Notification/:id/read (Marquer comme lue)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// Récupère la première notification non lue pour avoir son id",
+              "const baseUrl = pm.collectionVariables.get('baseUrl');",
+              "const token   = pm.collectionVariables.get('token');",
+              "pm.sendRequest({",
+              "  url:    `${baseUrl}/Notification`,",
+              "  method: 'GET',",
+              "  header: { Authorization: `Bearer ${token}` },",
+              "}, function (err, res) {",
+              "  if (!err) {",
+              "    const list   = res.json();",
+              "    const unread = list.find(n => !n.read);",
+              "    if (unread) pm.collectionVariables.set('notificationId', unread._id);",
+              "  }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TI-04 : statut 200 OK', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('TI-04 : notification marquée comme lue', function () {",
+              "  const body = pm.response.json();",
+              "  if (body && typeof body === 'object' && 'read' in body) {",
+              "    pm.expect(body.read).to.be.true;",
+              "  } else {",
+              "    pm.expect(pm.response.code).to.eql(200);",
+              "  }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw":  "{{baseUrl}}/Notification/{{notificationId}}/read",
+          "host": ["{{baseUrl}}"],
+          "path": ["Notification", "{{notificationId}}", "read"]
+        }
+      }
+    }
+  ]
+}

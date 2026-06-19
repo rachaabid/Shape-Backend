@@ -14,6 +14,7 @@ import { Request, Response, NextFunction } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { HttpError }    from '../utils/HttpError';
 import { buildGlobalStats } from '../services/stats/global-stats.service';
+import Application from '../models/JobOfferApplication';
 
 // ── Auth via token optionnel ─────────────────────────────────────
 export const exportTokenGuard = (req: Request, _res: Response, next: NextFunction) => {
@@ -166,4 +167,38 @@ export const getMissingSkillsCsv = asyncHandler(async (_req, res) => {
 export const getScoreDistributionCsv = asyncHandler(async (_req, res) => {
   const { scoreDist } = await buildGlobalStats();
   sendCsv(res, 'score-distribution.csv', toCsv(scoreDist, ['range', 'count']));
+});
+
+/** GET /api/bi-export/funnel.csv — entonnoir de candidatures (4 étapes) */
+export const getFunnelCsv = asyncHandler(async (_req, res) => {
+  const { applications, interviews } = await buildGlobalStats();
+  const rows = [
+    { stage: 'Total candidatures', count: applications.total    },
+    { stage: 'Sélectionnés',       count: applications.retained },
+    { stage: 'En entretien',       count: interviews.total      },
+    { stage: 'Recrutés',           count: applications.hired    },
+  ];
+  sendCsv(res, 'funnel.csv', toCsv(rows, ['stage', 'count']));
+});
+
+/** GET /api/bi-export/application-status.csv — répartition des candidatures par statut */
+export const getApplicationStatusCsv = asyncHandler(async (_req, res) => {
+  const STATUS_LABELS: Record<number, string> = {
+    0: 'Postulé',
+    1: 'Sélectionné',
+    2: 'Refusé',
+    3: 'En entretien',
+    4: 'Recruté',
+    5: 'Stagiaire',
+  };
+  const agg = await Application.aggregate<{ status: number; count: number }>([
+    { $group: { _id: '$status', count: { $sum: 1 } } },
+    { $project: { _id: 0, status: '$_id', count: 1 } },
+    { $sort: { status: 1 } },
+  ]);
+  const rows = agg.map(r => ({
+    label: STATUS_LABELS[r.status] ?? `Statut ${r.status}`,
+    count: r.count,
+  }));
+  sendCsv(res, 'application-status.csv', toCsv(rows, ['label', 'count']));
 });

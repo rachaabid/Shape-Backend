@@ -9,6 +9,8 @@ import {
   getTopTrainingsCsv,
   getMissingSkillsCsv,
   getScoreDistributionCsv,
+  getApplicationStatusCsv,
+  getFunnelCsv,
 } from '../controllers/biExport.controller';
 
 const router = Router();
@@ -25,5 +27,7 @@ router.get('/countries.csv',             getCountriesCsv);
 router.get('/top-trainings.csv',          getTopTrainingsCsv);
 router.get('/missing-skills.csv',        getMissingSkillsCsv);
 router.get('/score-distribution.csv',    getScoreDistributionCsv);
+router.get('/application-status.csv',    getApplicationStatusCsv);
+router.get('/funnel.csv',                getFunnelCsv);
 
 export default router;
