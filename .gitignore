@@ -9,6 +9,3 @@ __pycache__/
 *.pyc
 src/python/venv/
 coverage/
-
-# Seed JSON exports (large, regenerable via npm run seed:export-json)
-scripts/seed-output/

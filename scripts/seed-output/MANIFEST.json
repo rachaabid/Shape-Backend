@@ -1,0 +1,115 @@
+{
+  "exportedAt": "2026-06-19T20:15:27.414Z",
+  "mongoUri": "mongodb://localhost:27017/shape_db",
+  "collections": {
+    "users": {
+      "count": 1203,
+      "file": "users.json",
+      "sizeKB": 2313
+    },
+    "skills": {
+      "count": 103,
+      "file": "skills.json",
+      "sizeKB": 30
+    },
+    "careers": {
+      "count": 22,
+      "file": "careers.json",
+      "sizeKB": 3
+    },
+    "jobOfferModels": {
+      "count": 5,
+      "file": "jobOfferModels.json",
+      "sizeKB": 0
+    },
+    "trainings": {
+      "count": 200,
+      "file": "trainings.json",
+      "sizeKB": 1069
+    },
+    "quizzes": {
+      "count": 56,
+      "file": "quizzes.json",
+      "sizeKB": 954
+    },
+    "textBlocs": {
+      "count": 40,
+      "file": "textBlocs.json",
+      "sizeKB": 14
+    },
+    "videos": {
+      "count": 40,
+      "file": "videos.json",
+      "sizeKB": 12
+    },
+    "jobOffers": {
+      "count": 500,
+      "file": "jobOffers.json",
+      "sizeKB": 863
+    },
+    "jobOfferApplications": {
+      "count": 6000,
+      "file": "jobOfferApplications.json",
+      "sizeKB": 3944
+    },
+    "interviews": {
+      "count": 2000,
+      "file": "interviews.json",
+      "sizeKB": 1150
+    },
+    "tasks": {
+      "count": 880,
+      "file": "tasks.json",
+      "sizeKB": 3692
+    },
+    "inscriptions": {
+      "count": 1560,
+      "file": "inscriptions.json",
+      "sizeKB": 424
+    },
+    "conversations": {
+      "count": 3000,
+      "file": "conversations.json",
+      "sizeKB": 1195
+    },
+    "messages": {
+      "count": 58215,
+      "file": "messages.json",
+      "sizeKB": 15606
+    },
+    "notifications": {
+      "count": 20000,
+      "file": "notifications.json",
+      "sizeKB": 6493
+    },
+    "notificationSettings": {
+      "count": 1200,
+      "file": "notificationSettings.json",
+      "sizeKB": 284
+    },
+    "mentorEvaluations": {
+      "count": 1500,
+      "file": "mentorEvaluations.json",
+      "sizeKB": 649
+    },
+    "trainingRequests": {
+      "count": 2030,
+      "file": "trainingRequests.json",
+      "sizeKB": 568
+    },
+    "companyTrainingProposals": {
+      "count": 250,
+      "file": "companyTrainingProposals.json",
+      "sizeKB": 171
+    },
+    "documentations": {
+      "count": 12,
+      "file": "documentations.json",
+      "sizeKB": 5
+    }
+  },
+  "totals": {
+    "docs": 98816,
+    "sizeKB": 39439
+  }
+}

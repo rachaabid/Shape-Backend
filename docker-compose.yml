@@ -1,0 +1,83 @@
+version: '3.9'
+
+services:
+
+  # ── MongoDB ────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: shape_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./scripts/mongo-init.sh:/docker-entrypoint-initdb.d/01-import.sh:ro
+      - ./scripts/seed-output:/seed-output:ro
+    environment:
+      MONGO_INITDB_DATABASE: shape_db
+
+  # ── Backend Node.js ────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shape_backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      MONGO_URI: mongodb://mongo:27017/shape_db
+      JWT_SECRET: shape_super_secret_key_2025
+      JWT_EXPIRES_IN: 7d
+      FRONTEND_URL: http://localhost:4201
+      PYTHON_SERVICE_URL: http://python:8000
+      BACKEND_URL: http://localhost:3000
+      MAIL_HOST: smtp.gmail.com
+      MAIL_PORT: "587"
+      MAIL_USER: bejfehmijak@gmail.com
+      MAIL_PASS: wwwpztchxgtbwsox
+      MAIL_FROM: "Shape Platform <bejfehmijak@gmail.com>"
+      AGORA_APP_ID: 5d7e1868ca0b46698fd7106e91fc90b3
+      AGORA_APP_CERTIFICATE: 4cce34cda9784b86966237dc3bed6e37
+      MYMEMORY_EMAIL: rachabnabid@gmail.com
+
+  # ── Microservice Python (matching IA) ──────────────────────────────
+  python:
+    build:
+      context: ./src/python
+      dockerfile: Dockerfile
+    container_name: shape_python
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+  # ── Frontend Angular (Shape-Front-End) ────────────────────────────
+  frontend:
+    build:
+      context: ../Shape-Front-End
+      dockerfile: Dockerfile
+    container_name: shape_frontend
+    restart: unless-stopped
+    ports:
+      - "4201:80"
+    depends_on:
+      - backend
+
+  # ── Backoffice Angular (shape-backoffice) ─────────────────────────
+  backoffice:
+    build:
+      context: ../shape-backoffice
+      dockerfile: Dockerfile
+    container_name: shape_backoffice
+    restart: unless-stopped
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:
