@@ -26,6 +26,16 @@ export const getByCompany = asyncHandler(async (req, res) => {
   );
 });
 
+// GET /api/Interview/bymentor/:mentorId — sessions de mentoring (US33)
+export const getByMentor = asyncHandler(async (req, res) => {
+  res.json(
+    await Interview.find({ kind: 'mentoring', mentorId: req.params['mentorId'] })
+      .populate('candidateId', '-password')
+      .populate('inscriptionId')
+      .sort({ scheduledAt: 1 }),
+  );
+});
+
 // GET /api/Interview/:id
 export const getById = asyncHandler(async (req, res) => {
   const interview = await Interview.findById(req.params['id'])
@@ -56,7 +66,7 @@ export const patch = asyncHandler<AuthRequest>(async (req, res) => {
 // GET /api/Interview/confirm — appel public depuis l'email de confirmation
 export const confirm = asyncHandler(async (req, res) => {
   const { token, party } = req.query as { token: string; party: string };
-  if (!token || !['candidate', 'company'].includes(party)) {
+  if (!token || !['candidate', 'company', 'mentor'].includes(party)) {
     throw HttpError.badRequest('Paramètres invalides');
   }
 
@@ -67,7 +77,13 @@ export const confirm = asyncHandler(async (req, res) => {
   if (party === 'company') {
     interview.confirmedByCompany = true;
     interview.status = 'confirmed';
-    await Application.findByIdAndUpdate(interview.applicationId, { status: 3 });
+    if (interview.applicationId) {
+      await Application.findByIdAndUpdate(interview.applicationId, { status: 3 });
+    }
+  }
+  if (party === 'mentor') {
+    interview.confirmedByMentor = true;
+    interview.status = 'confirmed';
   }
   await interview.save();
   res.json({ message: 'Confirmation enregistrée', interview });
