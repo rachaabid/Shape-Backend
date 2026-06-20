@@ -12,6 +12,7 @@ services:
     volumes:
       - mongo_data:/data/db
       - ./scripts/mongo-init.sh:/docker-entrypoint-initdb.d/01-import.sh:ro
+      - ./scripts/fix-dates.js:/docker-entrypoint-initdb.d/02-fix-dates.js:ro
       - ./scripts/seed-output:/seed-output:ro
     environment:
       MONGO_INITDB_DATABASE: shape_db
