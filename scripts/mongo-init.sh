@@ -1,43 +1,47 @@
 #!/bin/bash
 # Importé automatiquement par MongoDB au 1er démarrage du conteneur.
 # Les fichiers JSON doivent être dans /seed-output/ (monté via docker-compose).
+# FORMAT : "fichier.json:nom_collection_mongoose"
+# Les noms de collections Mongoose sont toujours en minuscules (auto-générés).
 
 DB="shape_db"
 DIR="/seed-output"
 
-COLLECTIONS=(
-  users
-  skills
-  careers
-  jobOfferModels
-  trainings
-  quizzes
-  textBlocs
-  videos
-  jobOffers
-  jobOfferApplications
-  interviews
-  tasks
-  inscriptions
-  conversations
-  messages
-  notifications
-  notificationSettings
-  mentorEvaluations
-  trainingRequests
-  companyTrainingProposals
-  documentations
+# fichier JSON : collection Mongoose (minuscules = ce que lit le backend)
+declare -A MAP=(
+  [users]="users"
+  [skills]="skills"
+  [careers]="careers"
+  [jobOfferModels]="joboffermodels"
+  [trainings]="trainings"
+  [quizzes]="quizzes"
+  [textBlocs]="textblocs"
+  [videos]="videoyoutubes"
+  [jobOffers]="joboffers"
+  [jobOfferApplications]="jobofferapplications"
+  [interviews]="interviews"
+  [tasks]="tasks"
+  [inscriptions]="inscriptions"
+  [conversations]="conversations"
+  [messages]="messages"
+  [notifications]="notifications"
+  [notificationSettings]="notificationsettings"
+  [mentorEvaluations]="mentorevaluations"
+  [trainingRequests]="trainingrequests"
+  [companyTrainingProposals]="companytrainingproposals"
+  [documentations]="documentations"
 )
 
 echo "🌱 Import seed data dans $DB..."
 
-for col in "${COLLECTIONS[@]}"; do
-  FILE="$DIR/$col.json"
+for file_key in "${!MAP[@]}"; do
+  col="${MAP[$file_key]}"
+  FILE="$DIR/$file_key.json"
   if [ -f "$FILE" ]; then
     mongoimport --db "$DB" --collection "$col" --file "$FILE" --jsonArray --quiet
-    echo "  ✅ $col"
+    echo "  ✅ $file_key.json → $col"
   else
-    echo "  ⚠️  $col — fichier introuvable ($FILE), ignoré"
+    echo "  ⚠️  $file_key.json introuvable, ignoré"
   fi
 done
 

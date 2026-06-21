@@ -5,6 +5,9 @@ import {
   getSnapshotCsv,
   getRegistrationsCsv,
   getApplicationsByMonthCsv,
+  getInterviewsCsv,
+  getInscriptionsCsv,
+  getMentorLeadersCsv,
   getCountriesCsv,
   getTopTrainingsCsv,
   getMissingSkillsCsv,
@@ -23,6 +26,9 @@ router.get('/',                          getAllJson);
 router.get('/snapshot.csv',              getSnapshotCsv);
 router.get('/registrations.csv',         getRegistrationsCsv);
 router.get('/applications-by-month.csv', getApplicationsByMonthCsv);
+router.get('/interviews.csv',            getInterviewsCsv);
+router.get('/inscriptions.csv',          getInscriptionsCsv);
+router.get('/mentor-leaders.csv',        getMentorLeadersCsv);
 router.get('/countries.csv',             getCountriesCsv);
 router.get('/top-trainings.csv',          getTopTrainingsCsv);
 router.get('/missing-skills.csv',        getMissingSkillsCsv);
