@@ -4,7 +4,7 @@ import User         from '../models/User';
 import Inscription  from '../models/Inscription';
 import Task         from '../models/Task';
 import MentorEvaluation   from '../models/MentorEvaluation';
-import MentorAppointment  from '../models/MentorAppointment';
+import Interview          from '../models/Interview';
 import NotificationSetting from '../models/NotificationSetting';
 import Quiz from '../models/Quiz';
 import Message      from '../models/Message';
@@ -337,33 +337,67 @@ export const assignMentor = asyncHandler<AuthRequest>(async (req, res) => {
   );
 });
 
-// ── Appointments ─────────────────────────────────────────────────────────────
+// ── Appointments (créneaux d'agenda mentor) ─────────────────────────────────
+// Backed par Interview avec kind='appointment'. Le mapping conserve la forme
+// historique date/startTime/endTime côté API pour ne pas casser le front.
+// `date` = ISO YYYY-MM-DD, `startTime`/`endTime` = HH:MM.
+function appointmentToLegacyShape(d: any): any {
+  const start: Date | null = d.scheduledAt ? new Date(d.scheduledAt) : null;
+  const end:   Date | null = d.endAt       ? new Date(d.endAt)       : null;
+  const hh = (dt: Date) => `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+  return {
+    _id:         d._id,
+    mentor:      d.mentorId,
+    intern:      d.candidateId ?? undefined,
+    title:       d.title       ?? '',
+    subtitle:    d.subtitle    ?? '',
+    date:        start ? start.toISOString().slice(0, 10) : '',
+    startTime:   start ? hh(start) : '',
+    endTime:     end   ? hh(end)   : '',
+    meetingLink: d.meetingLink ?? '',
+    deleted:     d.deleted     ?? false,
+  };
+}
+
 export const getAppointments = asyncHandler<AuthRequest>(async (req, res) => {
-  res.json(
-    await MentorAppointment.find({ mentor: req.userId, deleted: { $ne: true } })
-      .populate('intern', 'firstName lastName login email')
-      .sort({ date: 1, startTime: 1 }),
-  );
+  const docs = await Interview.find({
+    kind: 'appointment', mentorId: req.userId, deleted: { $ne: true },
+  })
+    .populate('candidateId', 'firstName lastName login email')
+    .sort({ scheduledAt: 1 });
+  res.json(docs.map(d => appointmentToLegacyShape({
+    ...d.toObject(),
+    candidateId: (d as any).candidateId, // garde l'objet peuplé
+  })));
 });
 
 export const getMyAppointmentsAsIntern = asyncHandler<AuthRequest>(async (req, res) => {
-  res.json(
-    await MentorAppointment.find({ intern: req.userId, deleted: { $ne: true } })
-      .populate('mentor', 'firstName lastName login email')
-      .sort({ date: 1, startTime: 1 }),
-  );
+  const docs = await Interview.find({
+    kind: 'appointment', candidateId: req.userId, deleted: { $ne: true },
+  })
+    .populate('mentorId', 'firstName lastName login email')
+    .sort({ scheduledAt: 1 });
+  res.json(docs.map(d => {
+    const obj = d.toObject() as any;
+    return { ...appointmentToLegacyShape(obj), mentor: obj.mentorId };
+  }));
 });
 
 export const createAppointment = asyncHandler<AuthRequest>(async (req, res) => {
-  const { title, subtitle, date, startTime, endTime, internId, shaperName, meetingLink } = req.body;
+  const { title, subtitle, date, startTime, endTime, internId, meetingLink } = req.body;
   if (!title || !date || !startTime || !endTime)
     throw HttpError.badRequest('Champs obligatoires : title, date, startTime, endTime');
-  const appt = await MentorAppointment.create({
-    mentor: req.userId,
-    intern: internId || undefined,
-    title, subtitle, date, startTime, endTime, shaperName, meetingLink,
+  const scheduledAt = new Date(`${date}T${startTime}:00`);
+  const endAt       = new Date(`${date}T${endTime}:00`);
+  if (isNaN(scheduledAt.getTime()) || isNaN(endAt.getTime()))
+    throw HttpError.badRequest('Format date/heure invalide (date: YYYY-MM-DD, time: HH:MM)');
+  const appt = await Interview.create({
+    kind: 'appointment',
+    mentorId: req.userId,
+    candidateId: internId || undefined,
+    title, subtitle, scheduledAt, endAt, meetingLink,
   });
-  res.status(201).json(appt);
+  res.status(201).json(appointmentToLegacyShape(appt.toObject()));
 });
 
 // ── Admin : liste de tous les mentors ────────────────────────────────────────

@@ -72,6 +72,7 @@ const CFG = {
   TASK_RESPONSES:      num('SEED_TASK_RESPONSES',      4000),
   QUIZ_RESPONSES:      num('SEED_QUIZ_RESPONSES',      3000),
   INTERVIEWS:          num('SEED_INTERVIEWS',          2000),
+  APPOINTMENTS:        num('SEED_APPOINTMENTS',        500),
   CONVERSATIONS:       num('SEED_CONVERSATIONS',       3000),
   MIN_MSG_PER_CONV:    num('SEED_MIN_MSG',             10),
   MAX_MSG_PER_CONV:    num('SEED_MAX_MSG',             30),
@@ -873,6 +874,65 @@ async function seed() {
     await insertInBatches(Interview, mentoringPayload, 'entretiens (mentoring)');
   }
 
+  // ── 11c. Rendez-vous mentors (kind='appointment') ────────────────
+  // Créneaux d'agenda du mentor : avec ou sans stagiaire assigné, lien Zoom/Meet,
+  // pas de workflow de confirmation. Remplace l'ancien modèle MentorAppointment.
+  if (CFG.APPOINTMENTS > 0) {
+    console.log(`\n📅 Rendez-vous mentors x${CFG.APPOINTMENTS}…`);
+    const APPT_TITLES = [
+      'Point hebdo coaching', 'Revue de portfolio', 'Mock interview',
+      'Atelier CV', 'Préparation entretien technique', 'Code review live',
+      'Bilan de mi-parcours', 'Session questions/réponses', 'Pair programming',
+      'Préparation soutenance', 'Choix d\'orientation', 'Feedback projet',
+    ];
+    const APPT_SUBS = [
+      'Discussion ouverte sur les blocages techniques.',
+      'Revue détaillée + plan d\'action sur 2 semaines.',
+      'Préparation aux questions comportementales.',
+      'Focus sur les bonnes pratiques et la lisibilité du code.',
+      '', // certains sans subtitle
+    ];
+    const apptPayload: any[] = [];
+    for (let i = 0; i < CFG.APPOINTMENTS; i++) {
+      const mentor = pick(mentors);
+      // 70% avec stagiaire (parmi les inscriptions de ce mentor), 30% créneau libre
+      const withIntern = chance(0.7);
+      let internId: any = undefined;
+      if (withIntern) {
+        const mentorIns = inscriptions.filter((ins: any) => String(ins.mentor) === String(mentor._id));
+        if (mentorIns.length > 0) internId = pick(mentorIns).user;
+      }
+      // Mix passé/futur, créneau d'1h en moyenne
+      const future = chance(0.6);
+      const start = future ? daysAhead(1 + rnd(30)) : daysAgo(rnd(120));
+      // Recale les minutes sur 00/15/30/45 pour ressembler à un vrai planning
+      start.setMinutes([0, 15, 30, 45][rnd(4)], 0, 0);
+      start.setHours(8 + rnd(10)); // entre 8h et 17h
+      const end = new Date(start.getTime() + (30 + rnd(4) * 30) * 60_000); // 30/60/90/120 min
+      apptPayload.push({
+        kind: 'appointment',
+        mentorId: mentor._id,
+        candidateId: internId,
+        title: pick(APPT_TITLES),
+        subtitle: pick(APPT_SUBS),
+        scheduledAt: start,
+        endAt: end,
+        meetingLink: chance(0.7)
+          ? pick([
+              `https://meet.google.com/${slug(String(mentor._id)).slice(0, 3)}-${slug(String(i)).slice(0, 4)}-${rnd(999)}`,
+              `https://zoom.us/j/${10000000 + rnd(89999999)}`,
+              `https://teams.microsoft.com/l/meetup-join/${slug(String(i)).slice(0, 12)}`,
+            ])
+          : '',
+        channelName: '',
+        status: 'scheduled',
+        notes: '',
+        deleted: false,
+      });
+    }
+    await insertInBatches(Interview, apptPayload, 'rendez-vous mentors');
+  }
+
   // ── 13. Tâches autonomes + réponses ──────────────────────────────
   console.log(`\n📝 Tâches autonomes x${CFG.STANDALONE_TASKS} + réponses x${CFG.TASK_RESPONSES}…`);
   const TASK_TITLES = [
@@ -1249,7 +1309,7 @@ async function seed() {
   console.log('─────────────────────────────────────────');
   console.log(`   👤 Users         : candidats=${CFG.CANDIDATES} | mentors=${CFG.MENTORS} | entreprises=${CFG.COMPANIES} | admins=${CFG.ADMINS}`);
   console.log(`   💼 Offres        : ${CFG.JOB_OFFERS}   | candidatures : ${CFG.APPLICATIONS}`);
-  console.log(`   🎤 Entretiens    : ${CFG.INTERVIEWS}`);
+  console.log(`   🎤 Entretiens    : ${CFG.INTERVIEWS}  | rendez-vous mentors : ${CFG.APPOINTMENTS}`);
   console.log(`   📦 Programmes    : ${CFG.TRAININGS}   | inscriptions : ${CFG.INSCRIPTIONS}`);
   console.log(`   📥 TrainingReq   : ${CFG.TRAINING_REQUESTS}  | propositions : ${CFG.COMPANY_PROPOSALS}`);
   console.log(`   ⭐ Évaluations   : ${CFG.MENTOR_EVALUATIONS}`);
