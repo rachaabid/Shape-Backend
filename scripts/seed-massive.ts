@@ -324,6 +324,19 @@ async function seed() {
   await mongoose.connect(process.env.MONGO_URI!);
   console.log(`✅ MongoDB connecté`);
 
+  // ── Garde-fou : ne pas detruire une DB deja peuplee ────────────────
+  // Comportement par defaut idempotent : si la DB contient deja des
+  // utilisateurs, on s'arrete sans rien toucher. Pour forcer le reset,
+  // passer SEED_FORCE=1 (ou --force) en variable d'environnement.
+  const force = process.env.SEED_FORCE === '1' || process.argv.includes('--force');
+  const existing = await User.estimatedDocumentCount();
+  if (existing > 0 && !force) {
+    console.log(`\n⏭️  DB deja peuplee (${existing} users) — seed ignore.`);
+    console.log(`   Pour reset complet : SEED_FORCE=1 npm run seed:massive`);
+    await mongoose.disconnect();
+    return;
+  }
+
   const t0 = Date.now();
 
   // ── 1. Purge totale ────────────────────────────────────────────────
@@ -546,7 +559,7 @@ async function seed() {
   const candidates: any[] = await insertInBatches(User, candidatePayload, 'candidats');
 
   // ── 7. Admins ──────────────────────────────────────────────────────
-  await User.insertMany(Array.from({ length: CFG.ADMINS }, (_, i) => ({
+  const adminUsers: any[] = await User.insertMany(Array.from({ length: CFG.ADMINS }, (_, i) => ({
     login: i === 0 ? 'admin' : `admin${i + 1}`,
     email: i === 0 ? 'admin@shape.fr' : `admin${i + 1}@shape.fr`,
     password: adminPw, roles: ['ADMIN'], verifiedAccount: true,
@@ -1113,7 +1126,9 @@ async function seed() {
   // (références cliquables vers une offre, candidature, entretien, formation…).
   console.log(`\n🔔 Notifications x${CFG.NOTIFICATIONS}…`);
   const NOTIF_TYPES = ['NEW_REGISTRATION','NEW_JOB_OFFER','NEW_APPLICATION','NEW_INTERVIEW','MENTOR_TASK','MENTOR_EVALUATION','EVALUATION_RECEIVED','EVALUATION_UPDATED','TRAINING_REQUEST'];
-  const allUsers = [...candidates, ...mentors, ...companyUsers];
+  // Inclut les admins comme destinataires : ils suivent l'activite de la
+  // plateforme (inscriptions, candidatures, propositions, evaluations, ...).
+  const allUsers = [...candidates, ...mentors, ...companyUsers, ...adminUsers];
   const notifPayload = Array.from({ length: CFG.NOTIFICATIONS }, () => {
     const u    = pick(allUsers);
     const type = pick(NOTIF_TYPES);
