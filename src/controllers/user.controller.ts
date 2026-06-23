@@ -25,6 +25,30 @@ const normalizeSkillArray = (arr: any[]): { skill: string; level: number }[] =>
     level: item.level,
   }));
 
+/**
+ * Seed data imported via mongoimport from plain JSON stores _id as raw strings
+ * instead of ObjectId. Mongoose findById() casts to ObjectId → no match.
+ * These helpers fall back to a raw collection query when Mongoose returns null.
+ */
+async function findUserRaw(id: string, projection = { password: 0 }) {
+  let user = await User.findById(id).select('-password');
+  if (!user) {
+    const raw = await User.collection.findOne({ _id: id as any }, { projection });
+    if (raw) user = User.hydrate(raw);
+  }
+  return user;
+}
+
+async function updateUserRaw(id: string, update: Record<string, any>) {
+  let user = await User.findByIdAndUpdate(id, update, { new: true }).select('-password');
+  if (!user) {
+    await User.collection.updateOne({ _id: id as any }, { $set: update });
+    const raw = await User.collection.findOne({ _id: id as any }, { projection: { password: 0 } });
+    if (raw) user = User.hydrate(raw);
+  }
+  return user;
+}
+
 /** Construit un patch utilisateur en hashant le mot de passe et en
  *  normalisant les compétences ; lève HttpError si l'email est déjà pris. */
 async function buildUserUpdate(
@@ -114,7 +138,15 @@ export const createUser = asyncHandler(async (req: Request, res) => {
 
 // GET /api/User/:id
 export const getUserById = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params['id']).select('-password').populate(USER_SKILLS_POPULATE);
+  const id = req.params['id'];
+  let user = await User.findById(id).select('-password').populate(USER_SKILLS_POPULATE);
+  if (!user) {
+    const raw = await User.collection.findOne({ _id: id as any }, { projection: { password: 0 } });
+    if (raw) {
+      user = User.hydrate(raw);
+      await user.populate(USER_SKILLS_POPULATE);
+    }
+  }
   if (!user) throw HttpError.notFound('Utilisateur non trouvé');
   res.json(user);
 });
@@ -143,7 +175,9 @@ export const patchUser = asyncHandler<AuthRequest>(async (req, res) => {
 
 // DELETE /api/User/:id
 export const deleteUser = asyncHandler<AuthRequest>(async (req, res) => {
-  await User.findByIdAndDelete(req.params['id']);
+  const id = req.params['id'];
+  const deleted = await User.findByIdAndDelete(id);
+  if (!deleted) await User.collection.deleteOne({ _id: id as any });
   res.json({ message: 'Utilisateur supprimé' });
 });
 
@@ -182,18 +216,14 @@ export const getArchivedUsers = asyncHandler(async (_req, res) =>
 
 // PATCH /api/User/:id/archive
 export const archiveUser = asyncHandler(async (req, res) => {
-  const user = await User.findByIdAndUpdate(
-    req.params['id'], { archived: true }, { new: true },
-  ).select('-password');
+  const user = await updateUserRaw(req.params['id'], { archived: true });
   if (!user) throw HttpError.notFound('Utilisateur non trouvé');
   res.json(user);
 });
 
 // PATCH /api/User/:id/unarchive
 export const unarchiveUser = asyncHandler(async (req, res) => {
-  const user = await User.findByIdAndUpdate(
-    req.params['id'], { archived: false }, { new: true },
-  ).select('-password');
+  const user = await updateUserRaw(req.params['id'], { archived: false });
   if (!user) throw HttpError.notFound('Utilisateur non trouvé');
   res.json(user);
 });
@@ -204,9 +234,7 @@ export const getCandidateUsers = asyncHandler(async (_req, res) =>
 
 // PATCH /api/User/:id/validate
 export const validateUserAccount = asyncHandler<AuthRequest>(async (req, res) => {
-  const user = await User.findByIdAndUpdate(
-    req.params['id'], { verifiedAccount: true }, { new: true },
-  ).select('-password');
+  const user = await updateUserRaw(req.params['id'], { verifiedAccount: true });
   if (!user) throw HttpError.notFound('Utilisateur non trouvé');
 
   const name = (user as any).firstNameDisplay || user.login || user.email;
@@ -225,7 +253,7 @@ export const validateUserAccount = asyncHandler<AuthRequest>(async (req, res) =>
 // l'adresse + le rôle ; en cas d'échec d'envoi, on supprime quand même
 // (l'admin garde la main sur la décision).
 export const rejectUserAccount = asyncHandler<AuthRequest>(async (req, res) => {
-  const user = await User.findById(req.params['id']);
+  const user = await findUserRaw(req.params['id']);
   if (!user) throw HttpError.notFound('Utilisateur non trouvé');
 
   const email = user.email;
@@ -234,7 +262,8 @@ export const rejectUserAccount = asyncHandler<AuthRequest>(async (req, res) => {
   const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : undefined;
   const frontendUrl = process.env['FRONTEND_URL'] || '';
 
-  await User.findByIdAndDelete(user._id);
+  const deleted = await User.findByIdAndDelete(user._id);
+  if (!deleted) await User.collection.deleteOne({ _id: user._id as any });
 
   setImmediate(() =>
     sendAccountRejectionEmail({ userEmail: email, userName: name, frontendUrl, role, reason })

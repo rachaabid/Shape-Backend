@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
 
   # ── MongoDB ────────────────────────────────────────────────────────
@@ -13,9 +11,18 @@ services:
       - mongo_data:/data/db
       - ./scripts/mongo-init.sh:/docker-entrypoint-initdb.d/01-import.sh:ro
       - ./scripts/fix-dates.js:/docker-entrypoint-initdb.d/02-fix-dates.js:ro
+      - ./scripts/fix-string-ids.js:/docker-entrypoint-initdb.d/03-fix-ids.js:ro
       - ./scripts/seed-output:/seed-output:ro
     environment:
       MONGO_INITDB_DATABASE: shape_db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - shape_net
 
   # ── Backend Node.js ────────────────────────────────────────────────
   backend:
@@ -27,7 +34,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
     environment:
       PORT: 3000
       NODE_ENV: production
@@ -45,6 +53,8 @@ services:
       AGORA_APP_ID: 5d7e1868ca0b46698fd7106e91fc90b3
       AGORA_APP_CERTIFICATE: 4cce34cda9784b86966237dc3bed6e37
       MYMEMORY_EMAIL: rachabnabid@gmail.com
+    networks:
+      - shape_net
 
   # ── Microservice Python (matching IA) ──────────────────────────────
   python:
@@ -55,6 +65,8 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    networks:
+      - shape_net
 
   # ── Frontend Angular (Shape-Front-End) ────────────────────────────
   frontend:
@@ -67,6 +79,8 @@ services:
       - "4201:80"
     depends_on:
       - backend
+    networks:
+      - shape_net
 
   # ── Backoffice Angular (shape-backoffice) ─────────────────────────
   backoffice:
@@ -79,6 +93,12 @@ services:
       - "4200:80"
     depends_on:
       - backend
+    networks:
+      - shape_net
+
+networks:
+  shape_net:
+    driver: bridge
 
 volumes:
   mongo_data:

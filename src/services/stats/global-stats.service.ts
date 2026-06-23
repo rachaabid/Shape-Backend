@@ -52,7 +52,8 @@ export interface GlobalStats {
   topTrainings:   { title: string; count: number }[];
 }
 
-export async function buildGlobalStats(): Promise<GlobalStats> {
+export async function buildGlobalStats(lang = 'fr'): Promise<GlobalStats> {
+  const L = ['fr', 'en', 'ar'].includes(lang) ? lang : 'fr';
   const now        = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const weekEnd    = new Date(now.getTime() + 7 * 86_400_000);
@@ -179,10 +180,24 @@ export async function buildGlobalStats(): Promise<GlobalStats> {
       { $unwind: '$trainings' },
       { $group: { _id: '$trainings', count: { $sum: 1 } } },
       { $sort: { count: -1 } }, { $limit: 5 },
-      { $lookup: { from: 'trainings', localField: '_id', foreignField: '_id', as: 'prog' } },
+      {
+        $lookup: {
+          from: 'trainings',
+          let: { tid: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: [{ $toString: '$_id' }, { $toString: '$$tid' }] } } },
+          ],
+          as: 'prog',
+        },
+      },
       { $project: {
         _id: 0, count: 1,
-        title: { $ifNull: [{ $arrayElemAt: ['$prog.title.fr', 0] }, 'Programme'] },
+        title: { $ifNull: [
+          { $arrayElemAt: [`$prog.title.${L}`, 0] },
+          { $arrayElemAt: [L === 'ar' ? '$prog.title.en' : '$prog.title.fr', 0] },
+          { $arrayElemAt: [L === 'ar' ? '$prog.title.fr' : '$prog.title.en', 0] },
+          'Programme',
+        ] },
       }},
     ]),
   ]);

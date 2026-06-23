@@ -8,8 +8,9 @@ import { buildBiStats }     from '../services/stats/bi-stats.service';
 import { BiPeriod }         from '../services/stats/bi-period';
 
 /** GET /api/stats — snapshot global de la plateforme. */
-export const getStats = asyncHandler(async (_req, res) => {
-  res.json(await buildGlobalStats());
+export const getStats = asyncHandler(async (req, res) => {
+  const lang = typeof req.query['lang'] === 'string' ? req.query['lang'] : 'fr';
+  res.json(await buildGlobalStats(lang));
 });
 
 /**
@@ -18,6 +19,8 @@ export const getStats = asyncHandler(async (_req, res) => {
  *   ?from=YYYY-MM-DD&to=YYYY-MM-DD — plage personnalisée (prioritaire)
  */
 export const getBiStats = asyncHandler(async (req, res) => {
-  const period = BiPeriod.fromQuery(req.query as { period?: string; from?: string; to?: string });
-  res.json(await buildBiStats(period));
+  const q = req.query as { period?: string; from?: string; to?: string; lang?: string };
+  const period = BiPeriod.fromQuery(q);
+  const lang = typeof q.lang === 'string' ? q.lang : 'fr';
+  res.json(await buildBiStats(period, lang));
 });

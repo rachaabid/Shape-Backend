@@ -78,7 +78,14 @@ async function main() {
     process.stdout.write(`   ↳ ${name.padEnd(28, ' ')}`);
     const docs = await model.find({}).lean();
     const file = path.join(outDir, `${name}.json`);
-    const json = JSON.stringify(docs, null, 0); // compact pour réduire la taille
+    const json = JSON.stringify(docs, (_key, value) => {
+      if (value != null && typeof value === 'object' &&
+          (value._bsontype === 'ObjectID' || value._bsontype === 'ObjectId' ||
+           value instanceof mongoose.Types.ObjectId)) {
+        return { $oid: String(value) };
+      }
+      return value;
+    }, 0);
     await fs.writeFile(file, json, 'utf8');
     const stat = await fs.stat(file);
     const sizeKB = Math.round(stat.size / 1024);

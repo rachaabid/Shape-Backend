@@ -61,7 +61,8 @@ function dailySeriesAgg(
   ]);
 }
 
-export async function buildBiStats(period: BiPeriod): Promise<BiStats> {
+export async function buildBiStats(period: BiPeriod, lang = 'fr'): Promise<BiStats> {
+  const L = ['fr', 'en', 'ar'].includes(lang) ? lang : 'fr';
   const { inRange, inPrev, dayFormat } = period;
   const usersBase = { deleted: false };
   const appsBase  = { deleted: false };
@@ -125,8 +126,22 @@ export async function buildBiStats(period: BiPeriod): Promise<BiStats> {
       { $unwind: '$trainings' },
       { $group: { _id: '$trainings', count: { $sum: 1 } } },
       { $sort: { count: -1 } }, { $limit: 8 },
-      { $lookup: { from: 'trainings', localField: '_id', foreignField: '_id', as: 'prog' } },
-      { $project: { _id: 0, count: 1, title: { $ifNull: [{ $arrayElemAt: ['$prog.title.fr', 0] }, 'Programme'] } } },
+      {
+        $lookup: {
+          from: 'trainings',
+          let: { tid: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: [{ $toString: '$_id' }, { $toString: '$$tid' }] } } },
+          ],
+          as: 'prog',
+        },
+      },
+      { $project: { _id: 0, count: 1, title: { $ifNull: [
+        { $arrayElemAt: [`$prog.title.${L}`, 0] },
+        { $arrayElemAt: [L === 'ar' ? '$prog.title.en' : '$prog.title.fr', 0] },
+        { $arrayElemAt: [L === 'ar' ? '$prog.title.fr' : '$prog.title.en', 0] },
+        'Programme',
+      ] } } },
     ]),
 
     Application.aggregate<{ skill: string; count: number }>([
@@ -134,7 +149,26 @@ export async function buildBiStats(period: BiPeriod): Promise<BiStats> {
       { $unwind: '$missingSkills' },
       { $group: { _id: '$missingSkills', count: { $sum: 1 } } },
       { $sort: { count: -1 } }, { $limit: 10 },
-      { $project: { _id: 0, skill: '$_id', count: 1 } },
+      {
+        $lookup: {
+          from: 'skills',
+          let: { sname: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $or: [
+              { $eq: ['$name.fr', '$$sname'] },
+              { $eq: ['$name.en', '$$sname'] },
+              { $eq: ['$name.ar', '$$sname'] },
+            ] } } },
+          ],
+          as: 's',
+        },
+      },
+      { $project: { _id: 0, count: 1, skill: { $ifNull: [
+        { $arrayElemAt: [`$s.name.${L}`, 0] },
+        { $arrayElemAt: [L === 'ar' ? '$s.name.en' : '$s.name.fr', 0] },
+        { $arrayElemAt: [L === 'ar' ? '$s.name.fr' : '$s.name.en', 0] },
+        '$_id',
+      ] } } },
     ]),
 
     Application.aggregate<{ range: string; count: number }>([
@@ -159,12 +193,29 @@ export async function buildBiStats(period: BiPeriod): Promise<BiStats> {
       { $match: { deleted: { $ne: true }, mentor: { $ne: null } } },
       { $group: { _id: '$mentor', count: { $sum: 1 } } },
       { $sort: { count: -1 } }, { $limit: 6 },
-      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'u' } },
+      {
+        $lookup: {
+          from: 'users',
+          let: { mid: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: [{ $toString: '$_id' }, { $toString: '$$mid' }] } } },
+          ],
+          as: 'u',
+        },
+      },
       { $project: {
         _id: 0,
         mentor: { $toString: '$_id' },
-        firstName: { $ifNull: [{ $arrayElemAt: ['$u.firstName.fr', 0] }, 'Mentor'] },
-        lastName:  { $ifNull: [{ $arrayElemAt: ['$u.lastName.fr', 0] },  '' ] },
+        firstName: { $ifNull: [
+          { $arrayElemAt: [`$u.firstName.${L}`, 0] },
+          { $arrayElemAt: [L === 'ar' ? '$u.firstName.en' : '$u.firstName.fr', 0] },
+          { $arrayElemAt: ['$u.login', 0] },
+        ] },
+        lastName: { $ifNull: [
+          { $arrayElemAt: [`$u.lastName.${L}`, 0] },
+          { $arrayElemAt: [L === 'ar' ? '$u.lastName.en' : '$u.lastName.fr', 0] },
+          '',
+        ] },
         count: 1,
       }},
     ]),
