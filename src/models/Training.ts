@@ -1,26 +1,26 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 // ── Inline quiz structures (backoffice / mentor editor) ────────────────────────
-export interface IQuizMcOption {
+export interface IInlineQuizMcOption {
   text:      string;
   isCorrect: boolean;
 }
 
-export interface IQuizQuestion {
+export interface IInlineQuizQuestion {
   type:              'truefalse' | 'simple' | 'multiple';
   text:              string;
   trueFalseAnswer?:  boolean;
   expectedAnswer?:   string;
-  options?:          IQuizMcOption[];
+  options?:          IInlineQuizMcOption[];
 }
 
-export interface IQuiz {
+export interface IInlineQuiz {
   id?:              string;
   title:            any;   // string or { fr, en, ar }
   description?:     string;
   hoursToComplete?: number;
   deadline?:        string;
-  questions?:       IQuizQuestion[];
+  questions?:       IInlineQuizQuestion[];
   folders?:         { id?: string; name: string; fileName: string; createdAt?: string }[];
 }
 
@@ -46,7 +46,7 @@ export interface ILesson {
   challenges?:      number;
   folders?:         ILessonFolder[];
   taskRef?:         string; // ID of a Task document → project management
-  quizzes?:         IQuiz[];
+  quizzes?:         IInlineQuiz[];
 }
 
 // ── Week ──────────────────────────────────────────────────────────────────────
@@ -87,12 +87,12 @@ export interface ITraining extends Document {
 }
 
 // ── Mongoose schemas ──────────────────────────────────────────────────────────
-const QuizMcOptionSchema = new Schema<IQuizMcOption>({
+const QuizMcOptionSchema = new Schema<IInlineQuizMcOption>({
   text:      String,
   isCorrect: Boolean,
 }, { _id: false });
 
-const QuizQuestionSchema = new Schema<IQuizQuestion>({
+const QuizQuestionSchema = new Schema<IInlineQuizQuestion>({
   type:             { type: String, enum: ['truefalse', 'simple', 'multiple'] },
   text:             String,
   trueFalseAnswer:  Boolean,
@@ -100,7 +100,7 @@ const QuizQuestionSchema = new Schema<IQuizQuestion>({
   options:          [QuizMcOptionSchema],
 }, { _id: false });
 
-const QuizSchema = new Schema<IQuiz>({
+const QuizSchema = new Schema<IInlineQuiz>({
   id:              { type: String },
   title:           { type: Schema.Types.Mixed }, // string or { fr, en, ar }
   description:     String,

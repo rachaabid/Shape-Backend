@@ -1,12 +1,14 @@
 import Training from '../models/Training';
 import TextBloc from '../models/TextBloc';
-import VideoYoutube from '../models/VideoYoutube';
+import VideoYoutube from '../models/VideoYoutube'; // lecture legacy uniquement
 import Quiz from '../models/Quiz';
 import Video from '../models/Video';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { HttpError }    from '../utils/HttpError';
 
+// VideoYoutube conservé pour résoudre les contenus legacy existants en base.
+// Les nouvelles vidéos YouTube utilisent Video avec source='youtube'.
 const CONTENT_MODELS: Record<string, any> = { TextBloc, VideoYoutube, Quiz, Video };
 
 export const getTrainings = asyncHandler(async (req, res) => {

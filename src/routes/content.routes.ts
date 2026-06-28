@@ -8,11 +8,19 @@ import { createCrudRouter } from './crud.helper';
 
 const router = Router();
 
-// Mount all content-type CRUD routers (Documentation, TextBloc, Video, VideoYoutube, Image)
+// Content-type CRUD routers
 router.use(createCrudRouter(Documentation, 'Documentation'));
 router.use(createCrudRouter(TextBloc,      'TextBloc'));
-router.use(createCrudRouter(Video,         'Video'));
-router.use(createCrudRouter(VideoYoutube,  'VideoYoutube'));
+router.use(createCrudRouter(Video,         'Video'));   // source='upload' | 'youtube'
 router.use(createCrudRouter(ImageContent,  'Image'));
+
+// Lecture seule sur VideoYoutube — compatibilité avec les données existantes.
+// Les nouvelles vidéos YouTube sont créées via /Video avec source='youtube'.
+router.get('/VideoYoutube',     async (_req, res) => { res.json(await VideoYoutube.find({ deleted: { $ne: true } })); });
+router.get('/VideoYoutube/:id', async (req, res)  => {
+  const doc = await VideoYoutube.findById(req.params['id']);
+  if (!doc) return res.status(404).json({ message: 'Not found' });
+  return res.json(doc);
+});
 
 export default router;
