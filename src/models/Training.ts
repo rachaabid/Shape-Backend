@@ -72,8 +72,8 @@ export interface ICourse {
 export interface ITraining extends Document {
   title:        { fr?: string; en?: string; ar?: string };
   description?: { fr?: string; en?: string; ar?: string };
-  career?:      string;
-  skill?:       string;
+  career?:      any;   // string or { fr, en, ar }
+  skill?:       any;   // string or { fr, en, ar }
   weeks?:       IWeek[];   // PRIMARY — backoffice + seed both write here
   courses?:     ICourse[]; // LEGACY — old seed format, kept for backward compat
   price?:       number;
@@ -155,8 +155,8 @@ const CourseSchema = new Schema<ICourse>({
 const TrainingSchema = new Schema<ITraining>({
   title:       { fr: String, en: String, ar: String },
   description: { fr: String, en: String, ar: String },
-  career:      String,
-  skill:       String,
+  career:      { type: Schema.Types.Mixed },
+  skill:       { type: Schema.Types.Mixed },
   weeks:       [WeekSchema],
   courses:     [CourseSchema],
   price:       Number,

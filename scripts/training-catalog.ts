@@ -59,9 +59,9 @@ export interface CatalogWeek {
 
 export interface CatalogTraining {
   title: { fr: string; en: string; ar?: string };
-  description: { fr: string; en: string };
-  career: string;          // ex. 'Développeur Full-Stack'
-  domain: string;          // ex. 'Développement'
+  description: { fr: string; en: string; ar?: string };
+  career: { fr: string; en: string; ar: string };
+  domain: { fr: string; en: string; ar: string };
   priceTnd: number;
   priceEur: number;
   durationWeeks: number;
@@ -82,9 +82,10 @@ const TRAINING_FULLSTACK: CatalogTraining = {
   description: {
     fr: 'Devenez développeur web full-stack en 8 semaines : HTML/CSS, JavaScript moderne, React, Node.js, MongoDB, authentification JWT et déploiement.',
     en: 'Become a full-stack web developer in 8 weeks: HTML/CSS, modern JavaScript, React, Node.js, MongoDB, JWT auth and deployment.',
+    ar: 'أصبح مطوّر ويب Full-Stack في 8 أسابيع: HTML/CSS، JavaScript الحديث، React، Node.js، MongoDB، مصادقة JWT والنشر.',
   },
-  career: 'Développeur Full-Stack',
-  domain: 'Développement',
+  career: { fr: 'Développeur Full-Stack',   en: 'Full-Stack Developer',    ar: 'مطوّر Full-Stack' },
+  domain: { fr: 'Développement',            en: 'Development',             ar: 'التطوير' },
   priceTnd: 1200, priceEur: 380, durationWeeks: 8,
   weeks: [
     {
@@ -530,9 +531,10 @@ const TRAINING_REACT_TS: CatalogTraining = {
   description: {
     fr: 'Passez React et TypeScript au niveau pro : hooks avancés, state management, performance, tests et architecture.',
     en: 'Take React & TypeScript to the pro level: advanced hooks, state management, performance, testing and architecture.',
+    ar: 'ارتقِ بـ React وTypeScript إلى المستوى الاحترافي: Hooks متقدمة، إدارة الحالة، الأداء، الاختبارات والبنية.',
   },
-  career: 'Développeur Front-End',
-  domain: 'Développement',
+  career: { fr: 'Développeur Front-End',    en: 'Front-End Developer',     ar: 'مطوّر Front-End' },
+  domain: { fr: 'Développement',            en: 'Development',             ar: 'التطوير' },
   priceTnd: 1500, priceEur: 480, durationWeeks: 6,
   weeks: [
     {
@@ -767,9 +769,10 @@ const TRAINING_DATA_SCIENCE: CatalogTraining = {
   description: {
     fr: 'De Python aux modèles ML : Pandas, NumPy, visualisation, statistiques et machine learning avec scikit-learn.',
     en: 'From Python to ML models: Pandas, NumPy, visualization, stats and machine learning with scikit-learn.',
+    ar: 'من Python إلى نماذج ML: Pandas، NumPy، التصور البياني، الإحصاء والتعلم الآلي مع scikit-learn.',
   },
-  career: 'Data Scientist',
-  domain: 'Data & IA',
+  career: { fr: 'Data Scientist',            en: 'Data Scientist',          ar: 'عالم بيانات' },
+  domain: { fr: 'Data & IA',                en: 'Data & AI',               ar: 'البيانات والذكاء الاصطناعي' },
   priceTnd: 1400, priceEur: 450, durationWeeks: 7,
   weeks: [
     {
@@ -986,8 +989,9 @@ model.fit(X_train, y_train, epochs=10, validation_split=0.2)</code></pre>`,
 // ──────────────────────────────────────────────────────────────────────
 const TRAINING_UXUI: CatalogTraining = {
   title: { fr: 'UX/UI Design avec Figma', en: 'UX/UI Design with Figma' },
-  description: { fr: 'Apprenez à concevoir des interfaces utilisables, esthétiques et accessibles avec Figma.', en: 'Design usable, beautiful and accessible UIs with Figma.' },
-  career: 'UX/UI Designer', domain: 'Design',
+  description: { fr: 'Apprenez à concevoir des interfaces utilisables, esthétiques et accessibles avec Figma.', en: 'Design usable, beautiful and accessible UIs with Figma.', ar: 'تعلّم تصميم واجهات سهلة الاستخدام وجميلة وقابلة للوصول باستخدام Figma.' },
+  career: { fr: 'UX/UI Designer',            en: 'UX/UI Designer',          ar: 'مصمم UX/UI' },
+  domain: { fr: 'Design',                   en: 'Design',                  ar: 'التصميم' },
   priceTnd: 1000, priceEur: 320, durationWeeks: 5,
   weeks: [
     {
@@ -1127,8 +1131,9 @@ const TRAINING_UXUI: CatalogTraining = {
 // ──────────────────────────────────────────────────────────────────────
 const TRAINING_SEO: CatalogTraining = {
   title: { fr: 'Marketing Digital & SEO', en: 'Digital Marketing & SEO' },
-  description: { fr: 'Acquisition organique, SEO on-page/off-page, Google Analytics et Search Console.', en: 'Organic acquisition, on-page/off-page SEO, Google Analytics and Search Console.' },
-  career: 'Spécialiste SEO', domain: 'Marketing Digital',
+  description: { fr: 'Acquisition organique, SEO on-page/off-page, Google Analytics et Search Console.', en: 'Organic acquisition, on-page/off-page SEO, Google Analytics and Search Console.', ar: 'اكتساب عضوي، SEO داخلي/خارجي، Google Analytics وSearch Console.' },
+  career: { fr: 'Spécialiste SEO',           en: 'SEO Specialist',          ar: 'متخصص SEO' },
+  domain: { fr: 'Marketing Digital',         en: 'Digital Marketing',       ar: 'التسويق الرقمي' },
   priceTnd: 900, priceEur: 290, durationWeeks: 5,
   weeks: [
     {
@@ -1254,8 +1259,9 @@ const TRAINING_SEO: CatalogTraining = {
 // ──────────────────────────────────────────────────────────────────────
 const TRAINING_DEVOPS: CatalogTraining = {
   title: { fr: 'DevOps avec Docker & Kubernetes', en: 'DevOps with Docker & Kubernetes' },
-  description: { fr: 'Linux, Git, Docker, Kubernetes, CI/CD : le parcours DevOps complet.', en: 'Linux, Git, Docker, Kubernetes, CI/CD: the full DevOps journey.' },
-  career: 'Ingénieur DevOps', domain: 'Cloud & DevOps',
+  description: { fr: 'Linux, Git, Docker, Kubernetes, CI/CD : le parcours DevOps complet.', en: 'Linux, Git, Docker, Kubernetes, CI/CD: the full DevOps journey.', ar: 'Linux، Git، Docker، Kubernetes، CI/CD: مسار DevOps الكامل.' },
+  career: { fr: 'Ingénieur DevOps',          en: 'DevOps Engineer',         ar: 'مهندس DevOps' },
+  domain: { fr: 'Cloud & DevOps',            en: 'Cloud & DevOps',          ar: 'Cloud وDevOps' },
   priceTnd: 1600, priceEur: 510, durationWeeks: 6,
   weeks: [
     {
@@ -1467,8 +1473,9 @@ CMD ["node", "dist/app.js"]</code></pre>
 // ──────────────────────────────────────────────────────────────────────
 const TRAINING_CYBER: CatalogTraining = {
   title: { fr: 'Cybersécurité Offensive', en: 'Offensive Cybersecurity' },
-  description: { fr: 'Du réseau à OWASP Top 10 et au pentest avec Burp Suite et Metasploit.', en: 'From networking to OWASP Top 10 and pentesting with Burp Suite and Metasploit.' },
-  career: 'Analyste Cybersécurité', domain: 'Cybersécurité',
+  description: { fr: 'Du réseau à OWASP Top 10 et au pentest avec Burp Suite et Metasploit.', en: 'From networking to OWASP Top 10 and pentesting with Burp Suite and Metasploit.', ar: 'من الشبكات إلى OWASP Top 10 واختبار الاختراق مع Burp Suite وMetasploit.' },
+  career: { fr: 'Analyste Cybersécurité',    en: 'Cybersecurity Analyst',   ar: 'محلل الأمن السيبراني' },
+  domain: { fr: 'Cybersécurité',             en: 'Cybersecurity',           ar: 'الأمن السيبراني' },
   priceTnd: 1800, priceEur: 580, durationWeeks: 6,
   weeks: [
     {
@@ -1652,8 +1659,9 @@ const TRAINING_CYBER: CatalogTraining = {
 // ──────────────────────────────────────────────────────────────────────
 const TRAINING_FLUTTER: CatalogTraining = {
   title: { fr: 'Développement Mobile Flutter', en: 'Mobile Development with Flutter' },
-  description: { fr: 'Apps iOS + Android multiplateformes avec Flutter et Dart.', en: 'Cross-platform iOS + Android apps with Flutter and Dart.' },
-  career: 'Développeur Mobile', domain: 'Développement',
+  description: { fr: 'Apps iOS + Android multiplateformes avec Flutter et Dart.', en: 'Cross-platform iOS + Android apps with Flutter and Dart.', ar: 'تطبيقات iOS وAndroid متعددة المنصات مع Flutter وDart.' },
+  career: { fr: 'Développeur Mobile',        en: 'Mobile Developer',        ar: 'مطوّر تطبيقات موبايل' },
+  domain: { fr: 'Développement',            en: 'Development',             ar: 'التطوير' },
   priceTnd: 1300, priceEur: 420, durationWeeks: 6,
   weeks: [
     {
@@ -1792,8 +1800,9 @@ class _CounterState extends State&lt;Counter&gt; {
 // ──────────────────────────────────────────────────────────────────────
 const TRAINING_AWS: CatalogTraining = {
   title: { fr: 'Cloud Computing AWS', en: 'AWS Cloud Computing' },
-  description: { fr: 'Préparation à AWS Cloud Practitioner : EC2, S3, RDS, IAM, VPC.', en: 'AWS Cloud Practitioner prep: EC2, S3, RDS, IAM, VPC.' },
-  career: 'Architecte Cloud', domain: 'Cloud & DevOps',
+  description: { fr: 'Préparation à AWS Cloud Practitioner : EC2, S3, RDS, IAM, VPC.', en: 'AWS Cloud Practitioner prep: EC2, S3, RDS, IAM, VPC.', ar: 'التحضير لشهادة AWS Cloud Practitioner: EC2، S3، RDS، IAM، VPC.' },
+  career: { fr: 'Architecte Cloud',          en: 'Cloud Architect',         ar: 'مهندس Cloud' },
+  domain: { fr: 'Cloud & DevOps',            en: 'Cloud & DevOps',          ar: 'Cloud وDevOps' },
   priceTnd: 1200, priceEur: 380, durationWeeks: 5,
   weeks: [
     {
@@ -1905,8 +1914,9 @@ const TRAINING_AWS: CatalogTraining = {
 // ──────────────────────────────────────────────────────────────────────
 const TRAINING_JAVA: CatalogTraining = {
   title: { fr: 'Java & Spring Boot', en: 'Java & Spring Boot' },
-  description: { fr: 'Backend pro avec Spring Boot, JPA, Spring Security et tests.', en: 'Pro backend with Spring Boot, JPA, Spring Security and tests.' },
-  career: 'Développeur Back-End', domain: 'Développement',
+  description: { fr: 'Backend pro avec Spring Boot, JPA, Spring Security et tests.', en: 'Pro backend with Spring Boot, JPA, Spring Security and tests.', ar: 'Backend احترافي مع Spring Boot، JPA، Spring Security والاختبارات.' },
+  career: { fr: 'Développeur Back-End',      en: 'Back-End Developer',      ar: 'مطوّر Back-End' },
+  domain: { fr: 'Développement',            en: 'Development',             ar: 'التطوير' },
   priceTnd: 1300, priceEur: 420, durationWeeks: 6,
   weeks: [
     {

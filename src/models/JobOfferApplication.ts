@@ -38,6 +38,10 @@ const ApplicationSchema = new Schema<IApplication>({
   archived:          { type: Boolean, default: false },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
+ApplicationSchema.index({ deleted: 1, archived: 1 });
+ApplicationSchema.index({ jobOffer: 1, deleted: 1 });
+ApplicationSchema.index({ user: 1, deleted: 1 });
+
 // The frontend expects "userDetails" and "jobOfferDetails" instead of "user" and "jobOffer"
 ApplicationSchema.virtual('userDetails').get(function () { return this.user; });
 ApplicationSchema.virtual('jobOfferDetails').get(function () { return this.jobOffer; });

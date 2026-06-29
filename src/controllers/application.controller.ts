@@ -5,6 +5,23 @@ import { HttpError }    from '../utils/HttpError';
 import { runAutoMatchPipeline } from '../services/autoMatch.service';
 import { notifyAdmins }        from './notification.controller';
 
+// Populate léger pour la liste — uniquement les champs affichés dans le tableau
+const LIST_USER_POPULATE = {
+  path: 'user',
+  select: 'firstName lastName login email avatar',
+};
+
+const LIST_JOBOFFER_POPULATE = {
+  path: 'jobOffer',
+  // Inclure 'company' et 'jobOfferModel' pour que leurs populates imbriqués fonctionnent.
+  // Ne pas ajouter select ici : les champs manquants (ex. hardSkills) ne sont plus peuplés de toutes façons.
+  populate: [
+    { path: 'company',       model: 'User',          select: 'companyProfile login' },
+    { path: 'jobOfferModel', model: 'JobOfferModel', select: 'name' },
+  ],
+};
+
+// Populate complet — uniquement pour getById (vue détail)
 const USER_POPULATE = {
   path: 'user', select: '-password',
   populate: [
@@ -37,8 +54,8 @@ const buildFilter = (attributeName: string, value: string) => {
 export const getAll = asyncHandler(async (_req, res) => {
   res.json(
     await Application.find({ deleted: false, archived: { $ne: true } })
-      .populate(USER_POPULATE)
-      .populate(JOBOFFER_POPULATE),
+      .populate(LIST_USER_POPULATE)
+      .populate(LIST_JOBOFFER_POPULATE),
   );
 });
 
@@ -46,8 +63,8 @@ export const getAll = asyncHandler(async (_req, res) => {
 export const getArchived = asyncHandler(async (_req, res) => {
   res.json(
     await Application.find({ deleted: false, archived: true })
-      .populate(USER_POPULATE)
-      .populate(JOBOFFER_POPULATE)
+      .populate(LIST_USER_POPULATE)
+      .populate(LIST_JOBOFFER_POPULATE)
       .sort({ updatedAt: -1 }),
   );
 });

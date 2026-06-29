@@ -109,13 +109,13 @@ export async function buildBiStats(period: BiPeriod, lang = 'fr'): Promise<BiSta
       { $project: { _id: 0, status: '$_id', count: 1 } },
     ]),
 
-    Application.countDocuments(appsBase),
-    Application.countDocuments({ ...appsBase, status: APP_STATUS.RETAINED }),
-    Application.countDocuments({ ...appsBase, status: APP_STATUS.HIRED }),
-    Application.countDocuments({ ...appsBase, status: APP_STATUS.REJECTED }),
+    Application.countDocuments({ ...appsBase, createdAt: inRange }),
+    Application.countDocuments({ ...appsBase, status: APP_STATUS.RETAINED, createdAt: inRange }),
+    Application.countDocuments({ ...appsBase, status: APP_STATUS.HIRED, createdAt: inRange }),
+    Application.countDocuments({ ...appsBase, status: APP_STATUS.REJECTED, createdAt: inRange }),
 
     User.aggregate<{ country: string; count: number }>([
-      { $match: { roles: 'CANDIDATE', deleted: false, country: { $exists: true, $ne: null } } },
+      { $match: { roles: 'CANDIDATE', deleted: false, country: { $exists: true, $ne: null }, createdAt: inRange } },
       { $group: { _id: '$country', count: { $sum: 1 } } },
       { $sort: { count: -1 } }, { $limit: 10 },
       { $project: { _id: 0, country: '$_id', count: 1 } },
@@ -145,7 +145,7 @@ export async function buildBiStats(period: BiPeriod, lang = 'fr'): Promise<BiSta
     ]),
 
     Application.aggregate<{ skill: string; count: number }>([
-      { $match: { deleted: false, missingSkills: { $exists: true, $ne: [] } } },
+      { $match: { deleted: false, missingSkills: { $exists: true, $ne: [] }, createdAt: inRange } },
       { $unwind: '$missingSkills' },
       { $group: { _id: '$missingSkills', count: { $sum: 1 } } },
       { $sort: { count: -1 } }, { $limit: 10 },
@@ -172,7 +172,7 @@ export async function buildBiStats(period: BiPeriod, lang = 'fr'): Promise<BiSta
     ]),
 
     Application.aggregate<{ range: string; count: number }>([
-      { $match: { deleted: false, matchScore: { $exists: true, $ne: null } } },
+      { $match: { deleted: false, matchScore: { $exists: true, $ne: null }, createdAt: inRange } },
       { $bucket: {
         groupBy: '$matchScore', boundaries: [0, 30, 50, 70, 85, 101],
         default: 'other', output: { count: { $sum: 1 } },

@@ -696,10 +696,9 @@ async function seed() {
   });
   const trainings: any[] = await insertInBatches(Training, trainingPayload, 'programmes');
 
-  // 8c. Lier les Tasks du catalogue à leur premier Training propriétaire (pour Task.training / createdBy)
-  // Si plusieurs sessions utilisent la même Task, on prend la première : suffisant pour les requêtes
-  // GET /Task/ByAttribute/training/:id (chaque session retrouvera bien sa task via taskRef dans la leçon).
+  // 8c. Lier les Tasks et Quiz du catalogue à leur premier Training propriétaire
   const taskBound = new Set<string>();
+  const quizBound = new Set<string>();
   for (const prog of trainings) {
     for (const week of (prog as any).weeks || []) {
       for (const lesson of (week.lessons || []) as any[]) {
@@ -707,9 +706,17 @@ async function seed() {
           await Task.findByIdAndUpdate(lesson.taskRef, { training: prog._id, createdBy: prog.owner });
           taskBound.add(String(lesson.taskRef));
         }
+        for (const inlineQuiz of (lesson.quizzes || []) as any[]) {
+          const qId = inlineQuiz.id;
+          if (qId && !quizBound.has(String(qId))) {
+            await Quiz.findByIdAndUpdate(qId, { training: prog._id });
+            quizBound.add(String(qId));
+          }
+        }
       }
     }
   }
+  console.log(`   ✓ ${quizBound.size} quiz catalogue liés à leur formation`);
   console.log(`   ✓ ${trainings.length} programmes créés (${TRAINING_CATALOG.length} formations réelles × ${Math.ceil(CFG.TRAININGS / TRAINING_CATALOG.length)} sessions)`);
 
   // ── 9. Offres d'emploi ─────────────────────────────────────────────
