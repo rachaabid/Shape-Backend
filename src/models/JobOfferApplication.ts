@@ -18,6 +18,12 @@ export interface IApplication extends Document {
   deleted?:           boolean;
   archived?:          boolean;
   createdAt:          Date;
+  companyEvaluation?: {
+    hardSkills:   number;
+    softSkills:   number;
+    organisation: number;
+    note:         string;
+  };
 }
 
 const ApplicationSchema = new Schema<IApplication>({
@@ -36,6 +42,12 @@ const ApplicationSchema = new Schema<IApplication>({
   extractedCvSkills: [String],
   deleted:           { type: Boolean, default: false },
   archived:          { type: Boolean, default: false },
+  companyEvaluation: {
+    hardSkills:   { type: Number, default: 0 },
+    softSkills:   { type: Number, default: 0 },
+    organisation: { type: Number, default: 0 },
+    note:         { type: String, default: '' },
+  },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 ApplicationSchema.index({ deleted: 1, archived: 1 });
