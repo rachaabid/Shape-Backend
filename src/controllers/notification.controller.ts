@@ -3,8 +3,25 @@ import User         from '../models/User';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
 
-export const getMyNotifications = asyncHandler<AuthRequest>(async (req, res) =>
-  res.json(await Notification.find({ userId: req.userId }).sort({ createdAt: -1 })));
+const MENTOR_TYPES    = ['TASK_IN_REVIEW', 'TASK_FILE_UPLOADED', 'NEW_INTERN_INSCRIBED', 'NEW_INTERVIEW', 'NEW_MESSAGE'];
+const CANDIDATE_TYPES = ['EVALUATION_RECEIVED', 'EVALUATION_UPDATED', 'CANDIDATE_RETAINED', 'APPLICATION_RETAINED', 'APPLICATION_REJECTED', 'INTERVIEW_SCHEDULED', 'INTERVIEW_CONFIRMED', 'NEW_MESSAGE', 'TRAINING_VALIDATED'];
+const COMPANY_TYPES   = ['NEW_APPLICATION', 'NEW_MESSAGE', 'CANDIDATE_RETAINED'];
+
+function allowedTypes(roles: string[]): string[] | null {
+  if (roles.includes('ADMIN')) return null; // null = pas de filtre (tout voir)
+  const types = new Set<string>();
+  if (roles.includes('MENTOR'))    MENTOR_TYPES.forEach(t => types.add(t));
+  if (roles.includes('CANDIDATE')) CANDIDATE_TYPES.forEach(t => types.add(t));
+  if (roles.includes('COMPANY'))   COMPANY_TYPES.forEach(t => types.add(t));
+  return [...types];
+}
+
+export const getMyNotifications = asyncHandler<AuthRequest>(async (req, res) => {
+  const types = allowedTypes(req.userRoles || []);
+  const query: any = { userId: req.userId };
+  if (types !== null) query.type = { $in: types };
+  res.json(await Notification.find(query).sort({ createdAt: -1 }));
+});
 
 export const markAsRead = asyncHandler<AuthRequest>(async (req, res) => {
   await Notification.findByIdAndUpdate(req.params['id'], { read: true });
@@ -22,7 +39,10 @@ export const deleteNotification = asyncHandler<AuthRequest>(async (req, res) => 
 });
 
 export const getUnreadCount = asyncHandler<AuthRequest>(async (req, res) => {
-  res.json({ total: await Notification.countDocuments({ userId: req.userId, read: false }) });
+  const types = allowedTypes(req.userRoles || []);
+  const query: any = { userId: req.userId, read: false };
+  if (types !== null) query.type = { $in: types };
+  res.json({ total: await Notification.countDocuments(query) });
 });
 
 // ── Helpers réutilisables (pas des handlers HTTP) ─────────────────

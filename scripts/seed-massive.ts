@@ -587,44 +587,126 @@ async function seed() {
   TRAINING_CATALOG.forEach((bp: CatalogTraining, bIdx: number) => {
     bp.weeks.forEach((wk, wIdx) => {
       wk.lessons.forEach((les, lIdx) => {
+        const key = `${bIdx}|${wIdx}|${lIdx}`;
+
+        // ── Quiz : réel pour kind='quiz', générique sinon ──
+        quizKeys.push(key);
         if (les.kind === 'quiz') {
-          quizKeys.push(`${bIdx}|${wIdx}|${lIdx}`);
           catalogQuizPayload.push({
-            title: les.title,
-            description: les.description,
-            keyWords: les.keyWords,
-            online: true,
-            duration: les.durationMin,
-            deadLineInHours: les.deadLineInHours,
+            title: les.title, description: les.description, keyWords: les.keyWords,
+            online: true, duration: les.durationMin, deadLineInHours: les.deadLineInHours,
             sections: les.sections.map(sec => ({
               text: sec.text,
               questions: sec.questions.map(q => ({
-                text: q.text,
-                questionType: q.questionType,
-                minSelection: 1,
+                text: q.text, questionType: q.questionType, minSelection: 1,
                 maxSelection: q.questionType === 'multiple' ? q.options.filter(o => o.score > 0).length : 1,
                 options: q.options,
               })),
             })),
           });
-        } else if (les.kind === 'task') {
-          taskKeys.push(`${bIdx}|${wIdx}|${lIdx}`);
+        } else {
+          catalogQuizPayload.push({
+            title: { fr: `Quiz — ${les.title.fr}`, en: `Quiz — ${les.title.en}` },
+            description: { fr: `Évaluez vos connaissances sur : ${les.title.fr}.`, en: `Test your knowledge on: ${les.title.en}.` },
+            keyWords: les.keyWords, online: true, duration: 10, deadLineInHours: 48,
+            sections: [{
+              text: { fr: 'Questions de compréhension', en: 'Comprehension questions' },
+              questions: [
+                {
+                  text: { fr: 'Quel est l\'objectif principal de cette leçon ?', en: 'What is the main goal of this lesson?' },
+                  questionType: 'simple', minSelection: 1, maxSelection: 1,
+                  options: [
+                    { text: { fr: 'Appliquer les concepts vus', en: 'Apply the concepts learned' }, score: 1 },
+                    { text: { fr: 'Mémoriser sans comprendre', en: 'Memorize without understanding' }, score: 0 },
+                    { text: { fr: 'Aucun objectif précis', en: 'No specific goal' }, score: 0 },
+                  ],
+                },
+                {
+                  text: { fr: 'Avez-vous réalisé les exercices pratiques ?', en: 'Did you complete the practical exercises?' },
+                  questionType: 'simple', minSelection: 1, maxSelection: 1,
+                  options: [
+                    { text: { fr: 'Oui, tous', en: 'Yes, all of them' }, score: 1 },
+                    { text: { fr: 'Partiellement', en: 'Partially' }, score: 0 },
+                    { text: { fr: 'Non', en: 'No' }, score: 0 },
+                  ],
+                },
+              ],
+            }],
+          });
+        }
+
+        // ── Task : réelle pour kind='task', générique sinon ──
+        taskKeys.push(key);
+        if (les.kind === 'task') {
           catalogTaskPayload.push({
-            title: les.title,
-            description: les.description,
-            keyWords: les.keyWords,
-            online: true,
-            deadLineInHours: les.deadLineInHours,
+            title: les.title, description: les.description,
+            keyWords: les.keyWords, online: true, deadLineInHours: (les as any).deadLineInHours,
+          });
+        } else {
+          catalogTaskPayload.push({
+            title: { fr: `TP — ${les.title.fr}`, en: `Exercise — ${les.title.en}` },
+            description: {
+              fr: `Travaux pratiques : appliquez les notions de "${les.title.fr}". Rédigez un compte-rendu et soumettez votre livrable.`,
+              en: `Practical work: apply concepts from "${les.title.en}". Write a report and submit your deliverable.`,
+            },
+            keyWords: les.keyWords, online: true, deadLineInHours: 72,
           });
         }
       });
     });
   });
+
+  // 8a-final. Quiz final + Projet final par blueprint de formation
+  const finalQuizPayload: any[] = [];
+  const finalTaskPayload: any[] = [];
+  TRAINING_CATALOG.forEach((bp: CatalogTraining) => {
+    finalQuizPayload.push({
+      title: { fr: `Quiz Final — ${bp.title.fr}`, en: `Final Quiz — ${bp.title.en}` },
+      description: { fr: `Évaluation finale couvrant l'ensemble du programme ${bp.title.fr}.`, en: `Final assessment covering all of ${bp.title.en}.` },
+      keyWords: [], online: true, duration: 60, deadLineInHours: 72,
+      sections: [{
+        text: { fr: 'Évaluation globale du programme', en: 'Overall Program Assessment' },
+        questions: [
+          {
+            text: { fr: 'Quelles compétences avez-vous consolidées dans ce programme ?', en: 'Which skills did you consolidate in this program?' },
+            questionType: 'multiple', minSelection: 1, maxSelection: 3,
+            options: [
+              { text: { fr: 'Compétences techniques approfondies', en: 'Deep technical skills' }, score: 1 },
+              { text: { fr: 'Résolution de problèmes complexes', en: 'Complex problem solving' }, score: 1 },
+              { text: { fr: 'Travail en autonomie', en: 'Autonomous work' }, score: 1 },
+              { text: { fr: 'Aucune compétence acquise', en: 'No skills gained' }, score: 0 },
+            ],
+          },
+          {
+            text: { fr: 'Êtes-vous prêt(e) à appliquer ces compétences en entreprise ?', en: 'Are you ready to apply these skills in a company?' },
+            questionType: 'simple', minSelection: 1, maxSelection: 1,
+            options: [
+              { text: { fr: 'Oui, totalement', en: 'Yes, definitely' }, score: 1 },
+              { text: { fr: 'Partiellement', en: 'Partially' }, score: 0 },
+              { text: { fr: 'Pas encore', en: 'Not yet' }, score: 0 },
+            ],
+          },
+        ],
+      }],
+    });
+    finalTaskPayload.push({
+      title: { fr: `Projet Final — ${bp.title.fr}`, en: `Capstone Project — ${bp.title.en}` },
+      description: {
+        fr: `Projet de fin de formation : concevez et réalisez un projet complet démontrant la maîtrise de l'ensemble des compétences acquises dans "${bp.title.fr}". Livrables : code source, documentation technique et présentation (10 min).`,
+        en: `Capstone project: design and build a complete project demonstrating mastery of all skills from "${bp.title.en}". Deliverables: source code, technical docs, and presentation (10 min).`,
+      },
+      keyWords: [], online: true, deadLineInHours: 168,
+    });
+  });
+
   const insertedCatalogQuizzes: any[] = await Quiz.insertMany(catalogQuizPayload);
   const insertedCatalogTasks:   any[] = await Task.insertMany(catalogTaskPayload);
+  const insertedFinalQuizzes:   any[] = await Quiz.insertMany(finalQuizPayload);
+  const insertedFinalTasks:     any[] = await Task.insertMany(finalTaskPayload);
   quizKeys.forEach((k, i) => catalogQuizMap.set(k, insertedCatalogQuizzes[i]));
   taskKeys.forEach((k, i) => catalogTaskMap.set(k, insertedCatalogTasks[i]));
   console.log(`   ✓ Quiz catalogue: ${insertedCatalogQuizzes.length}  |  Tasks catalogue: ${insertedCatalogTasks.length}`);
+  console.log(`   ✓ Quiz finaux: ${insertedFinalQuizzes.length}  |  Projets finaux: ${insertedFinalTasks.length}`);
 
   // 8b. Génération des Training instances depuis le catalogue (avec sessions)
   const trainingPayload = Array.from({ length: CFG.TRAININGS }, (_, i) => {
@@ -636,62 +718,108 @@ async function seed() {
     const online = i % 6 !== 0;
     const deadline = new Date(Date.now() + 72 * 3600_000);
 
+    // Vidéos publiques libres de droits (fallback pour les leçons vidéo)
+    const SAMPLE_VIDEOS = [
+      'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+      'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+      'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+      'https://storage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
+    ];
+
     const weeks = bp.weeks.map((wk, wIdx) => ({
       title: wk.title,
       lessons: wk.lessons.map((les, lIdx) => {
+        const key = `${bIdx}|${wIdx}|${lIdx}`;
+        const q   = catalogQuizMap.get(key)!;
+        const t   = catalogTaskMap.get(key)!;
+
+        // Champs communs : chaque leçon a toujours taskRef + quizzes
+        const base: any = {
+          keyWords: les.keyWords,
+          taskRef:  t._id.toString(),
+          quizzes:  [{
+            id:              q._id.toString(),
+            title:           les.title,
+            hoursToComplete: les.kind === 'quiz' ? Math.max(1, Math.round((les as any).durationMin / 60)) : 1,
+            deadline:        deadline.toISOString(),
+          }],
+        };
+
         if (les.kind === 'text') {
-          return { title: les.title, htmlContent: les.htmlContent, keyWords: les.keyWords };
+          return { title: les.title, htmlContent: les.htmlContent, ...base };
         }
         if (les.kind === 'video') {
-          return { title: les.title, videoUrl: les.videoUrl, keyWords: les.keyWords };
+          // Les URLs YouTube du catalogue ne fonctionnent pas avec <video> (besoin d'iframe).
+          // On utilise toujours des fichiers MP4 directs pour le player natif.
+          return {
+            title:    les.title,
+            videoUrl: SAMPLE_VIDEOS[(bIdx + wIdx + lIdx) % SAMPLE_VIDEOS.length],
+            ...base,
+          };
         }
         if (les.kind === 'doc') {
           return {
-            title: les.title,
-            folders: les.documents.map(d => ({
+            title:   les.title,
+            folders: (les as any).documents.map((d: any) => ({
               fileName: d.title.fr,
               fileSize: 0,
-              url: d.url,
+              url:      d.url,
             })),
-            keyWords: les.keyWords,
+            ...base,
           };
         }
         if (les.kind === 'task') {
-          const t = catalogTaskMap.get(`${bIdx}|${wIdx}|${lIdx}`)!;
           return {
-            title: les.title,
+            title:           les.title,
             learningOutcome: les.learningOutcome,
-            challengeText: (les.description as any).fr,
-            taskRef: t._id.toString(),
-            keyWords: les.keyWords,
+            challengeText:   (les.description as any).fr,
+            ...base,
           };
         }
-        // quiz
-        const q = catalogQuizMap.get(`${bIdx}|${wIdx}|${lIdx}`)!;
-        return {
-          title: les.title,
-          quizzes: [{
-            id: q._id.toString(),
-            title: les.title,
-            hoursToComplete: les.durationMin,
-            deadline: deadline.toISOString(),
-          }],
-          keyWords: les.keyWords,
-        };
+        // quiz — le contenu principal est déjà dans quizzes[]
+        return { title: les.title, ...base };
       }),
     }));
 
+    // Semaine finale : quiz de consolidation + projet capstone
+    const finalQuiz = insertedFinalQuizzes[bIdx];
+    const finalTask = insertedFinalTasks[bIdx];
+    const finalWeek = {
+      title: { fr: 'Évaluation Finale', en: 'Final Assessment', ar: 'التقييم النهائي' },
+      lessons: [
+        {
+          title:   { fr: 'Quiz Final de Consolidation', en: 'Final Consolidation Quiz', ar: 'الاختبار النهائي' },
+          keyWords: ['quiz', 'final', 'évaluation'],
+          quizzes:  [{
+            id:              finalQuiz._id.toString(),
+            title:           finalQuiz.title,
+            hoursToComplete: 2,
+            deadline:        deadline.toISOString(),
+          }],
+        },
+        {
+          title:           { fr: 'Projet Final', en: 'Capstone Project', ar: 'المشروع النهائي' },
+          keyWords:        ['projet', 'final', 'livrable'],
+          taskRef:         finalTask._id.toString(),
+          challengeText:   (finalTask.description as any).fr,
+          learningOutcome: `Consolider l'ensemble des compétences acquises dans ${bp.title.fr}.`,
+          videoUrl:        SAMPLE_VIDEOS[bIdx % SAMPLE_VIDEOS.length],
+        },
+      ],
+    };
+
     return {
-      title: { fr: `${bp.title.fr}${titleSuffix}`, en: `${bp.title.en}${titleSuffix}`, ar: bp.title.ar },
+      title:       { fr: `${bp.title.fr}${titleSuffix}`, en: `${bp.title.en}${titleSuffix}`, ar: bp.title.ar },
       description: bp.description,
-      career: bp.career,
-      skill: bp.domain,
-      owner: mentors[i % mentors.length]._id,
+      career:      bp.career,
+      skill:       bp.domain,
+      owner:       mentors[i % mentors.length]._id,
       online,
-      price: bp.priceTnd,
-      priceEur: bp.priceEur,
-      duration: bp.durationWeeks,
-      weeks,
+      price:       bp.priceTnd,
+      priceEur:    bp.priceEur,
+      duration:    bp.durationWeeks + 1,   // +1 semaine finale
+      weeks:       [...weeks, finalWeek],
     };
   });
   const trainings: any[] = await insertInBatches(Training, trainingPayload, 'programmes');
@@ -716,8 +844,8 @@ async function seed() {
       }
     }
   }
-  console.log(`   ✓ ${quizBound.size} quiz catalogue liés à leur formation`);
-  console.log(`   ✓ ${trainings.length} programmes créés (${TRAINING_CATALOG.length} formations réelles × ${Math.ceil(CFG.TRAININGS / TRAINING_CATALOG.length)} sessions)`);
+  console.log(`   ✓ ${quizBound.size} quiz liés  |  ${taskBound.size} tasks liées à leur formation`);
+  console.log(`   ✓ ${trainings.length} programmes créés — ${TRAINING_CATALOG.length} blueprints × ${Math.ceil(CFG.TRAININGS / TRAINING_CATALOG.length)} sessions + semaine finale chacune`);
 
   // ── 9. Offres d'emploi ─────────────────────────────────────────────
   console.log(`\n💼 Offres d'emploi x${CFG.JOB_OFFERS}…`);
@@ -857,11 +985,12 @@ async function seed() {
     }
     const status = pick(['active', 'active', 'active', 'completed']);
     inscriptionPayload.push({
-      user: cand._id,
+      user:      cand._id,
       trainings: selectedTrainings,
-      mentor: selectedMentor,
+      mentor:    selectedMentor,
       status,
-      closed: status === 'completed' && chance(0.7),
+      deleted:   false,   // insertMany bypasse les defaults Mongoose — doit être explicite
+      closed:    status === 'completed' && chance(0.7),
       createdAt: daysAgo(rnd(400)),
     });
   }

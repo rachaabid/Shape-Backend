@@ -52,7 +52,7 @@ export const create = asyncHandler<AuthRequest>(async (req, res) => {
   setImmediate(() => notifyAdmins(
     'NEW_INTERVIEW',
     `Entretien planifié le ${new Date(interview.scheduledAt).toLocaleDateString('fr-FR')}`,
-    { interviewId: interview._id.toString() },
+    { interviewId: interview._id.toString(), scheduledAt: interview.scheduledAt },
   ).catch(() => undefined));
 });
 

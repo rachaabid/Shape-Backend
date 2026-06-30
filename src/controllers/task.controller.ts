@@ -3,6 +3,7 @@ import User from '../models/User';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { HttpError }    from '../utils/HttpError';
+import { createNotification } from './notification.controller';
 
 // ── Helpers (modèle Task unifié : réponses imbriquées) ───────────────────────
 
@@ -170,6 +171,16 @@ export const patchTaskResponse = asyncHandler<AuthRequest>(async (req, res) => {
   (r as any).status = status;
   await t.save();
   res.json(mapResponse(t, r, { populateTask: true }));
+
+  if (status === 2 && t.createdBy) {
+    const title = (t.title as any)?.fr || (t.title as any)?.en || String(t.title || 'Sans titre');
+    setImmediate(() => createNotification(
+      String(t.createdBy),
+      'TASK_IN_REVIEW',
+      `Un candidat a soumis une réponse en révision pour la tâche « ${title} ».`,
+      { taskId: String(t._id), responseId: String(id), taskTitle: title },
+    ).catch(() => undefined));
+  }
 });
 
 export const addFileToTaskResponse = asyncHandler<AuthRequest>(async (req, res) => {
@@ -182,6 +193,16 @@ export const addFileToTaskResponse = asyncHandler<AuthRequest>(async (req, res) 
   await t.save();
   const ownerMap = await ownerMapFor([r]);
   res.json(mapResponse(t, r, { populateTask: true, ownerMap }));
+
+  if (t.createdBy) {
+    const title = (t.title as any)?.fr || (t.title as any)?.en || String(t.title || 'Sans titre');
+    setImmediate(() => createNotification(
+      String(t.createdBy),
+      'TASK_FILE_UPLOADED',
+      `Un candidat a déposé un fichier sur la tâche « ${title} ».`,
+      { taskId: String(t._id), responseId: String(req.params['id']), taskTitle: title },
+    ).catch(() => undefined));
+  }
 });
 
 export const removeFileFromTaskResponse = asyncHandler<AuthRequest>(async (req, res) => {
