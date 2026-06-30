@@ -73,6 +73,9 @@ export const getMentorAllTrainings = asyncHandler<AuthRequest>(async (req, res) 
   const ownedIds = new Set<string>();
   const refIds   = new Set<string>();
 
+  // Compte combien d'interns du mentor sont inscrits à chaque formation
+  const enrolledCount = new Map<string, number>();
+
   allTrainings.forEach(t => {
     const owner = t.owner?.toString();
     if (owner === userId) ownedIds.add(t._id.toString());
@@ -81,19 +84,27 @@ export const getMentorAllTrainings = asyncHandler<AuthRequest>(async (req, res) 
   inscriptions.forEach((ins: any) => {
     (Array.isArray(ins.trainings) ? ins.trainings : []).forEach((tid: any) => {
       const id = tid?.toString();
-      if (id) refIds.add(id);
+      if (id) {
+        refIds.add(id);
+        enrolledCount.set(id, (enrolledCount.get(id) ?? 0) + 1);
+      }
     });
   });
 
   const seen = new Set<string>();
-  const result = allTrainings.filter(t => {
-    const id = t._id.toString();
-    if ((ownedIds.has(id) || refIds.has(id)) && !seen.has(id)) {
-      seen.add(id);
-      return true;
-    }
-    return false;
-  });
+  const result = allTrainings
+    .filter(t => {
+      const id = t._id.toString();
+      if ((ownedIds.has(id) || refIds.has(id)) && !seen.has(id)) {
+        seen.add(id);
+        return true;
+      }
+      return false;
+    })
+    .map(t => ({
+      ...t.toObject(),
+      enrolledCount: enrolledCount.get(t._id.toString()) ?? 0,
+    }));
 
   res.json(result);
 });
