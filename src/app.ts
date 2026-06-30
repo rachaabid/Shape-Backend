@@ -36,6 +36,7 @@ import trainingRequestRoutes            from './routes/trainingRequest.routes';
 import companyTrainingProposalRoutes    from './routes/companyTrainingProposal.routes';
 import powerbiRoutes                   from './routes/powerbi.routes';
 import biExportRoutes                  from './routes/biExport.routes';
+import countriesRoutes                 from './routes/countries.routes';
 
 import Conversation from './models/Conversation';
 import Message      from './models/Message';
@@ -218,6 +219,7 @@ app.use('/api/TrainingRequest',          trainingRequestRoutes);
 app.use('/api/CompanyTrainingProposal',  companyTrainingProposalRoutes);
 app.use('/api/powerbi',                 powerbiRoutes);
 app.use('/api/bi-export',               biExportRoutes);
+app.use('/api',                         countriesRoutes);
 
 // ── Error handler : DOIT être le DERNIER middleware ───────────
 // Tout `throw` ou promesse rejetée dans un asyncHandler atterrit ici.

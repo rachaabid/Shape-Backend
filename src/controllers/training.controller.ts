@@ -1,4 +1,5 @@
-import Training from '../models/Training';
+import Training    from '../models/Training';
+import Inscription from '../models/Inscription';
 import TextBloc from '../models/TextBloc';
 import VideoYoutube from '../models/VideoYoutube'; // lecture legacy uniquement
 import Quiz from '../models/Quiz';
@@ -49,6 +50,52 @@ export const unarchiveTraining = asyncHandler(async (req, res) => {
 // GET /api/Training/mine — programmes créés par le mentor connecté
 export const getMyTrainings = asyncHandler<AuthRequest>(async (req, res) => {
   res.json(await Training.find({ owner: req.userId, deleted: { $ne: true } }));
+});
+
+// GET /api/Training/by-owner/:ownerId — tous les programmes d'un mentor (backoffice admin)
+export const getTrainingsByOwner = asyncHandler(async (req, res) => {
+  res.json(
+    await Training.find({ owner: req.params['ownerId'], deleted: { $ne: true }, archived: { $ne: true } }),
+  );
+});
+
+// GET /api/Training/mentor-all — toutes les formations liées au mentor :
+// possédées (owner = moi) + référencées via les inscriptions (mentor = moi).
+// Même logique que le backoffice user-detail.
+export const getMentorAllTrainings = asyncHandler<AuthRequest>(async (req, res) => {
+  const userId = req.userId;
+
+  const [allTrainings, inscriptions] = await Promise.all([
+    Training.find({ deleted: { $ne: true }, archived: { $ne: true } }),
+    Inscription.find({ mentor: userId, deleted: { $ne: true } }),
+  ]);
+
+  const ownedIds = new Set<string>();
+  const refIds   = new Set<string>();
+
+  allTrainings.forEach(t => {
+    const owner = t.owner?.toString();
+    if (owner === userId) ownedIds.add(t._id.toString());
+  });
+
+  inscriptions.forEach((ins: any) => {
+    (Array.isArray(ins.trainings) ? ins.trainings : []).forEach((tid: any) => {
+      const id = tid?.toString();
+      if (id) refIds.add(id);
+    });
+  });
+
+  const seen = new Set<string>();
+  const result = allTrainings.filter(t => {
+    const id = t._id.toString();
+    if ((ownedIds.has(id) || refIds.has(id)) && !seen.has(id)) {
+      seen.add(id);
+      return true;
+    }
+    return false;
+  });
+
+  res.json(result);
 });
 
 export const getTrainingById = asyncHandler(async (req, res) => {

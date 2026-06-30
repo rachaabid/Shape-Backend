@@ -1,5 +1,6 @@
 import bcrypt   from 'bcryptjs';
 import crypto   from 'crypto';
+import mongoose from 'mongoose';
 import User         from '../models/User';
 import Inscription  from '../models/Inscription';
 import Task         from '../models/Task';
@@ -22,21 +23,40 @@ export const getMyInterns = asyncHandler<AuthRequest>(async (req, res) => {
   res.json(
     await Inscription.find({ mentor: req.userId, deleted: { $ne: true } })
       .populate('user', '-password')
-      .populate('trainings', 'title'),
+      .populate('trainings', 'title duration deleted'),
   );
 });
 
 // ── Mentor stats ──────────────────────────────────────────────────────────────
 export const getMentorStats = asyncHandler<AuthRequest>(async (req, res) => {
-  const [internCount, myTasks, myEvals, pendingReviews] = await Promise.all([
-    Inscription.countDocuments({ mentor: req.userId, deleted: { $ne: true } }),
+  const myInscriptions = await Inscription.find({ mentor: req.userId, deleted: { $ne: true } });
+  const myInternIds    = myInscriptions.map(i => i.user);
+
+  const [myTasks, myEvals, pendingReviews] = await Promise.all([
     Task.countDocuments({ createdBy: req.userId, deleted: { $ne: true } }),
-    MentorEvaluation.countDocuments({ mentor: req.userId, deleted: { $ne: true } }),
-    Task.find({ createdBy: req.userId, deleted: { $ne: true } })
-      .then(tasks => tasks.reduce((n, t) =>
-        n + (t.responses || []).filter((r: any) => !r.deleted && r.status === 2).length, 0)),
+    // Toutes les évaluations pour les interns de ce mentor (tous mentors confondus)
+    // — aligné avec la page évaluations qui appelle getEvaluations(internId) sans filtre mentor
+    MentorEvaluation.countDocuments({
+      intern:  { $in: myInternIds },
+      deleted: { $ne: true },
+    }),
+    // Réponses status=2 sur les tâches créées par CE mentor, soumises par SES interns
+    // — aligné avec la page tasks qui filtre par isMyIntern(owner) sur getMentorTasks()
+    // req.userId est une string JWT ; dans un pipeline d'agrégation le casting
+    // Mongoose n'est pas automatique → il faut convertir en ObjectId explicitement.
+    Task.aggregate([
+      { $match: { createdBy: new mongoose.Types.ObjectId(req.userId!), deleted: { $ne: true } } },
+      { $unwind: '$responses' },
+      { $match: {
+        'responses.deleted': { $ne: true },
+        'responses.status':  2,
+        'responses.owner':   { $in: myInternIds },
+      }},
+      { $count: 'total' },
+    ]).then(r => r[0]?.total ?? 0),
   ]);
-  res.json({ internCount, taskCount: myTasks, evalCount: myEvals, pendingReviews });
+
+  res.json({ internCount: myInscriptions.length, taskCount: myTasks, evalCount: myEvals, pendingReviews });
 });
 
 // ── Évaluation assistée : suggestion de scores ───────────────────────────────
