@@ -182,8 +182,8 @@ export const getInternsByCompany = asyncHandler(async (req, res) => {
     await Application.find({
       'jobOffer.company': req.params['companyId'], status: 4, deleted: false,
     })
-      .populate('user', 'firstName lastName login avatar -_id')
-      .populate('jobOffer', 'title company -_id')
+      .populate(LIST_USER_POPULATE)
+      .populate(LIST_JOBOFFER_POPULATE)
       .sort({ confirmedDate: -1 }),
   );
 });
@@ -194,8 +194,8 @@ export const getRecruitedByCompany = asyncHandler(async (req, res) => {
     await Application.find({
       'jobOffer.company': req.params['companyId'], status: 5, deleted: false,
     })
-      .populate('user', 'firstName lastName login avatar -_id')
-      .populate('jobOffer', 'title company -_id')
+      .populate(LIST_USER_POPULATE)
+      .populate(LIST_JOBOFFER_POPULATE)
       .sort({ confirmedDate: -1 }),
   );
 });
