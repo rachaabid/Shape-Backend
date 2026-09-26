@@ -199,4 +199,45 @@ describe("Tests unitaires — Sprint 4 (US22 a US26)", () => {
       .toBe("ended");
   });
 
+  // ── TU-07 — US26 : Matching IA — classement et calcul du score ─────────────
+  it("TU-07 — Matching IA (US26) : les candidats sont classes par matchScore decroissant et le score est calcule correctement", () => {
+    // Formule combinees : matchScore = round(0.6 * skillScore + 0.4 * semanticScore)
+    const computeMatchScore = (skillScore: number, semanticScore: number): number =>
+      Math.round(skillScore * 0.6 + semanticScore * 0.4);
+
+    const rankApplications = (
+      apps: { id: string; skillScore: number; semanticScore: number; matchScore: number }[],
+    ) => [...apps].sort((a, b) => b.matchScore - a.matchScore);
+
+    // Verification de la formule de calcul du score combine
+    expect(computeMatchScore(80, 60)).toBe(72);    // 0.6*80 + 0.4*60 = 48 + 24 = 72
+    expect(computeMatchScore(100, 100)).toBe(100);
+    expect(computeMatchScore(0, 0)).toBe(0);
+    expect(computeMatchScore(90, 85)).toBe(88);    // 0.6*90 + 0.4*85 = 54 + 34 = 88
+
+    // Verification du classement par score decroissant
+    const apps = [
+      { id: "app-1", skillScore: 60, semanticScore: 50, matchScore: computeMatchScore(60, 50) },  // 56
+      { id: "app-2", skillScore: 90, semanticScore: 85, matchScore: computeMatchScore(90, 85) },  // 88
+      { id: "app-3", skillScore: 45, semanticScore: 70, matchScore: computeMatchScore(45, 70) },  // 55
+    ];
+
+    const ranked = rankApplications(apps);
+    expect(ranked[0].id).toBe("app-2");  // score le plus eleve : 88
+    expect(ranked[1].id).toBe("app-1");  // score intermediaire : 56
+    expect(ranked[2].id).toBe("app-3");  // score le plus bas   : 55
+
+    // Invariant : ordre strictement decroissant ou egal
+    for (let i = 0; i < ranked.length - 1; i++) {
+      expect(ranked[i].matchScore >= ranked[i + 1].matchScore).toBe(true);
+    }
+
+    // Cas limite : liste vide → resultat vide
+    expect(rankApplications([])).toEqual([]);
+
+    // Cas limite : un seul candidat → retourne tel quel
+    const single = [{ id: "app-solo", skillScore: 70, semanticScore: 80, matchScore: computeMatchScore(70, 80) }];
+    expect(rankApplications(single)[0].id).toBe("app-solo");
+  });
+
 });
